@@ -375,7 +375,8 @@ func PrintReport(w io.Writer, p *domain.Program, path string, r Report) {
 		}
 	} else {
 		fmt.Fprintln(w, "  RISK FINDINGS")
-		fmt.Fprintln(w, "    (none)\n")
+		fmt.Fprintln(w, "    (none)")
+		fmt.Fprintln(w)
 	}
 
 	// RECOMMENDED INVOCATION
