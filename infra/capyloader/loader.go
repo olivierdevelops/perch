@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/luowensheng/perch/domain"
@@ -30,7 +31,16 @@ func Load(path string) (*domain.Program, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return LoadFromString(string(script))
+	p, err := LoadFromString(string(script))
+	if err != nil {
+		return nil, err
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		p.ScriptPath = abs
+	} else {
+		p.ScriptPath = path
+	}
+	return p, nil
 }
 
 // LoadFromString is Load but reads from an in-memory string.

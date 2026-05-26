@@ -26,6 +26,69 @@ func registerProcess(m map[string]interpreter.Handler) {
 	m["sleep"] = opSleep
 	m["run"] = opRun
 	m["list_commands"] = opListCommands
+	m["try_shell"] = opTryShell
+	m["shell_in"] = opShellIn
+	m["process_running"] = opProcessRunning
+	m["kill_by_name"] = opKillByName
+}
+
+// opTryShell runs a shell command and returns true on success, false on
+// failure — without erroring. Use when you genuinely want a probe (e.g.
+// `let docker_ok = try_shell "docker info"`).
+func opTryShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	cmd := argString(args, "cmd", "_0")
+	c := buildShell(cmd)
+	c.Dir = b.Cwd
+	applyEnv(c, b)
+	return c.Run() == nil, nil
+}
+
+// opShellIn runs a shell command in an explicit directory, regardless
+// of the current binding cwd. Equivalent to `dir "X"` config + `shell`,
+// but local to one op.
+func opShellIn(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	dir := argString(args, "dir", "_0")
+	cmd := argString(args, "cmd", "_1")
+	c := buildShell(cmd)
+	if dir == "" {
+		c.Dir = b.Cwd
+	} else {
+		c.Dir = dir
+	}
+	applyEnv(c, b)
+	c.Stdout = i.Stdout
+	c.Stderr = i.Stderr
+	c.Stdin = i.Stdin
+	return nil, c.Run()
+}
+
+// opProcessRunning: does any process with the given name (substring
+// match) currently exist? Uses tasklist on Windows, pgrep elsewhere.
+func opProcessRunning(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	name := argString(args, "name", "_0")
+	if name == "" {
+		return false, nil
+	}
+	if runtime.GOOS == "windows" {
+		out, _ := exec.Command("tasklist", "/FI", "IMAGENAME eq "+name).CombinedOutput()
+		return strings.Contains(strings.ToLower(string(out)), strings.ToLower(name)), nil
+	}
+	return exec.Command("pgrep", "-f", name).Run() == nil, nil
+}
+
+// opKillByName kills processes matching NAME. Best-effort; errors are
+// swallowed so re-running an uninstall after a partial cleanup is safe.
+func opKillByName(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	name := argString(args, "name", "_0")
+	if name == "" {
+		return nil, nil
+	}
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/F", "/IM", name).Run()
+		return nil, nil
+	}
+	_ = exec.Command("pkill", "-f", name).Run()
+	return nil, nil
 }
 
 func argString(args map[string]any, names ...string) string {

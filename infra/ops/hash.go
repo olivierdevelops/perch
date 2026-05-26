@@ -25,6 +25,23 @@ func registerHash(m map[string]interpreter.Handler) {
 		v := crc32.ChecksumIEEE([]byte(argString(args, "value", "_0")))
 		return fmt.Sprintf("%08x", v), nil
 	}
+	// verify_sha256 PATH HASH → bool. Common during install for
+	// integrity-checking downloaded archives.
+	m["verify_sha256"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+		path := resolve(argString(args, "path", "_0"), b)
+		expected := argString(args, "hash", "_1")
+		f, err := os.Open(path)
+		if err != nil {
+			return false, nil
+		}
+		defer f.Close()
+		h := sha256.New()
+		if _, err := io.Copy(h, f); err != nil {
+			return false, err
+		}
+		got := hex.EncodeToString(h.Sum(nil))
+		return got == expected, nil
+	}
 }
 
 func stringHash(new func() hash.Hash) interpreter.Handler {

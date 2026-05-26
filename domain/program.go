@@ -17,6 +17,10 @@ type Program struct {
 	Globals     Globals             `json:"globals"`
 	Commands    map[string]*Command `json:"commands"`
 	Catch       *Catch              `json:"catch,omitempty"`
+	// ScriptPath is the absolute path of the .perch source the program
+	// was loaded from. Empty when the program was embedded in a binary.
+	// Surfaces as ${script_path} / ${script_dir} auto-bindings.
+	ScriptPath string `json:"-"`
 }
 
 // Globals holds bindings shared by every command invocation.

@@ -6,6 +6,24 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **~30 auto-bound variables** every command can use as `${name}` without declaration — the building blocks of cross-platform install / build / uninstall scripts:
+  - **OS flags**: `is_windows`, `is_macos`, `is_linux`, `is_unix`, `is_arm64`, `is_amd64` — write `if is_windows ... end` instead of `if os == "windows"`.
+  - **Path conventions**: `path_sep`, `path_list_sep`, `exe_ext`, `null_device`, `shell_name` — the things that differ per OS.
+  - **Standard directories**: `home`, `config_dir`, `cache_dir`, `data_dir`, `temp_dir` — OS-correct (`%APPDATA%` on Windows, `~/Library/Application Support` on macOS, `~/.local/share` on Linux).
+  - **The binary itself**: `exe_path`, `exe_dir`, `exe_name` — the running perch (or built) binary, with symlinks resolved.
+  - **The script**: `script_path`, `script_dir` — the loaded `.perch` source (empty when embedded).
+  - **Identity & system**: `user`, `uid`, `hostname`, `cpu_count`, `pid`, `now_unix`.
+- **~40 new cross-platform ops** for install / build / uninstall workflows:
+  - **Binary discovery**: `which`, `has_bin`, `bin_version`.
+  - **Path manipulation**: `path_join`, `path_dir`, `path_base`, `path_ext`, `path_abs`, `path_clean`, `path_rel`, `path_with_ext`, `is_abs`, `to_slash`, `from_slash`, `expand_path` (handles `~` and env vars).
+  - **PATH and shell rc**: `path_contains`, `shell_rc_path`, `add_to_path` (idempotent — edits `.zshrc` / `.bashrc` / fish config; prints `setx` instructions on Windows), `link_into_path`.
+  - **Package manager**: `detect_pkg_mgr` (brew / apt / dnf / pacman / apk / zypper / winget / choco / scoop), `pkg_install`, `pkg_uninstall`, `pkg_installed`.
+  - **System probes**: `is_admin`, `is_ci`, `is_tty`, `os_version`, `env_default`, `env_has`.
+  - **Network**: `port_free`, `find_free_port`, `wait_for_port`, `wait_for_url`, `http_status`, `local_ip`, `public_ip`, `mac_address`, `interfaces`.
+  - **Filesystem helpers**: `make_executable`, `ensure_dir`, `copy_dir`, `append_file`, `append_line`, `ensure_line_in_file` (idempotent), `replace_in_file`, `backup_file`, `glob`, `list_dir`, `symlink`, `read_link`, `mktemp_dir`, `mktemp_file`.
+  - **Process**: `try_shell` (probe without erroring), `shell_in` (explicit cwd), `process_running`, `kill_by_name`.
+  - **Integrity**: `verify_sha256` (file vs. expected hex).
+- Static validator (`--check`) now knows every auto-bound name, so `${cache_dir}` / `${exe_dir}` / `${is_windows}` no longer trip "unknown placeholder."
 - **`perch --build --include <path>`** — bundles an arbitrary file tree (file or directory) as a gzipped tarball inside the produced fat binary. Skips `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `.tox`, `dist`, `.cache`, and `.DS_Store` by default.
 - **Three new ops** for accessing the embedded archive at runtime:
   - **`bundle_hash`** — SHA-256 hex of the embedded archive. Used as a content-addressable version id.

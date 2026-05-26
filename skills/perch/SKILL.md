@@ -126,7 +126,7 @@ Every conditional is the same `if … end` block. The expression takes one of th
 | `not NAME` | `if not has_bin` | bindings[NAME] is falsy |
 | `FUNC ARG` | `if exists "./bin"` | calls FUNC(ARG); body runs if return value is truthy |
 
-`os` and `arch` are **auto-bound** at command start (no declaration needed). Globals, args, and `let` captures are all addressable by NAME.
+`os` and `arch` are **auto-bound** at command start — but they're not the only ones. See the **Auto-bound variables** section below.
 
 For complex predicates — e.g. comparing a captured value — capture first then compare:
 
@@ -136,6 +136,102 @@ if size > 1000000
     print "big"
 end
 ```
+
+## Auto-bound variables (always available as `${name}` — no declaration)
+
+Every command starts with these bound. They're the difference between a cross-platform script and a script that "happens to also work on macOS." Reach for them before resorting to `shell` tricks.
+
+**OS / arch / convenience flags**
+- `os` — `"darwin"` / `"linux"` / `"windows"`
+- `arch` — `"amd64"` / `"arm64"` / …
+- `is_windows`, `is_macos`, `is_linux`, `is_unix` — booleans (`if is_windows`)
+- `is_arm64`, `is_amd64` — booleans
+- `cpu_count`, `pid`, `now_unix`
+
+**Path conventions** (the things that differ per OS)
+- `path_sep` — `/` or `\`
+- `path_list_sep` — `:` or `;` (the PATH separator)
+- `exe_ext` — `.exe` on Windows, `""` elsewhere
+- `null_device` — `/dev/null` or `NUL`
+- `shell_name` — `bash` or `cmd`
+
+**Standard directories** (OS-correct, never hardcode these)
+- `home` / `home_dir` — user's home dir
+- `config_dir` — `~/.config` / `%APPDATA%` / `~/Library/Application Support`
+- `cache_dir` — OS user cache dir
+- `data_dir` — OS user data dir
+- `temp_dir` — OS temp dir
+
+**The binary and the script itself**
+- `exe_path` — absolute path to the running perch binary (or built binary)
+- `exe_dir` — directory of that binary
+- `exe_name` — just the file name
+- `script_path` — absolute path of the loaded `.perch` file (empty when embedded)
+- `script_dir` — directory containing it
+
+**Identity**
+- `user` — current username
+- `uid` — user id (unix)
+- `hostname` — host name
+
+### Cross-platform install / build / uninstall ops
+
+These cover the things every install script otherwise re-implements with shell glue. They work identically on macOS / Linux / Windows.
+
+**Binary discovery**
+- `which BIN` (string) — full path on PATH or `""`
+- `has_bin BIN` (bool) — `if has_bin "python3" ... end`
+- `bin_version BIN [FLAG]` — runs `BIN --version` (or `BIN FLAG`); empty on failure
+
+**Path manipulation** (cross-platform — never hand-concat with `/`)
+- `path_join A B [C ...]`, `path_dir P`, `path_base P`, `path_ext P`
+- `path_abs P`, `path_clean P`, `path_rel BASE TARGET`
+- `path_with_ext P EXT` (rewrites extension), `is_abs P`
+- `to_slash P` / `from_slash P` (swap `\` ↔ `/`)
+- `expand_path "~/x"` — expands `~` and env vars
+
+**PATH and shell rc**
+- `path_contains DIR` (bool) — is DIR on $PATH
+- `shell_rc_path` — best-guess `~/.zshrc` / `~/.bashrc` / fish config
+- `add_to_path DIR` — idempotent; appends to shell rc if missing; prints `setx` instructions on Windows
+- `link_into_path SRC DIR` — symlinks SRC into DIR (copies on Windows)
+
+**Package manager** (auto-detects brew/apt/dnf/pacman/apk/zypper/winget/choco/scoop)
+- `detect_pkg_mgr` — returns the name, or `""`
+- `pkg_install NAME` / `pkg_uninstall NAME` / `pkg_installed NAME`
+
+**System probes**
+- `is_admin` (bool) — euid 0 / `net session` on Windows
+- `is_ci` (bool) — checks CI, GITHUB_ACTIONS, GITLAB_CI, etc.
+- `is_tty` (bool)
+- `os_version` — best-effort version string (`sw_vers` / `uname -r` / `ver`)
+
+**Network probes**
+- `port_free PORT` (bool), `find_free_port` (int)
+- `wait_for_port HOST PORT TIMEOUT_SEC` (bool)
+- `wait_for_url URL TIMEOUT_SEC` (bool)
+- `http_status URL` (int) — HEAD probe
+- `local_ip`, `public_ip`, `mac_address`, `interfaces`
+
+**Filesystem helpers for install scripts**
+- `ensure_dir PATH` — mkdir -p, returns abs path
+- `make_executable PATH` — chmod +x (no-op on Windows)
+- `copy_dir SRC DST` — recursive copy
+- `append_file PATH CONTENT`, `append_line PATH LINE`
+- `ensure_line_in_file PATH LINE` — idempotent; returns true if added
+- `replace_in_file PATH OLD NEW`
+- `backup_file PATH` — copies to PATH.bak
+- `glob PATTERN`, `list_dir PATH`
+- `symlink TARGET LINK`, `read_link PATH`
+- `mktemp_dir [PREFIX]`, `mktemp_file [PREFIX]`
+
+**Process helpers**
+- `try_shell CMD` (bool) — like `shell` but returns true/false instead of erroring
+- `shell_in DIR CMD` — like `shell` but with explicit cwd
+- `process_running NAME` (bool), `kill_by_name NAME`
+
+**Integrity**
+- `verify_sha256 PATH HASH` (bool)
 
 ### Capturable ops (use via `let X = OP ARG`)
 

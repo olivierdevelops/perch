@@ -22,5 +22,7 @@ func AllHandlers() map[string]interpreter.Handler {
 	registerNetwork(m)
 	registerArchive(m)
 	registerBundle(m)
+	registerPaths(m)
+	registerInstall(m)
 	return m
 }

@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/luowensheng/perch/domain"
 )
@@ -138,8 +141,93 @@ func (i *Interpreter) seedGlobalsAndEnv(b *Bindings) {
 	// Auto-bindings: stable, host-derived values that conditionals can
 	// reference without the user declaring them. These appear BEFORE
 	// globals so a user-declared global of the same name takes priority.
+	//
+	// The full catalog is intentionally large because cross-platform
+	// install / build / uninstall scripts otherwise paper over differences
+	// with shell glue. Pre-binding ${home}, ${cache_dir}, ${exe_path},
+	// ${path_sep}, ${exe_ext}, ${is_windows} etc. removes that need.
 	b.Set("os", runtime.GOOS)
 	b.Set("arch", runtime.GOARCH)
+	b.Set("is_windows", runtime.GOOS == "windows")
+	b.Set("is_macos", runtime.GOOS == "darwin")
+	b.Set("is_linux", runtime.GOOS == "linux")
+	b.Set("is_unix", runtime.GOOS != "windows")
+	b.Set("is_arm64", runtime.GOARCH == "arm64")
+	b.Set("is_amd64", runtime.GOARCH == "amd64")
+	b.Set("cpu_count", runtime.NumCPU())
+	b.Set("pid", os.Getpid())
+	b.Set("now_unix", time.Now().Unix())
+
+	// Path / filesystem conventions that differ by OS.
+	if runtime.GOOS == "windows" {
+		b.Set("path_sep", "\\")
+		b.Set("path_list_sep", ";")
+		b.Set("exe_ext", ".exe")
+		b.Set("null_device", "NUL")
+		b.Set("shell_name", "cmd")
+	} else {
+		b.Set("path_sep", "/")
+		b.Set("path_list_sep", ":")
+		b.Set("exe_ext", "")
+		b.Set("null_device", "/dev/null")
+		b.Set("shell_name", "bash")
+	}
+
+	// Standard directories. Each falls back to "" rather than crashing
+	// if the platform can't report it.
+	if h, err := os.UserHomeDir(); err == nil {
+		b.Set("home", h)
+		b.Set("home_dir", h)
+	}
+	if d, err := os.UserConfigDir(); err == nil {
+		b.Set("config_dir", d)
+	}
+	if d, err := os.UserCacheDir(); err == nil {
+		b.Set("cache_dir", d)
+	}
+	b.Set("temp_dir", os.TempDir())
+	switch runtime.GOOS {
+	case "windows":
+		b.Set("data_dir", os.Getenv("APPDATA"))
+	case "darwin":
+		if h, err := os.UserHomeDir(); err == nil {
+			b.Set("data_dir", filepath.Join(h, "Library", "Application Support"))
+		}
+	default:
+		if h, err := os.UserHomeDir(); err == nil {
+			b.Set("data_dir", filepath.Join(h, ".local", "share"))
+		}
+	}
+
+	// The running binary itself.
+	if exe, err := os.Executable(); err == nil {
+		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = resolved
+		}
+		b.Set("exe_path", exe)
+		b.Set("exe_dir", filepath.Dir(exe))
+		b.Set("exe_name", filepath.Base(exe))
+	}
+
+	// The source .perch file (empty when embedded inside a built binary).
+	if i.Program != nil && i.Program.ScriptPath != "" {
+		b.Set("script_path", i.Program.ScriptPath)
+		b.Set("script_dir", filepath.Dir(i.Program.ScriptPath))
+	} else {
+		b.Set("script_path", "")
+		b.Set("script_dir", "")
+	}
+
+	// Identity.
+	if u, err := user.Current(); err == nil {
+		b.Set("user", u.Username)
+		b.Set("uid", u.Uid)
+	} else {
+		b.Set("user", os.Getenv("USER"))
+	}
+	if h, err := os.Hostname(); err == nil {
+		b.Set("hostname", h)
+	}
 	// Globals are seeded in declared order. String values are
 	// interpolated against the bindings built so far, so globals can
 	// reference earlier globals and host env (e.g. ${HOME}) at seed
