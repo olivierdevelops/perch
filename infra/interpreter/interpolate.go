@@ -30,6 +30,15 @@ func Interpolate(s string, b *Bindings) (string, error) {
 			name := strings.TrimSpace(s[i+2 : i+2+end])
 			v, ok := b.Lookup(name)
 			if !ok {
+				// When the env allowlist is active and the name LOOKS like
+				// a host env var (uppercase / underscores / digits), say so
+				// — that's almost always why it didn't resolve.
+				if b.EnvRestricted() && looksLikeEnvName(name) {
+					return "", fmt.Errorf(
+						"env var ${%s} is not in --env allowlist (declare with --env %s)",
+						name, name,
+					)
+				}
 				return "", fmt.Errorf("unknown placeholder ${%s} in %q", name, s)
 			}
 			out.WriteString(v)
@@ -61,4 +70,19 @@ func InterpolateArgs(args map[string]any, b *Bindings) (map[string]any, error) {
 		out[k] = v
 	}
 	return out, nil
+}
+
+// looksLikeEnvName: ${PATH} / ${HOME} / ${API_KEY_2} look like env vars
+// (all uppercase, possibly with underscores and digits). Anything with
+// a lowercase letter is almost certainly a binding name.
+func looksLikeEnvName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' {
+			return false
+		}
+	}
+	return true
 }

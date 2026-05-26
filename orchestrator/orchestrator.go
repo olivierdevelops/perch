@@ -10,6 +10,7 @@ package orchestrator
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/capyloader"
@@ -48,21 +49,14 @@ const DefaultCommandsFile = "commands.perch"
 //
 // Top-level main.go is a one-liner that calls this function.
 func Run() {
-	// `--mode NAME` is global to the invocation; strip it from os.Args
-	// before any sub-CLI sees it, then apply to the op catalog. Modes
-	// are how a caller picks a Phase-0 security posture — see
-	// docs/sandbox.md and the modes package for the full list.
-	mode := extractModeFlag()
+	// Global flags are stripped from os.Args before any sub-CLI sees
+	// them. Each call below removes the flags it owns and returns the
+	// parsed value. See docs/sandbox.md for the design.
+	restrictions := extractRestrictionFlags()
+	envAllow := extractEnvFlag()
 	previewMode := extractPreviewFlags()
-	if mode == "list" {
-		fmt.Println("Available --mode values:")
-		for _, m := range ops.Modes() {
-			if m == ops.ModeTrusted {
-				fmt.Printf("  %-10s  (default; full op catalog)\n", m)
-			} else {
-				fmt.Printf("  %-10s  blocks: %v\n", m, ops.BlockedOps(m))
-			}
-		}
+
+	if showRestrictionsAndExit() {
 		os.Exit(0)
 	}
 
@@ -70,9 +64,102 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, mode, previewMode).Run())
+		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, previewMode).Run())
 	}
-	os.Exit(buildCLI(mode, previewMode).Run())
+	os.Exit(buildCLI(restrictions, envAllow, previewMode).Run())
+}
+
+// extractRestrictionFlags walks os.Args, peels off any of:
+//
+//	--no-shell        --no-subprocess
+//	--no-network      --no-write
+//
+// and returns a Restrictions struct reflecting which were present.
+// Multiple flags compose (additive). Stripped flags are removed from
+// os.Args so downstream parsing doesn't see them.
+func extractRestrictionFlags() ops.Restrictions {
+	out := os.Args[:1]
+	r := ops.Restrictions{}
+	for _, a := range os.Args[1:] {
+		switch a {
+		case "--no-shell":
+			r.NoShell = true
+		case "--no-subprocess":
+			r.NoSubprocess = true
+		case "--no-network":
+			r.NoNetwork = true
+		case "--no-write":
+			r.NoWrite = true
+		default:
+			out = append(out, a)
+		}
+	}
+	os.Args = out
+	return r
+}
+
+// extractEnvFlag peels off every `--env A,B,C` (or `--env=A,B,C`) from
+// os.Args and returns the union as a set. nil = flag never given =
+// legacy behavior (every host env var visible). Empty non-nil = `--env`
+// given with no names = no env vars visible at all.
+func extractEnvFlag() map[string]bool {
+	out := os.Args[:1]
+	var allow map[string]bool
+	add := func(s string) {
+		if allow == nil {
+			allow = map[string]bool{}
+		}
+		for _, name := range strings.Split(s, ",") {
+			name = strings.TrimSpace(name)
+			if name != "" {
+				allow[name] = true
+			}
+		}
+	}
+	i := 1
+	for i < len(os.Args) {
+		a := os.Args[i]
+		switch {
+		case a == "--env":
+			if i+1 < len(os.Args) {
+				add(os.Args[i+1])
+				i += 2
+				continue
+			}
+			// Bare `--env` with no value: treat as "allow nothing."
+			if allow == nil {
+				allow = map[string]bool{}
+			}
+			i++
+		case strings.HasPrefix(a, "--env="):
+			add(a[len("--env="):])
+			i++
+		default:
+			out = append(out, a)
+			i++
+		}
+	}
+	os.Args = out
+	return allow
+}
+
+// showRestrictionsAndExit prints the available --no-X flags + the ops
+// each one blocks, then returns true if the user asked for the listing.
+func showRestrictionsAndExit() bool {
+	for _, a := range os.Args[1:] {
+		if a == "--restrictions" {
+			fmt.Println("Available restriction flags:")
+			for _, name := range ops.RestrictionList() {
+				fmt.Printf("  --%-15s blocks: %v\n", name, ops.BlockedByRestriction(name))
+			}
+			fmt.Println()
+			fmt.Println("Compose freely:")
+			fmt.Println("  perch --no-shell --no-network --no-write <cmd>")
+			fmt.Println("  perch --env HOME,PATH,API_KEY <cmd>   # restrict host env-var visibility")
+			return true
+		}
+	}
+	return false
 }
 
 // extractPreviewFlags strips `--ask` / `--dry-run` from os.Args and
@@ -97,6 +184,31 @@ func extractPreviewFlags() string {
 	return mode
 }
 
+// announceSecurityPosture prints a one-line banner naming the active
+// restrictions (if any) so users / reviewers see the posture without
+// having to dig. Silent when nothing's restricted.
+func announceSecurityPosture(r ops.Restrictions, envAllow map[string]bool) {
+	parts := []string{}
+	if r.Active() {
+		parts = append(parts, strings.Join(r.AsFlags(), " "))
+	}
+	if envAllow != nil {
+		names := make([]string, 0, len(envAllow))
+		for k := range envAllow {
+			names = append(names, k)
+		}
+		// Stable order for the banner.
+		if len(names) > 0 {
+			parts = append(parts, fmt.Sprintf("--env %s", strings.Join(names, ",")))
+		} else {
+			parts = append(parts, "--env (empty)")
+		}
+	}
+	if len(parts) > 0 {
+		fmt.Fprintf(os.Stderr, "🔒 security: %s\n", strings.Join(parts, "  "))
+	}
+}
+
 // buildInterpreterHook returns the BeforeOp matching previewMode, or
 // nil for normal execution. Centralized so buildCLI and
 // buildEmbeddedCLI share the wiring.
@@ -112,54 +224,6 @@ func buildInterpreterHook(previewMode string) interpreter.BeforeOp {
 	return nil
 }
 
-// extractModeFlag removes any `--mode NAME` / `--mode=NAME` pair from
-// os.Args and returns NAME (or "" if not provided). Done before the
-// CLI parser so sub-commands never see the flag. Returns "list" if
-// the user passed `--modes` (the discovery flag).
-func extractModeFlag() string {
-	out := os.Args[:1]
-	mode := ""
-	i := 1
-	for i < len(os.Args) {
-		a := os.Args[i]
-		switch {
-		case a == "--modes":
-			return "list"
-		case a == "--mode":
-			if i+1 < len(os.Args) {
-				mode = os.Args[i+1]
-				i += 2
-				continue
-			}
-			fmt.Fprintln(os.Stderr, "--mode requires a value (one of: "+joinModes()+")")
-			os.Exit(2)
-		case len(a) > 7 && a[:7] == "--mode=":
-			mode = a[7:]
-			i++
-			continue
-		default:
-			out = append(out, a)
-			i++
-		}
-	}
-	if mode != "" && !ops.IsValidMode(mode) {
-		fmt.Fprintf(os.Stderr, "unknown --mode %q (valid: %s)\n", mode, joinModes())
-		os.Exit(2)
-	}
-	os.Args = out
-	return mode
-}
-
-func joinModes() string {
-	out := ""
-	for i, m := range ops.Modes() {
-		if i > 0 {
-			out += ", "
-		}
-		out += m
-	}
-	return out
-}
 
 // knownOps returns the set of op kinds the interpreter knows how to
 // dispatch. Used by the validator to flag misspelt op kinds.
@@ -173,16 +237,15 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(mode, previewMode string) *cli.CLI {
+func buildCLI(r ops.Restrictions, envAllow map[string]bool, previewMode string) *cli.CLI {
 	handlers := ops.AllHandlers()
-	if err := ops.ApplyMode(handlers, mode); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
+	ops.ApplyRestrictions(handlers, r)
+	announceSecurityPosture(r, envAllow)
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
 		i.BeforeOp = hook
+		i.EnvAllowlist = envAllow
 		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}
@@ -232,13 +295,11 @@ func buildCLI(mode, previewMode string) *cli.CLI {
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, mode, previewMode string) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow map[string]bool, previewMode string) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
-	if err := ops.ApplyMode(handlers, mode); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
+	ops.ApplyRestrictions(handlers, r)
+	announceSecurityPosture(r, envAllow)
 	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.
@@ -247,6 +308,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, mode, previewMode string) *cli.CLI {
 	runFn := func(_ *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
 		i.BeforeOp = hook
+		i.EnvAllowlist = envAllow
 		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}

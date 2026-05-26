@@ -385,18 +385,36 @@ end
 
 Both work for any command and stack with `--mode`: `perch --mode safe --ask deploy` lets you preview ops AND have the runtime refuse shell calls.
 
-## Security modes
+## Restriction flags
 
-`perch --mode NAME` disables groups of ops globally. Useful when serving a `.perch` to an AI agent, a non-engineer (via `--server`), or running one from a stranger.
+`perch --no-*` flags disable groups of ops globally. Each flag names what it disables — composable, additive.
 
-| Mode | Blocks |
+| Flag | Blocks |
 |---|---|
-| `safe` | `shell` and friends, `pkg_install`, `kill_by_name`, `process_running` |
-| `offline` | every network op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`) |
-| `read-only` | every FS-mutation op (`write_file`, `cp`, `rm`, `mkdir`, `chmod`, `touch`, `append_*`, archive create/extract, `symlink`, …) |
-| `pure` | union of all three |
+| `--no-shell` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell` |
+| `--no-subprocess` | `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running` |
+| `--no-network` | every `http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces` |
+| `--no-write` | every FS-mutation op (`write_file`, `append_*`, `cp`, `mv`, `rm`, `mkdir`, `chmod`, `touch`, archive create/extract, `symlink`, …) |
 
-A blocked op call returns `op "X" is disabled by --mode NAME`. Run `perch --modes` to see the exact lists. Full design + the upcoming capability sandbox is at [sandbox.md](https://luowensheng.github.io/perch/sandbox/).
+```sh
+perch --no-shell --no-network --no-write deploy
+perch --restrictions                # discover the full lists
+```
+
+A blocked call returns `op "X" is disabled by --no-Y`. When any restriction is active, perch prints a `🔒 security: ...` banner.
+
+## Host env-var allowlist
+
+`perch --env A,B,C` restricts which host env vars resolve via `${NAME}` fallthrough. By default every env var is reachable; with `--env` only the named ones are. Auto-bound names (`home`, `cache_dir`, `exe_path`, `is_macos`, …) are NOT env vars and are unaffected.
+
+```sh
+perch --env HOME,PATH,API_KEY deploy
+perch --env --no-shell deploy      # bare --env = no env vars visible at all
+```
+
+Blocked lookups produce: `env var ${X} is not in --env allowlist (declare with --env X)`.
+
+Full design + the upcoming capability sandbox is at [sandbox.md](https://luowensheng.github.io/perch/sandbox/).
 
 ## When in doubt
 

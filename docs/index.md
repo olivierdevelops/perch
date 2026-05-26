@@ -175,8 +175,8 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
-  <h4>Security modes</h4>
-  <p><code>perch --mode safe</code> disables shell + subprocess. <code>--mode offline</code> kills network. <code>--mode read-only</code> kills filesystem mutation. <code>--mode pure</code> = all three. The strictest preset for files from strangers and AI-agent surfaces — full sandbox spec in <a href="sandbox/">sandbox.md</a>.</p>
+  <h4>Composable restrictions</h4>
+  <p><code>perch --no-shell --no-network --no-write deploy</code> — each flag says exactly what it disables, and they compose. <code>perch --env HOME,PATH</code> restricts which host env vars resolve via <code>${…}</code>. The banner <code>🔒 security: --no-shell --env HOME,PATH</code> shows posture at a glance. See <a href="sandbox/">sandbox.md</a>.</p>
 </div>
 
 <div class="card">
@@ -452,6 +452,22 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
 
+<div class="pterm" id="t-restrict" data-title="composable security flags"></div>
+<script type="application/json" data-pterm="t-restrict">
+[
+  {"k":"in",  "t":"perch --no-shell --no-network -f deploy.perch run"},
+  {"k":"dim", "t":"🔒 security: --no-shell --no-network"},
+  {"k":"ok",  "t":"Starting deploy to staging"},
+  {"k":"err", "t":"op \"shell\" is disabled by --no-shell"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"perch --env HOME,PATH -f deploy.perch run"},
+  {"k":"dim", "t":"🔒 security: --env HOME,PATH"},
+  {"k":"ok",  "t":"home=/Users/you"},
+  {"k":"err", "t":"env var ${OPENAI_API_KEY} is not in --env allowlist"},
+  {"k":"accent","t":"→ each flag names what it disables. they compose."}
+]
+</script>
+
 <div class="pterm" id="t-ask" data-title="perch --ask deploy"></div>
 <script type="application/json" data-pterm="t-ask">
 [
@@ -469,7 +485,14 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 ]
 </script>
 
-**Can I lock down what a `.perch` file is allowed to do?** Yes — `perch --mode safe` disables shell + subprocess, `--mode offline` disables network ops, `--mode read-only` disables filesystem mutation, `--mode pure` does all three. Run `perch --modes` to see what each blocks. The fuller capability sandbox (env scopes, FS roots, network allowlists, `--untrusted` with permission previews) is designed in [sandbox.md](sandbox.md).
+**Can I lock down what a `.perch` file is allowed to do?** Yes — composable flags, each naming what it disables:
+
+```sh
+perch --no-shell --no-subprocess --no-network --no-write deploy
+perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
+```
+
+`--no-shell` blocks `shell`/`shell_output`/`shell_detached`/`try_shell`. `--no-subprocess` blocks `pkg_install`/`kill_by_name`/etc. `--no-network` blocks every `http_*`, `download`, `port_*`, etc. `--no-write` blocks every FS-mutation op. `--env` restricts which host env vars resolve via `${…}`. `perch --restrictions` lists exactly what each flag blocks. The full capability sandbox (FS roots, network host allowlists, `--untrusted` with permission previews, file-side `sandbox` block) is designed in [sandbox.md](sandbox.md).
 
 **Who writes the sandbox — the author or the user?** Both. The **author** writes a `sandbox` block in the `.perch` file as a *manifest of intent* — "this is what I need to do my job." Reviewers audit it; `perch --check` enforces it statically. The **user** layers further restrictions at run time (`--mode`, `--allow-*`, `--untrusted`). The runtime enforces the *intersection* — neither side can grant more than the other allows. Same model as Android permissions: app declares, user grants, OS enforces the overlap. Details in [sandbox.md §2.5](sandbox.md#25-who-writes-the-sandbox-the-trust-model).
 

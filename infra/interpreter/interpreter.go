@@ -54,6 +54,10 @@ type Interpreter struct {
 	// --ask (step-through confirmation) and --dry-run (skip everything,
 	// just print). nil means "run normally."
 	BeforeOp BeforeOp
+	// EnvAllowlist, when non-nil, restricts which host env vars resolve
+	// via ${NAME} fallthrough. Wired into every fresh Bindings made by
+	// Run. nil means "all host env vars visible" (legacy).
+	EnvAllowlist map[string]bool
 }
 
 // New constructs an Interpreter with stdout/stderr/stdin defaulted to os.*.
@@ -72,6 +76,7 @@ func New(handlers map[string]Handler, p *domain.Program) *Interpreter {
 func (i *Interpreter) Run(commandName string, cliArgs []string) error {
 	cwd, _ := os.Getwd()
 	b := NewBindings(cwd)
+	b.EnvAllowlist = i.EnvAllowlist
 	i.seedGlobalsAndEnv(b)
 
 	cmd, ok := i.Program.Commands[commandName]

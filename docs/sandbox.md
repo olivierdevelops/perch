@@ -62,35 +62,71 @@ This is the lightweight cousin of the `--untrusted` permission-preview mode desc
 
 ---
 
-## 0b. What ships today: `--mode`
+## 0b. What ships today: composable `--no-*` flags + `--env`
 
-Before the full sandbox lands, perch ships **named modes** — opinionated subsets of the op catalog. One flag, no per-op declarations needed, no .perch-file changes. This is the Phase-0 mechanism.
+Two knobs, both designed so the flag name tells you exactly what it does.
+
+### Restriction flags — what ops can run
 
 ```sh
-perch --mode safe       run                  # no shell, no subprocess
-perch --mode offline    run                  # no network ops
-perch --mode read-only  run                  # no filesystem mutation
-perch --mode pure       run                  # safe + offline + read-only
-perch --modes                                # list all modes + what each blocks
+perch --no-shell        cmd     # disable shell / shell_output / shell_detached / shell_in / try_shell
+perch --no-subprocess   cmd     # disable pkg_install/uninstall, kill_by_name, process_running
+perch --no-network      cmd     # disable every network op (http_*, download, port_*, wait_for_*, dns_lookup, local_ip, …)
+perch --no-write        cmd     # disable every filesystem mutation (write_file, cp, rm, mkdir, archives, symlinks, …)
+perch --restrictions            # list every restriction with the exact ops each blocks
 ```
 
-When a blocked op is called you get a precise error:
+**They compose.** `perch --no-shell --no-network --no-write deploy` is the strictest set. No alias, no preset — the flag names are the spec. Each blocked op returns:
 
 ```
-op "shell" is disabled by --mode safe (see https://luowensheng.github.io/perch/sandbox/)
+op "shell" is disabled by --no-shell (see https://luowensheng.github.io/perch/sandbox/)
 ```
 
-| Mode | What it blocks | When to use |
-|---|---|---|
-| `trusted` (default) | nothing | local dev, internal CLIs you wrote |
-| `safe` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell`, `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running` | running a `.perch` from a teammate; serving to a non-engineer via `--server` |
-| `offline` | every network-touching op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`) | airgapped CI; data-only scripts |
-| `read-only` | every filesystem mutation op (`write_file`, `append_*`, `cp`, `mv`, `rm`, `mkdir`, `chmod`, `touch`, `copy_dir`, `symlink`, archive extract / create, `bundle_extract`/`dir`) | analysis scripts; report generators |
-| `pure` | union of `safe` + `offline` + `read-only` | running a `.perch` from a stranger; the strictest preset |
+When any restriction is active, perch prints a one-line banner so reviewers / CI logs see the posture at a glance:
 
-Modes apply to **everything** the binary does — `perch --mode safe COMMAND`, `perch --mode safe --server`, `perch --mode safe --shell`. They also propagate into built binaries: `perch --mode safe -f my.perch CMD` runs `CMD` with shell denied; if you `--build` *with* shell calls, the build itself succeeds (build doesn't run the script), but `./mybinary --mode safe CMD` enforces the mode at run time.
+```
+🔒 security: --no-shell --no-network
+```
 
-Modes are the **80% answer**. The full sandbox below (env scopes, FS roots, network allowlists, resource ceilings) is the 100% answer.
+| Flag | Use when |
+|---|---|
+| `--no-shell` | Serving a script to an AI agent or non-engineer via `--server`. Combined with `--no-subprocess` for the AI-agent case. |
+| `--no-subprocess` | Same as above, paired with `--no-shell`. Also forbids `sudo apt …` via `pkg_install`. |
+| `--no-network` | Airgapped CI; data-pure scripts. |
+| `--no-write` | Analysis scripts; report generators; running a stranger's script for inspection only. |
+| All four | Running a `.perch` from a stranger — closest to the "untrusted" preset in §7 (no preset alias needed; just stack the flags). |
+
+### `--env` — what host env vars are visible
+
+By default `${HOME}`, `${PATH}`, `${API_KEY}`, … all fall through to the host process environment. Often you don't want that — especially when handing the binary to an AI agent or shipping it to colleagues who shouldn't see every env var on the machine.
+
+```sh
+perch --env HOME,PATH,API_KEY        deploy
+perch --env HOME --env PATH          deploy        # repeated flag is additive
+perch --env                          deploy        # bare flag = "no env vars visible"
+```
+
+When `--env` is set, only the listed names resolve via host-env fallthrough. Any other `${UPPERCASE_NAME}` becomes a runtime error:
+
+```
+op print: env var ${SECRET_KEY} is not in --env allowlist (declare with --env SECRET_KEY)
+```
+
+The auto-bound names (`${home}`, `${cache_dir}`, `${exe_path}`, `${is_macos}`, …) are NOT env vars and are unaffected by `--env` — they're host facts perch maintains internally.
+
+The banner names the allowlist too:
+
+```
+🔒 security: --no-shell  --env HOME,PATH
+```
+
+### Why no `--safe` / `--mode pure` alias?
+
+Earlier drafts used `--mode safe` / `--mode pure`. We dropped them: a flag's name should tell you what it does. `--no-shell` is unambiguous about which ops it touches; `--safe` was a marketing word that needed a doc lookup. The composable form is also strictly more expressive — you can have `--no-shell --no-network` without taking `--no-write` along for the ride.
+
+### Where this fits
+
+These two flags are the **CLI side** of the trust model in §2.5. The author can declare a `sandbox` block in their `.perch` (still in design, §3+); the user layers `--no-*` / `--env` on top; the runtime enforces the intersection. Until the author-side block ships, the user side is the only side — which is fine for most threat models, because the user is always the one with skin in the game.
 
 ---
 

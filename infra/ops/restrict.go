@@ -1,0 +1,171 @@
+// Restriction flags disable groups of ops by category. Each `--no-X`
+// CLI flag toggles one category; multiple flags compose (additive).
+// This replaces the earlier `--mode safe/offline/...` knob — the
+// composable flags say exactly what they disable.
+//
+// A blocked op is replaced with a sentinel handler returning a
+// friendly "disabled by --no-X" error. Other ops are untouched.
+
+package ops
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/luowensheng/perch/infra/interpreter"
+)
+
+// Restriction names. The value of each constant is the CLI flag minus
+// the leading `--`, so the same string drives the flag, the error
+// message, and the docs.
+const (
+	RestrictNoShell      = "no-shell"
+	RestrictNoSubprocess = "no-subprocess"
+	RestrictNoNetwork    = "no-network"
+	RestrictNoWrite      = "no-write"
+)
+
+// restrictBlocks lists, per restriction, the op kinds it forbids.
+var restrictBlocks = map[string][]string{
+	RestrictNoShell: {
+		// Anything that hands a string to the host shell.
+		"shell", "shell_output", "shell_detached", "shell_in", "try_shell",
+	},
+	RestrictNoSubprocess: {
+		// Process management beyond shell — implies a shell-like effect
+		// (sudo apt install …) even though the user didn't write `shell`.
+		"pkg_install", "pkg_uninstall",
+		"kill_by_name", "process_running",
+	},
+	RestrictNoNetwork: {
+		"http_get", "http_post", "http_put", "http_delete", "http_status",
+		"download",
+		"dns_lookup",
+		"port_check", "port_free", "find_free_port",
+		"wait_for_port", "wait_for_url",
+		"public_ip",
+		// Network introspection also reveals host facts.
+		"local_ip", "mac_address", "interfaces",
+	},
+	RestrictNoWrite: {
+		// Filesystem mutation.
+		"write_file", "append_file", "append_line", "ensure_line_in_file",
+		"replace_in_file", "backup_file",
+		"cp", "mv", "rm", "mkdir", "chmod", "touch",
+		"copy_dir", "ensure_dir", "make_executable",
+		"symlink", "link_into_path",
+		"mktemp_file", "mktemp_dir",
+		"add_to_path",
+		"tar_extract", "zip_extract", "gzip", "ungzip", "tar_create", "zip_create",
+		"bundle_extract", "bundle_dir",
+	},
+}
+
+// Restrictions is the set of active --no-X flags. Construct via parse-CLI
+// then apply once to the handler map.
+type Restrictions struct {
+	NoShell      bool
+	NoSubprocess bool
+	NoNetwork    bool
+	NoWrite      bool
+}
+
+// Active returns true if any restriction is on.
+func (r Restrictions) Active() bool {
+	return r.NoShell || r.NoSubprocess || r.NoNetwork || r.NoWrite
+}
+
+// AsFlags returns the active restrictions as CLI-flag strings, e.g.
+// ["--no-shell", "--no-network"]. Used in error messages so the user
+// sees the exact flag that blocked their op.
+func (r Restrictions) AsFlags() []string {
+	out := []string{}
+	if r.NoShell {
+		out = append(out, "--"+RestrictNoShell)
+	}
+	if r.NoSubprocess {
+		out = append(out, "--"+RestrictNoSubprocess)
+	}
+	if r.NoNetwork {
+		out = append(out, "--"+RestrictNoNetwork)
+	}
+	if r.NoWrite {
+		out = append(out, "--"+RestrictNoWrite)
+	}
+	return out
+}
+
+// ApplyRestrictions mutates handlers in place: every op blocked by one
+// of the active restrictions is replaced with a sentinel that returns
+// `op "X" is disabled by --no-Y`. Iterates flags in canonical order so
+// the FIRST applicable restriction is the one cited in errors (deterministic).
+func ApplyRestrictions(handlers map[string]interpreter.Handler, r Restrictions) {
+	if !r.Active() {
+		return
+	}
+	order := []struct {
+		on   bool
+		name string
+	}{
+		{r.NoShell, RestrictNoShell},
+		{r.NoSubprocess, RestrictNoSubprocess},
+		{r.NoNetwork, RestrictNoNetwork},
+		{r.NoWrite, RestrictNoWrite},
+	}
+	alreadyBlocked := map[string]bool{}
+	for _, restr := range order {
+		if !restr.on {
+			continue
+		}
+		for _, op := range restrictBlocks[restr.name] {
+			if alreadyBlocked[op] {
+				continue
+			}
+			if _, present := handlers[op]; present {
+				handlers[op] = makeDeny(restr.name, op)
+				alreadyBlocked[op] = true
+			}
+		}
+	}
+}
+
+func makeDeny(flag, op string) interpreter.Handler {
+	return func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+		return nil, fmt.Errorf(
+			"op %q is disabled by --%s (see https://luowensheng.github.io/perch/sandbox/)",
+			op, flag,
+		)
+	}
+}
+
+// Restrictions reflects on the catalog: for each known restriction, the
+// ops it blocks. Used by `perch --restrictions` to print a discovery list.
+func RestrictionList() []string {
+	out := []string{
+		RestrictNoShell,
+		RestrictNoSubprocess,
+		RestrictNoNetwork,
+		RestrictNoWrite,
+	}
+	sort.Strings(out)
+	return out
+}
+
+// BlockedByRestriction returns the ops blocked by ONE restriction (for
+// the `--restrictions` discovery list). Sorted for deterministic output.
+func BlockedByRestriction(name string) []string {
+	out := append([]string{}, restrictBlocks[name]...)
+	sort.Strings(out)
+	return out
+}
+
+// SummariseRestrictions returns a human-readable summary like
+// "--no-shell, --no-network" for error messages and audit logging.
+func SummariseRestrictions(r Restrictions) string {
+	flags := r.AsFlags()
+	if len(flags) == 0 {
+		return "(none)"
+	}
+	return strings.Join(flags, ", ")
+}
