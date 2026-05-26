@@ -54,4 +54,5 @@ nav:
   - Embedding (`--build`): embedding.md
   - MCP server (AI agents): mcp.md
   - Editor integration (LSP): lsp.md
+  - What perch is for: applications.md
   - FAQ: faq.md
