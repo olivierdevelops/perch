@@ -22,7 +22,7 @@ type UseCase interface {
 // LoadStringFn compiles a perch source string into a Program.
 type LoadStringFn func(scriptSrc string) (*domain.Program, error)
 
-// LoadFn loads the host program (the user's commands.capy) so REPL
+// LoadFn loads the host program (the user's commands.perch) so REPL
 // lines can `run other_cmd`.
 type LoadFn func(path string) (*domain.Program, error)
 

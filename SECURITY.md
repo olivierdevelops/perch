@@ -32,10 +32,10 @@ You can expect:
 
 ## Security model
 
-perch is a task runner. It executes whatever is in `commands.capy`. A malicious `commands.capy` can run arbitrary shell commands; **the runtime has no sandbox**. Treat `commands.capy` exactly as you'd treat a shell script.
+perch is a task runner. It executes whatever is in `commands.perch`. A malicious `commands.perch` can run arbitrary shell commands; **the runtime has no sandbox**. Treat `commands.perch` exactly as you'd treat a shell script.
 
 Specifically:
 
 - The embedded program in a fat binary built by `--build` is **not signed**. Use platform code signing (`codesign`, `signtool`) on the output binary if your distribution channel requires it.
 - The HTTP server (`perch --server`) defaults to `127.0.0.1`. Binding to a public interface exposes every command to anyone who can reach the port.
-- Op handlers like `http_post`, `download`, `shell` make outbound calls / write files / spawn processes. Audit `commands.capy` before running anything untrusted.
+- Op handlers like `http_post`, `download`, `shell` make outbound calls / write files / spawn processes. Audit `commands.perch` before running anything untrusted.

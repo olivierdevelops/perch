@@ -14,7 +14,7 @@
 # install.sh script.
 
 class Perch < Formula
-  desc     "Cross-platform command runner. One .capy file → CLI, web UI, REPL, or a portable binary."
+  desc     "Cross-platform command runner. One .perch file → CLI, web UI, REPL, or a portable binary."
   homepage "https://github.com/luowensheng/perch"
   version  "0.1.0"
   license  "Apache-2.0"

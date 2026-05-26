@@ -2,11 +2,11 @@
 //
 // It speaks the Model Context Protocol (JSON-RPC 2.0 over stdio) so that
 // AI agents — Claude Desktop, Claude Code, Cursor, Zed — can discover the
-// commands in a project's commands.capy and invoke them.
+// commands in a project's commands.perch and invoke them.
 //
 // Two tools are exposed:
 //
-//   perch_list  → returns the list of commands in the current commands.capy,
+//   perch_list  → returns the list of commands in the current commands.perch,
 //                 including each command's args/types/descriptions.
 //   perch_run   → runs a named command with arguments. Output (stdout +
 //                 stderr) is returned as the tool result.
@@ -17,7 +17,7 @@
 //     "mcpServers": {
 //       "perch": {
 //         "command": "perch-mcp",
-//         "args": ["-f", "/abs/path/to/commands.capy"]
+//         "args": ["-f", "/abs/path/to/commands.perch"]
 //       }
 //     }
 //   }
@@ -66,7 +66,7 @@ type rpcErr struct {
 }
 
 func main() {
-	cfg := flag.String("f", "commands.capy", "Path to commands.capy")
+	cfg := flag.String("f", "commands.perch", "Path to commands.perch")
 	flag.Parse()
 
 	handlers := ops.AllHandlers()
@@ -129,7 +129,7 @@ func handle(enc *json.Encoder, w *bufio.Writer, req *rpcReq, cfgPath string, han
 			"tools": []map[string]any{
 				{
 					"name":        "perch_list",
-					"description": "List all callable commands in the current commands.capy, with their args, types, and descriptions.",
+					"description": "List all callable commands in the current commands.perch, with their args, types, and descriptions.",
 					"inputSchema": map[string]any{
 						"type":       "object",
 						"properties": map[string]any{},
@@ -143,7 +143,7 @@ func handle(enc *json.Encoder, w *bufio.Writer, req *rpcReq, cfgPath string, han
 						"properties": map[string]any{
 							"command": map[string]any{
 								"type":        "string",
-								"description": "Name of the command to run (from commands.capy)",
+								"description": "Name of the command to run (from commands.perch)",
 							},
 							"args": map[string]any{
 								"type":        "object",

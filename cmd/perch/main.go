@@ -37,7 +37,7 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 }
 
 const Version = "0.1.0"
-const DefaultCommandsFile = "commands.capy"
+const DefaultCommandsFile = "commands.perch"
 
 func main() {
 	// If the binary has an embedded program (built via `perch --build`),

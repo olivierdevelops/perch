@@ -1,6 +1,6 @@
 // Package embed handles the self-extracting fat-binary feature.
 //
-// `perch --build -f commands.capy -o myapp` copies the running perch
+// `perch --build -f commands.perch -o myapp` copies the running perch
 // executable, marshals the loaded domain.Program to JSON, and appends a
 // footer of the form:
 //
@@ -11,7 +11,7 @@
 //
 // At startup, perch reads the last 16 bytes of os.Executable() — if the
 // magic matches, it loads the embedded JSON instead of looking for a
-// .capy file on disk.
+// .perch file on disk.
 package embed
 
 import (

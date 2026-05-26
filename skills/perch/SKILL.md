@@ -1,15 +1,15 @@
 ---
 name: perch
-description: Use this skill when the user wants to create, edit, or scaffold a `commands.capy` file for the perch task runner (https://github.com/luowensheng/perch). Trigger on: any mention of `perch`, `.capy`, "commands.capy", or requests to convert a Makefile / Justfile / shell scripts / bin folder / CI workflow into perch; also when the user asks how to ship a CLI tool as a single binary via `perch --build`. The deliverable is correct perch syntax — do not improvise keywords or ops.
+description: Use this skill when the user wants to create, edit, or scaffold a `commands.perch` file for the perch task runner (https://github.com/luowensheng/perch). Trigger on: any mention of `perch`, `.perch`, "commands.perch", or requests to convert a Makefile / Justfile / shell scripts / bin folder / CI workflow into perch; also when the user asks how to ship a CLI tool as a single binary via `perch --build`. The deliverable is correct perch syntax — do not improvise keywords or ops.
 ---
 
 # perch authoring guide
 
-You are writing or modifying a `commands.capy` file. perch is a cross-platform task runner whose DSL is defined by [capy](https://github.com/luowensheng/capy). The grammar is small and rigid; do not invent new keywords or ops. Stick to what's documented below.
+You are writing or modifying a `commands.perch` file. perch is a cross-platform task runner whose DSL is defined by [capy](https://github.com/luowensheng/capy). The grammar is small and rigid; do not invent new keywords or ops. Stick to what's documented below.
 
 ## File skeleton
 
-Every `commands.capy` follows the same shape:
+Every `commands.perch` follows the same shape:
 
 ```capy
 name    "PROGRAM_NAME"          # required
@@ -54,7 +54,7 @@ end
 ## Hard rules — do not break these
 
 1. **Config statements must appear before `do`. Ops must appear inside `do … end`.** They never mix. Putting `arg foo ... end` inside a `do` block is a hard syntax error.
-2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.capy` for op arguments — they're a library-internal token.
+2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.perch` for op arguments — they're a library-internal token.
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
 4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
 5. **One op per line. Block ops (`if_os`, `if_arch`, `if_eq`, `if_gt`, `if_lt`, `if_exists`, `if_neq`, `if_empty`, `if_not_empty`) wrap a nested body terminated by `end`.**
@@ -149,7 +149,7 @@ Map the request to perch concepts:
 | "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get body "a.b.c"` |
 | "compress this folder" | `tar_create "src" "out.tar.gz"` |
 | "skip a step if a file already exists" | `if_exists "PATH" ... end` (run the SKIP body) — or invert with `if_not_empty` for absence |
-| "ship this as a binary" | `perch --build -f commands.capy -o NAME` |
+| "ship this as a binary" | `perch --build -f commands.perch -o NAME` |
 | "serve a web UI" | `perch --server` |
 | "play interactively" | `perch --shell` |
 

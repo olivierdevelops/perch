@@ -21,7 +21,7 @@ perch clean                      # delete ./bin
   - run: perch ci
   ```
 
-  That's the whole job. The matrix lives in your `commands.capy`, not your YAML.
+  That's the whole job. The matrix lives in your `commands.perch`, not your YAML.
 
 ## Concepts
 

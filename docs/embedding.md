@@ -1,13 +1,13 @@
 # Embedding (`--build`)
 
-`perch --build -f commands.capy -o myapp` produces a single, self-contained binary that boots straight into your commands — no perch install, no Go toolchain, no `.capy` file required on the target machine.
+`perch --build -f commands.perch -o myapp` produces a single, self-contained binary that boots straight into your commands — no perch install, no Go toolchain, no `.perch` file required on the target machine.
 
 ## What you get
 
 ```sh
 perch --build -o ./myapp
-./myapp --help            # → lists commands from commands.capy
-./myapp --version         # → version from commands.capy
+./myapp --help            # → lists commands from commands.perch
+./myapp --version         # → version from commands.perch
 ./myapp <command> [args]  # → dispatches into the embedded program
 scp ./myapp remote:~/     # → works on any same-OS, same-arch box
 ```
@@ -30,7 +30,7 @@ A "perch fat binary" is layered:
 └─────────────────────────────┘
 ```
 
-At startup, perch reads the last 16 bytes of its own executable (`os.Executable()`). If the magic matches, it seeks back by `length + 16`, reads the JSON, parses it as a `domain.Program`, and dispatches against that program. If the magic doesn't match, perch behaves normally and looks for a `.capy` file.
+At startup, perch reads the last 16 bytes of its own executable (`os.Executable()`). If the magic matches, it seeks back by `length + 16`, reads the JSON, parses it as a `domain.Program`, and dispatches against that program. If the magic doesn't match, perch behaves normally and looks for a `.perch` file.
 
 ## Why this design
 
@@ -43,7 +43,7 @@ At startup, perch reads the last 16 bytes of its own executable (`os.Executable(
 
 - **Same OS/arch only.** The output inherits the host's OS and architecture. Cross-compile (`--build --target linux-arm64`) is on the roadmap; the implementation needs per-target stubs.
 - **Static op catalog.** Embedded binaries can only call the ops their host perch compiled in. If you `--build` from perch v0.1.0, the resulting binary doesn't have ops added in v0.2.0. Rebuild after upgrading.
-- **No live reload.** The program JSON is frozen at build time. Changes to `commands.capy` require a fresh `--build`.
+- **No live reload.** The program JSON is frozen at build time. Changes to `commands.perch` require a fresh `--build`.
 
 ## Inspecting an embedded binary
 
@@ -63,8 +63,8 @@ Output is the full parsed program: globals, commands, ops, the works.
 ## Security considerations
 
 - The embedded JSON is **not signed**. If your distribution channel matters, sign the entire binary with `codesign` (macOS), `signtool` (Windows), or your platform's equivalent.
-- The fat binary trusts the embedded program. Anyone who can `--build` on top of an existing perch can produce an unrelated binary with your name. Treat `--build` like any other build pipeline: the source `.capy` is the input you must trust.
-- The runtime has no sandbox. An embedded program with `shell "rm -rf /"` will run that. Source `commands.capy` should be reviewed exactly as you'd review a shell script.
+- The fat binary trusts the embedded program. Anyone who can `--build` on top of an existing perch can produce an unrelated binary with your name. Treat `--build` like any other build pipeline: the source `.perch` is the input you must trust.
+- The runtime has no sandbox. An embedded program with `shell "rm -rf /"` will run that. Source `commands.perch` should be reviewed exactly as you'd review a shell script.
 
 ## Roadmap
 

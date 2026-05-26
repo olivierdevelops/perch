@@ -1,6 +1,6 @@
 # perch
 
-> A cross-platform command runner. One `.capy` file → CLI, web UI, REPL, or a single portable binary you can ship.
+> A cross-platform command runner. One `.perch` file → CLI, web UI, REPL, or a single portable binary you can ship.
 
 `perch` collapses your Makefile, your CI workflow YAML, your `bin/` of bash scripts, and that helper CLI you keep meaning to write — into **one declarative file** that works on macOS, Linux, and Windows from day one.
 

@@ -6,7 +6,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
-- **`perch --check`** (alias `--validate`) — statically check a `.capy` file without running anything. Catches: invalid arg types, default values that don't match the declared type, duplicate arg names, colliding positional indexes, missing `run TARGET` / `on_signal HANDLER` references, unknown op kinds, unresolved `${name}` placeholders.
+- **`perch --check`** (alias `--validate`) — statically check a `.perch` file without running anything. Catches: invalid arg types, default values that don't match the declared type, duplicate arg names, colliding positional indexes, missing `run TARGET` / `on_signal HANDLER` references, unknown op kinds, unresolved `${name}` placeholders.
 - **`perch <command> --help`** — per-command help block with usage line, arguments table (with type / default / required / description), env vars, modifiers, examples, and the source file path.
 - **"Did you mean…?"** — when an unknown command is typed and there's no `catch` handler, perch suggests the closest matches via Levenshtein distance.
 
@@ -30,10 +30,10 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
-- Initial public release.
+- Initial public release. User files use the `.perch` extension; perch's own grammar definition (consumed by capy) lives at `infra/capyloader/lib.capy`.
 - DSL defined entirely via [capy](https://github.com/luowensheng/capy) (`infra/capyloader/lib.capy`).
 - Four CLI modes:
-  - default: run a named command from `commands.capy`
+  - default: run a named command from `commands.perch`
   - `--server`: HTTP UI with NDJSON-streaming `/api/exec` endpoint
   - `--shell`: interactive REPL with persistent bindings
   - `--build`: bundle the parsed program into a self-extracting fat binary

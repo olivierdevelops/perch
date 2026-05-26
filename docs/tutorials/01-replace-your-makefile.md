@@ -1,6 +1,6 @@
 # Tutorial 1 — Replace your Makefile
 
-**Time:** 10 minutes. **You'll need:** a small Go project (or any project with a Makefile). **You'll end up with:** a `commands.capy` that's shorter, cross-platform, and drives both local dev and CI from the same file.
+**Time:** 10 minutes. **You'll need:** a small Go project (or any project with a Makefile). **You'll end up with:** a `commands.perch` that's shorter, cross-platform, and drives both local dev and CI from the same file.
 
 We'll convert this Makefile:
 
@@ -39,7 +39,7 @@ ci: lint test release
 perch --init
 ```
 
-This writes a starter `commands.capy`. Open it and clear the body — we're going to rewrite from scratch.
+This writes a starter `commands.perch`. Open it and clear the body — we're going to rewrite from scratch.
 
 ## Step 2 — Globals
 
@@ -172,7 +172,7 @@ And in `.github/workflows/ci.yml`:
 - run: perch ci
 ```
 
-That's the whole CI job. The matrix lives in `commands.capy`, not in YAML.
+That's the whole CI job. The matrix lives in `commands.perch`, not in YAML.
 
 ## Step 7 — Reap the cross-platform benefit
 
@@ -214,4 +214,4 @@ Same file. Three platforms. Zero Makefile-per-OS dance.
 
 ## Next
 
-→ Tutorial 2: [Ship a tool](02-ship-a-tool.md) — bundle a `commands.capy` into a portable single-file binary with `perch --build`.
+→ Tutorial 2: [Ship a tool](02-ship-a-tool.md) — bundle a `commands.perch` into a portable single-file binary with `perch --build`.

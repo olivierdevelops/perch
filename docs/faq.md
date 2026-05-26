@@ -31,11 +31,11 @@ See [capy](https://github.com/luowensheng/capy) for the engine.
 
 ## Can I share commands across projects?
 
-Currently each project has its own `commands.capy`. **Import support is on the roadmap** — `import "../shared.capy"` to pull in commands from a sibling file.
+Currently each project has its own `commands.perch`. **Import support is on the roadmap** — `import "../shared.perch"` to pull in commands from a sibling file.
 
 For now: copy-paste. The files are small.
 
-## How do I test my commands.capy?
+## How do I test my commands.perch?
 
 Three approaches:
 
@@ -74,7 +74,7 @@ If you want fail-soft behavior, wrap the op in `if_exists` / `if_eq` etc. — th
 The relationship:
 
 - perch's `lib.capy` describes the entire DSL surface.
-- capy parses user `.capy` files using that library and emits a JSON event stream.
+- capy parses user `.perch` files using that library and emits a JSON event stream.
 - perch's Go-side loader consumes the events and produces a `domain.Program`.
 - perch's interpreter walks the program.
 

@@ -1,4 +1,4 @@
-// Package initconfig writes a starter commands.capy in the current
+// Package initconfig writes a starter commands.perch in the current
 // working directory if one does not already exist.
 package initconfig
 

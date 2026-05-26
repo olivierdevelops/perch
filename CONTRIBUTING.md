@@ -45,11 +45,11 @@ The most common contribution. Two steps:
 - Run `go vet ./... && go test ./...` before pushing.
 - For changes that affect surface DSL: update `docs/language.md` and `skills/perch/SKILL.md` in the same PR.
 - For new ops: include a one-line example in `docs/op-reference.md` and a row in the catalog table.
-- For new demos: drop a folder under `demos/` with `commands.capy` + `README.md` + the command(s) to run.
+- For new demos: drop a folder under `demos/` with `commands.perch` + `README.md` + the command(s) to run.
 
 ## Issues
 
-- **Bugs:** include perch version (`perch --version`), OS, the failing `commands.capy` minimised to ~10 lines, and the actual vs expected output.
+- **Bugs:** include perch version (`perch --version`), OS, the failing `commands.perch` minimised to ~10 lines, and the actual vs expected output.
 - **Op requests:** describe the use case, the proposed signature, and any prior art in other tools.
 - **DSL changes:** open a discussion first — DSL surface changes ripple through docs, demos, the Claude skill, and external users.
 

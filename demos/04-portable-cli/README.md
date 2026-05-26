@@ -1,6 +1,6 @@
 # demo 04 — portable CLI
 
-**The killer feature.** `perch --build` bundles this `commands.capy` into a single self-contained binary that runs anywhere — no perch install, no Go toolchain, no nothing.
+**The killer feature.** `perch --build` bundles this `commands.perch` into a single self-contained binary that runs anywhere — no perch install, no Go toolchain, no nothing.
 
 ```sh
 # Build the binary
@@ -14,7 +14,7 @@ perch --build -o greet
 ./greet facts                       # → host / now
 ./greet --help                      # → built-in help, with arg defaults
 ./greet blorp                       # → falls into the catch-all
-./greet --version                   # → 1.0.0  (the `version` field in commands.capy)
+./greet --version                   # → 1.0.0  (the `version` field in commands.perch)
 
 # Distribute
 scp greet remote.host:/usr/local/bin/   # works on a fresh box
@@ -27,7 +27,7 @@ scp greet remote.host:/usr/local/bin/   # works on a fresh box
 1. The parsed `Program` as JSON
 2. A footer: `<8 bytes length><8 bytes magic "PRCHEMB1">`
 
-At startup, the resulting binary reads its own last 16 bytes; if the magic matches, it loads the embedded program instead of looking for a `.capy` file. So the same Go runtime that drove your dev loop now ships as the user-facing tool, with your commands baked in.
+At startup, the resulting binary reads its own last 16 bytes; if the magic matches, it loads the embedded program instead of looking for a `.perch` file. So the same Go runtime that drove your dev loop now ships as the user-facing tool, with your commands baked in.
 
 Details in [`docs/embedding.md`](../../docs/embedding.md).
 

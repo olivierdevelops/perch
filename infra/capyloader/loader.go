@@ -1,4 +1,4 @@
-// Package capyloader compiles a perch .capy source file into a
+// Package capyloader compiles a perch .perch source file into a
 // domain.Program. The pipeline:
 //
 //  1. Run the source through the embedded lib.capy via the capy engine.
@@ -24,7 +24,7 @@ import (
 //go:embed lib.capy
 var librarySource string
 
-// Load parses a .capy source file and returns a Program.
+// Load parses a .perch source file and returns a Program.
 func Load(path string) (*domain.Program, error) {
 	script, err := os.ReadFile(path)
 	if err != nil {

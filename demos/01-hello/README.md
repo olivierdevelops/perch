@@ -1,6 +1,6 @@
 # demo 01 — hello
 
-The simplest possible `commands.capy`. Two commands, one arg, one let-capture.
+The simplest possible `commands.perch`. Two commands, one arg, one let-capture.
 
 ```sh
 perch hello                  # → Hello, world!

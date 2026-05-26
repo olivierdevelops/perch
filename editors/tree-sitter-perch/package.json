@@ -1,7 +1,7 @@
 {
   "name": "tree-sitter-perch",
   "version": "0.1.0",
-  "description": "Tree-sitter grammar for the perch DSL (.capy files)",
+  "description": "Tree-sitter grammar for the perch DSL (.perch files)",
   "main": "bindings/node",
   "keywords": ["parsing", "incremental", "perch", "capy"],
   "repository": {
@@ -16,7 +16,7 @@
   },
   "tree-sitter": [{
     "scope": "source.perch",
-    "file-types": ["capy"],
+    "file-types": ["perch"],
     "injection-regex": "^perch$"
   }],
   "devDependencies": {

@@ -6,11 +6,11 @@
 
 Suppose you maintain a small team operations CLI: `ops backup`, `ops restart-api`, `ops check-disk`. Today it's a folder of bash scripts. Half the team has the folder cloned; half doesn't. There's no help text. Onboarding takes 20 minutes.
 
-We're going to fold the whole thing into one `commands.capy` and ship the result as `ops`.
+We're going to fold the whole thing into one `commands.perch` and ship the result as `ops`.
 
 ## Step 1 — Write the commands
 
-`commands.capy`:
+`commands.perch`:
 
 ```capy
 name    "ops"
@@ -82,7 +82,7 @@ Notice:
 
 - `--version` returns the program's `version` field, **not** perch's version.
 - `--help` is auto-generated from `description` lines.
-- `-f any.capy` is ignored — the embedded program always wins.
+- `-f any.perch` is ignored — the embedded program always wins.
 
 ## Step 3 — Distribute
 
@@ -107,7 +107,7 @@ The recipient runs `./ops backup` immediately. No perch install. No Go toolchain
 
 `perch --build`:
 
-1. Reads `commands.capy`, parses it via the same capy pipeline `perch` uses.
+1. Reads `commands.perch`, parses it via the same capy pipeline `perch` uses.
 2. Marshals the resulting `domain.Program` as JSON.
 3. Copies the running `perch` binary to your output path.
 4. Appends the JSON + a footer: `<8 bytes length><8 bytes magic "PRCHEMB1">`.
@@ -122,11 +122,11 @@ Full format spec: [docs/embedding.md](../embedding.md).
 
 ## Step 5 — Update flow
 
-When you change `commands.capy`:
+When you change `commands.perch`:
 
 ```sh
-# Edit commands.capy
-$EDITOR commands.capy
+# Edit commands.perch
+$EDITOR commands.perch
 
 # Rebuild — strips the old embedded program automatically
 perch --build -o ops
@@ -151,4 +151,4 @@ Re-`--build` is idempotent. No accumulating layers.
 
 ## Next
 
-→ Tutorial 3: [Cross-platform installer](03-cross-platform-installer.md) — write one `commands.capy` that installs deps on macOS / Linux / Windows from the same source.
+→ Tutorial 3: [Cross-platform installer](03-cross-platform-installer.md) — write one `commands.perch` that installs deps on macOS / Linux / Windows from the same source.

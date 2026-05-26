@@ -25,7 +25,7 @@ type Impl struct {
 
 func (i *Impl) Execute(configPath string, args []string) error {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
-	out := fs.String("o", "", "Output binary path (default: program name from commands.capy)")
+	out := fs.String("o", "", "Output binary path (default: program name from commands.perch)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

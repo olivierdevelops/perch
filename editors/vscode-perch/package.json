@@ -1,7 +1,7 @@
 {
   "name": "perch",
   "displayName": "perch",
-  "description": "Syntax highlighting for perch (.capy) command files",
+  "description": "Syntax highlighting for perch (.perch) command files",
   "version": "0.1.0",
   "publisher": "luowensheng",
   "engines": { "vscode": "^1.80.0" },
@@ -17,7 +17,7 @@
     "languages": [{
       "id": "perch",
       "aliases": ["perch", "capy (perch)"],
-      "extensions": [".capy"],
+      "extensions": [".perch"],
       "configuration": "./language-configuration.json"
     }],
     "grammars": [{

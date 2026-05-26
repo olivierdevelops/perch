@@ -9,7 +9,7 @@
 ## Success criteria
 
 - `curl -fsSL <install>.sh | sh` works on macOS + Linux.
-- A user with no prior context can read README.md and produce their first runnable `commands.capy` within 3 minutes.
+- A user with no prior context can read README.md and produce their first runnable `commands.perch` within 3 minutes.
 - `./demos/<any>` is interesting on its own merits — not just "hello world × 12."
 - CI is green; pre-built binaries are attached to the GitHub release for darwin/linux/windows × arm64/amd64.
 - `perch --help` is enough to use 80% of the tool.
@@ -47,7 +47,7 @@ brew / curl-pipe / go install / binary download — all four lines.
 - powered by [capy](https://github.com/luowensheng/capy)
 
 ## Three-line tour
-[commands.capy with build/test/serve + matching `perch <cmd>` lines]
+[commands.perch with build/test/serve + matching `perch <cmd>` lines]
 
 ## Documentation
 [reading order: getting-started → language → ops → embedding → faq]
@@ -63,7 +63,7 @@ Pre-1.0, surface stable but adding ops. SemVer kicks in at v1.0.
 
 ### 0.2 — Demos folder (at least 5)
 
-Each demo is a self-contained subdir with `commands.capy` + `README.md` + (optionally) a screenshot/recording. Each must be runnable with one command.
+Each demo is a self-contained subdir with `commands.perch` + `README.md` + (optionally) a screenshot/recording. Each must be runnable with one command.
 
 Initial demos to ship:
 
@@ -72,12 +72,12 @@ Initial demos to ship:
 | `demos/01-hello/` | Globals, args, `let`, `print`. The 30-second "wow this is simple" intro. | `perch hello -name=World` |
 | `demos/02-cross-platform-setup/` | `if_os` branches that install dev dependencies via brew/apt/choco. Highlights the cross-platform thesis. | `perch setup` |
 | `demos/03-go-project/` | Build, test, lint, release a Go project. The "this could replace your Makefile" demo. | `perch build -target=linux` |
-| `demos/04-portable-cli/` | A tiny tool defined entirely in commands.capy, bundled into a single binary via `perch --build`. The killer-feature demo. | `perch --build -o greet && ./greet hello -name=Alice` |
-| `demos/05-web-ui/` | A `commands.capy` whose `--server` mode gives non-engineers a friendly UI to run jobs (e.g. backup, deploy, rotate logs). | `perch --server` then browse |
-| `demos/06-ci-runner/` | The same `commands.capy` used by both devs locally AND CI (paste into GitHub Actions). Shows that one file replaces both Makefile + workflow yaml. | `perch ci` |
+| `demos/04-portable-cli/` | A tiny tool defined entirely in commands.perch, bundled into a single binary via `perch --build`. The killer-feature demo. | `perch --build -o greet && ./greet hello -name=Alice` |
+| `demos/05-web-ui/` | A `commands.perch` whose `--server` mode gives non-engineers a friendly UI to run jobs (e.g. backup, deploy, rotate logs). | `perch --server` then browse |
+| `demos/06-ci-runner/` | The same `commands.perch` used by both devs locally AND CI (paste into GitHub Actions). Shows that one file replaces both Makefile + workflow yaml. | `perch ci` |
 | `demos/07-pipeline/` | Real-ish data pipeline: download → ungzip → transform → upload. Shows `let` chaining and the HTTP/compression op catalog. | `perch run` |
 
-**Files:** `demos/*/{commands.capy,README.md}` + a top-level `demos/README.md` indexing them.
+**Files:** `demos/*/{commands.perch,README.md}` + a top-level `demos/README.md` indexing them.
 
 ### 0.3 — Tests
 
@@ -99,7 +99,7 @@ io/cli/cli_test.go                  -- argv → dispatch enum
 **Integration tests** (`tests/integration/` with table-driven fixtures):
 
 - For each demo, a `.expected` file recording the stdout/stderr/exit code. CI runs `perch <cmd>` and diffs.
-- A `golden/` folder with a dozen `.capy` files paired with `.json` snapshots of the parsed `Program`. Catches regressions in lib.capy.
+- A `golden/` folder with a dozen `.perch` files paired with `.json` snapshots of the parsed `Program`. Catches regressions in lib.capy.
 - A separate `tests/e2e_build_test.go` that builds a binary, runs it, asserts the embedded program is served.
 
 **Smoke test in CI**: `go test ./... && go run ./.ignore/sample-runner.go` (a runner that exercises every demo headlessly).
@@ -169,7 +169,7 @@ Reading order — six pages, each under 1,000 words:
 3. **`docs/op-reference.md`** — auto-generated from `infra/ops/` registrations: kind, signature, return value, example. The "stdlib" reference.
 4. **`docs/embedding.md`** — `--build` and how the fat binary works. When to use it. The on-disk format spec (so people can audit security).
 5. **`docs/ci-recipes.md`** — drop-in GitHub Actions / GitLab CI snippets calling `perch <cmd>`.
-6. **`docs/faq.md`** — vs Make / Just / Task; "can I share commands across projects?"; "why capy?"; "how do I test my commands.capy?"
+6. **`docs/faq.md`** — vs Make / Just / Task; "can I share commands across projects?"; "why capy?"; "how do I test my commands.perch?"
 
 Plus `docs/architecture.md` for contributors — points at `vhco-architecture.md`.
 
@@ -180,8 +180,8 @@ Plus `docs/architecture.md` for contributors — points at `vhco-architecture.md
 `docs/tutorials/` — three guided projects, each 10–15 minutes, building on each other:
 
 1. **`01-replace-your-makefile.md`** — take a real (small) Go project's Makefile, convert it. Side-by-side before/after. End by `perch test` working.
-2. **`02-ship-a-tool.md`** — write a tool entirely in commands.capy. Build it. Distribute the binary. Recipient runs it on a fresh machine.
-3. **`03-cross-platform-installer.md`** — write one commands.capy that installs deps on darwin/linux/windows. Show the same source running on all three.
+2. **`02-ship-a-tool.md`** — write a tool entirely in commands.perch. Build it. Distribute the binary. Recipient runs it on a fresh machine.
+3. **`03-cross-platform-installer.md`** — write one commands.perch that installs deps on darwin/linux/windows. Show the same source running on all three.
 
 Each tutorial ends with a "what you learned" recap and a link to the next one.
 
@@ -222,7 +222,7 @@ Today's errors are mostly raw Go errors. Sweep to:
 - `.github/ISSUE_TEMPLATE/feature.yml` — what + why + alternatives considered.
 - `.github/ISSUE_TEMPLATE/op-request.yml` — name, signature, when you'd use it.
 - `.github/PULL_REQUEST_TEMPLATE.md` — "what changed, what tests, screenshot if UI."
-- `.github/DISCUSSION_TEMPLATE/show-and-tell.yml` — encourage users to share their commands.capy.
+- `.github/DISCUSSION_TEMPLATE/show-and-tell.yml` — encourage users to share their commands.perch.
 
 **Files:** `.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/DISCUSSION_TEMPLATE/*`.
 
@@ -239,9 +239,9 @@ Drop `skills/perch/SKILL.md` modelled on the existing capy MCP/skill setup. When
 - Knows the perch grammar (gives correct syntax, doesn't hallucinate ops)
 - Has examples of common patterns (cross-platform, build pipelines)
 - Includes the full op catalog so model can suggest the right op
-- Has a `/perch-new <project description>` flow that generates a starter commands.capy
+- Has a `/perch-new <project description>` flow that generates a starter commands.perch
 
-The skill is the single biggest thing that makes perch viral with AI-tool users — they can ask Claude "set up commands.capy for my Go project" and it works.
+The skill is the single biggest thing that makes perch viral with AI-tool users — they can ask Claude "set up commands.perch for my Go project" and it works.
 
 **Files:** `skills/perch/SKILL.md`, `skills/perch/scripts/*`.
 
@@ -249,7 +249,7 @@ The skill is the single biggest thing that makes perch viral with AI-tool users 
 
 Build a tiny MCP server (`cmd/perch-mcp/`) so Claude Desktop / Cursor / Zed users can:
 
-- Discover the commands in a project's commands.capy
+- Discover the commands in a project's commands.perch
 - Run them via MCP tool calls
 - Stream the output back to the chat
 
@@ -259,7 +259,7 @@ Pattern: copy `capy-mcp`'s skeleton. Reuse our HTTP server's NDJSON streaming fo
 
 ### 2.3 — Editor support
 
-- **VS Code extension** (`editors/vscode/perch/`): syntax highlighting for `*.capy` files. Recognises perch keywords (command, do, end, if_os, let, …) and the op catalog. Publish to the VS Code Marketplace.
+- **VS Code extension** (`editors/vscode/perch/`): syntax highlighting for `*.perch` files. Recognises perch keywords (command, do, end, if_os, let, …) and the op catalog. Publish to the VS Code Marketplace.
 - **Tree-sitter grammar** (`editors/tree-sitter-perch/`): the source of truth that powers VS Code, Neovim, and Helix.
 - **Vim plugin** (`editors/vim/perch.vim`): same syntax file translated. Optional.
 
@@ -268,7 +268,7 @@ Pattern: copy `capy-mcp`'s skeleton. Reuse our HTTP server's NDJSON streaming fo
 ### 2.4 — Shell completions
 
 - `scripts/completions/perch.bash`, `.zsh`, `.fish` — generated from the command list in `cli.go`.
-- Plus dynamic per-command completions (read commands.capy on tab, suggest command names + args).
+- Plus dynamic per-command completions (read commands.perch on tab, suggest command names + args).
 - `perch --completions <shell>` prints the completion script to stdout (drop-in for `eval "$(perch --completions zsh)"`).
 
 **Files:** `scripts/completions/*`, plus a hook in `io/cli/cli.go`.
@@ -295,17 +295,17 @@ Inspired by capy's playground; the architecture transfers — replace text rende
 
 Don't block v0.1.0 on these.
 
-- **`perch fmt`** — opinionated formatter for commands.capy. Trees nicely, aligns arg columns.
+- **`perch fmt`** — opinionated formatter for commands.perch. Trees nicely, aligns arg columns.
 - **`perch lint`** — surface unused args, dead commands, OS-specific shell calls outside if_os, …
-- **`perch test`** — first-class testing of commands.capy (assertions on op output, env, side effects).
+- **`perch test`** — first-class testing of commands.perch (assertions on op output, env, side effects).
 - **Cross-compile in `--build`** — embed per-target perch stubs so `perch --build -target=linux-amd64` works from macOS.
-- **`perch share`** — upload a commands.capy + program JSON to a registry; `perch install <name>` to pull. (Like cargo-binstall but for perch programs.)
-- **Templates** — `perch new go-cli`, `perch new node-monorepo`. Scaffolds a starter commands.capy from a template registry.
+- **`perch share`** — upload a commands.perch + program JSON to a registry; `perch install <name>` to pull. (Like cargo-binstall but for perch programs.)
+- **Templates** — `perch new go-cli`, `perch new node-monorepo`. Scaffolds a starter commands.perch from a template registry.
 - **Watch mode** — `perch --watch <cmd>` reruns the command on file changes (like nodemon).
-- **Op grouping/imports** — `import ./shared.capy` so multi-project setups can share commands.
+- **Op grouping/imports** — `import ./shared.perch` so multi-project setups can share commands.
 - **TypeScript / Python op SDKs** — let users write op handlers in languages other than Go, expose them via plugin protocol.
 - **Translations** of docs/README into Spanish, Japanese, Mandarin.
-- **Migrate-from-make tool** — semi-automated Makefile → commands.capy converter.
+- **Migrate-from-make tool** — semi-automated Makefile → commands.perch converter.
 - **Lockfile** — pin op catalog versions for reproducibility across perch upgrades.
 
 ---
@@ -339,7 +339,7 @@ The day before flipping the repo public:
 - [ ] README renders correctly on github.com (check anchor links, image paths).
 - [ ] LICENSE file is present and the year is correct.
 - [ ] `go vet ./...` and `staticcheck ./...` are clean.
-- [ ] Run `perch --build` on the project's own `commands.capy`; ship the resulting binary as part of the release.
+- [ ] Run `perch --build` on the project's own `commands.perch`; ship the resulting binary as part of the release.
 - [ ] Spell-check pass over README and every doc page.
 - [ ] Search-replace any TODOs, FIXMEs, "tk", "lorem" in shipped docs.
 - [ ] Logo and social card final.

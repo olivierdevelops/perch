@@ -1,6 +1,6 @@
 # Language reference
 
-The complete surface of the `commands.capy` DSL. Two firm rules to keep in mind everywhere:
+The complete surface of the `commands.perch` DSL. Two firm rules to keep in mind everywhere:
 
 1. **Config vs body is syntactic.** Between `command NAME` and `do` is *declarative configuration*. Inside `do … end` is the *executable body*. They never mix.
 2. **`${name}` interpolates at runtime.** Capy parses `${name}` inside `"..."` captures as literal characters (it only interpolates inside its own template/backtick contexts), so the placeholder round-trips through parsing into the program JSON unchanged. The Go runtime substitutes from the bindings table (args → globals → host env) just before each op runs. To pass a literal `${VAR}` through to a `shell` call (e.g. an actual shell variable), prefix with a backslash: `\${VAR}`.

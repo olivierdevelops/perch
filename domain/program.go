@@ -1,5 +1,5 @@
 // Package domain holds the data types that describe a perch program:
-// a set of named, callable commands compiled from a .capy source file.
+// a set of named, callable commands compiled from a .perch source file.
 //
 // A Program is the canonical artifact. Capy parses the user's source
 // file into JSON; the loader hydrates that JSON into a Program; the
@@ -9,7 +9,7 @@
 // transformations and import nothing from the rest of the project.
 package domain
 
-// Program is the whole parsed config. One per .capy file.
+// Program is the whole parsed config. One per .perch file.
 type Program struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description"`

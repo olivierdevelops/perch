@@ -19,14 +19,14 @@ _perch_complete() {
         return 0
     fi
 
-    # -f takes a .capy file
+    # -f takes a .perch file
     if [[ "$prev" == "-f" ]]; then
-        COMPREPLY=( $(compgen -f -X '!*.capy' -- "$cur") )
+        COMPREPLY=( $(compgen -f -X '!*.perch' -- "$cur") )
         return 0
     fi
 
     # Otherwise: ask perch for the current command list
-    local cfg="commands.capy"
+    local cfg="commands.perch"
     for i in "${!COMP_WORDS[@]}"; do
         if [[ "${COMP_WORDS[$i]}" == "-f" && -n "${COMP_WORDS[$((i+1))]:-}" ]]; then
             cfg="${COMP_WORDS[$((i+1))]}"

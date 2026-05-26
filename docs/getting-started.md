@@ -1,6 +1,6 @@
 # Getting started
 
-A five-minute tour. By the end you'll have a working `commands.capy`, run it three different ways, and bundle it into a portable binary.
+A five-minute tour. By the end you'll have a working `commands.perch`, run it three different ways, and bundle it into a portable binary.
 
 ## Install
 
@@ -33,7 +33,7 @@ mkdir hello-perch && cd hello-perch
 perch --init
 ```
 
-This writes a starter `commands.capy`:
+This writes a starter `commands.perch`:
 
 ```capy
 name    "hello-perch"
@@ -55,17 +55,17 @@ end
 ## Run it three ways
 
 ```sh
-perch --help          # see what's in commands.capy
+perch --help          # see what's in commands.perch
 perch hello           # run the command
 perch hello --help    # per-command help with args + defaults + examples
-perch --check         # statically validate commands.capy before running
+perch --check         # statically validate commands.perch before running
 perch --shell         # REPL — type `hello` then Enter
 perch --server        # serve a web UI at http://127.0.0.1:10032
 ```
 
 ## Add an arg
 
-Edit `commands.capy`:
+Edit `commands.perch`:
 
 ```capy
 command greet

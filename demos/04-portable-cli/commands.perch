@@ -1,5 +1,5 @@
 name    "greet"
-about   "A standalone greeter CLI, defined entirely in commands.capy"
+about   "A standalone greeter CLI, defined entirely in commands.perch"
 version "1.0.0"
 
 command hello

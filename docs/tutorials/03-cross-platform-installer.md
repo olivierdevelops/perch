@@ -1,6 +1,6 @@
 # Tutorial 3 — Cross-platform installer
 
-**Time:** 10 minutes. **You'll end up with:** one `commands.capy` that bootstraps a fresh dev machine — installs deps, sets env vars, fetches config — and works on macOS, Linux, and Windows from the same source.
+**Time:** 10 minutes. **You'll end up with:** one `commands.perch` that bootstraps a fresh dev machine — installs deps, sets env vars, fetches config — and works on macOS, Linux, and Windows from the same source.
 
 ## The problem
 
@@ -16,7 +16,7 @@ Today this is usually:
 - A bash script that breaks on Windows.
 - A PowerShell script that nobody on the macOS team reads.
 
-We'll fold all three into one `commands.capy`.
+We'll fold all three into one `commands.perch`.
 
 ## Step 1 — Sketch the install command
 

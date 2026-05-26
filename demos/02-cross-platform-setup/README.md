@@ -1,6 +1,6 @@
 # demo 02 — cross-platform setup
 
-One `commands.capy` that installs the same set of dev tools on **all three** major OSes.
+One `commands.perch` that installs the same set of dev tools on **all three** major OSes.
 
 ```sh
 perch setup     # → installs jq/ripgrep/watchexec on whatever OS you're on

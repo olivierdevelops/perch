@@ -1,6 +1,6 @@
 # perch — VS Code extension
 
-Syntax highlighting for `.capy` files written against the [perch](https://github.com/luowensheng/perch) command-runner DSL.
+Syntax highlighting for `.perch` files written against the [perch](https://github.com/luowensheng/perch) command-runner DSL.
 
 ## Features
 

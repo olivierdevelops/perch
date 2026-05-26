@@ -30,7 +30,7 @@ body:
     id: usecase
     attributes:
       label: When would you use it?
-      description: A snippet of commands.capy that needs this op.
+      description: A snippet of commands.perch that needs this op.
       render: capy
     validations:
       required: true

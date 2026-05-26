@@ -1,6 +1,6 @@
 # perch
 
-> A cross-platform command runner. One `.capy` file → CLI, web UI, REPL, **or a single portable binary you can ship**.
+> A cross-platform command runner. One `.perch` file → CLI, web UI, REPL, **or a single portable binary you can ship**.
 
 [![CI](https://github.com/luowensheng/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/luowensheng/perch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/luowensheng/perch?include_prereleases)](https://github.com/luowensheng/perch/releases)
@@ -56,7 +56,7 @@ end
 perch build                    # → run from CLI
 perch build -target=linux      # → with args
 perch build --help             # → per-command help (args, defaults, examples)
-perch --check                  # → statically validate commands.capy
+perch --check                  # → statically validate commands.perch
 perch --server                 # → same file, web UI
 perch --shell                  # → same file, REPL
 perch --build -o myapp         # → same file, portable binary
@@ -109,8 +109,8 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://github.com/luowensheng/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, `if_os` are first-class ops the runtime knows — not bash one-liners you re-write per OS.
-3. **Three frontends from one source.** The same `commands.capy` is callable as a CLI, served as a web UI (`--server`), and steppable in a REPL (`--shell`).
-4. **One `--build` away from shippable.** Bundle your `commands.capy` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
+3. **Three frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), and steppable in a REPL (`--shell`).
+4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
 
 ---
 
@@ -120,10 +120,10 @@ After `go install …/cmd/perch@latest`:
 
 ```sh
 mkdir hello-perch && cd hello-perch
-perch --init                          # writes a starter commands.capy
+perch --init                          # writes a starter commands.perch
 perch --help                          # lists the commands in it
 perch hello                           # runs one
-perch --build -o ./greet              # bundles commands.capy into ./greet
+perch --build -o ./greet              # bundles commands.perch into ./greet
 ./greet hello                         # ./greet works anywhere, no perch needed
 ```
 
@@ -141,7 +141,7 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | Five-minute tour |
 | [docs/tutorials/01-replace-your-makefile.md](docs/tutorials/01-replace-your-makefile.md) | Convert a Makefile to perch |
-| [docs/tutorials/02-ship-a-tool.md](docs/tutorials/02-ship-a-tool.md) | Bundle a commands.capy into a portable binary |
+| [docs/tutorials/02-ship-a-tool.md](docs/tutorials/02-ship-a-tool.md) | Bundle a commands.perch into a portable binary |
 | [docs/tutorials/03-cross-platform-installer.md](docs/tutorials/03-cross-platform-installer.md) | One installer for macOS/Linux/Windows |
 | [docs/language.md](docs/language.md) | Every keyword and modifier |
 | [docs/op-reference.md](docs/op-reference.md) | The built-in op catalog (the "stdlib") |
@@ -149,7 +149,7 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 | [docs/mcp.md](docs/mcp.md) | MCP server for AI agents |
 | [docs/faq.md](docs/faq.md) | vs Make / Just / Task / etc. |
 
-Four worked examples live under [demos/](demos) — each a complete `commands.capy` you can run.
+Four worked examples live under [demos/](demos) — each a complete `commands.perch` you can run.
 
 ---
 

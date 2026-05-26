@@ -34,9 +34,9 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           ./perch --version
-          ./perch --init -f /tmp/sample.capy
-          ./perch --help -f /tmp/sample.capy
-          ./perch -f /tmp/sample.capy hello
+          ./perch --init -f /tmp/sample.perch
+          ./perch --help -f /tmp/sample.perch
+          ./perch -f /tmp/sample.perch hello
 
       - name: demos build
         if: runner.os != 'Windows'

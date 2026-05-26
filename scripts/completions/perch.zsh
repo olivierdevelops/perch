@@ -9,13 +9,13 @@ _perch() {
     local context curcontext="$curcontext" state line
     local -a flags
     flags=(
-        '--help[Show summary of commands.capy]'
+        '--help[Show summary of commands.perch]'
         '--version[Print perch version]'
-        '--init[Write a starter commands.capy]'
+        '--init[Write a starter commands.perch]'
         '--shell[Start the REPL]'
-        '--server[Serve commands.capy as an HTTP UI]'
-        '--build[Bundle commands.capy into a portable binary]'
-        '-f[Specify the config file]:file:_files -g "*.capy"'
+        '--server[Serve commands.perch as an HTTP UI]'
+        '--build[Bundle commands.perch into a portable binary]'
+        '-f[Specify the config file]:file:_files -g "*.perch"'
     )
 
     if [[ ${words[2]:-} == -* ]]; then
@@ -24,7 +24,7 @@ _perch() {
     fi
 
     # Find -f file if any
-    local cfg="commands.capy"
+    local cfg="commands.perch"
     local i
     for (( i=1; i <= $#words; i++ )); do
         if [[ ${words[$i]} == "-f" && -n ${words[$((i+1))]:-} ]]; then

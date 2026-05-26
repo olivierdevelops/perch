@@ -22,7 +22,7 @@ require'nvim-treesitter.parsers'.get_parser_configs().perch = {
     files = { "editors/tree-sitter-perch/src/parser.c" },
     branch = "main",
   },
-  filetype = "capy",
+  filetype = "perch",
 }
 ```
 
@@ -36,7 +36,7 @@ Add a language entry to `~/.config/helix/languages.toml`:
 [[language]]
 name = "perch"
 scope = "source.perch"
-file-types = ["capy"]
+file-types = ["perch"]
 roots = []
 indent = { tab-width = 4, unit = "    " }
 comment-token = "#"
