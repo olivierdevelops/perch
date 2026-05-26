@@ -48,15 +48,25 @@ type CommandHelpUseCase interface {
 	Execute(configPath, commandName string) error
 }
 
+type InstallLSPUseCase interface {
+	Execute() error
+}
+
+type InstallVSCodeUseCase interface {
+	Execute() error
+}
+
 type UseCases struct {
-	Run         RunCommandUseCase
-	List        ListCommandsUseCase
-	Init        InitConfigUseCase
-	Build       RunBuildUseCase
-	Server      RunServerUseCase
-	Shell       RunShellUseCase
-	Validate    ValidateUseCase
-	CommandHelp CommandHelpUseCase
+	Run           RunCommandUseCase
+	List          ListCommandsUseCase
+	Init          InitConfigUseCase
+	Build         RunBuildUseCase
+	Server        RunServerUseCase
+	Shell         RunShellUseCase
+	Validate      ValidateUseCase
+	CommandHelp   CommandHelpUseCase
+	InstallLSP    InstallLSPUseCase
+	InstallVSCode InstallVSCodeUseCase
 }
 
 type Config struct {
@@ -115,6 +125,10 @@ func (c *CLI) Run() int {
 	case "--check", "--validate":
 		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Validate.Execute(path))
+	case "--install-lsp":
+		return errExit(c.UseCases.InstallLSP.Execute())
+	case "--install-vscode":
+		return errExit(c.UseCases.InstallVSCode.Execute())
 	}
 
 	path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
@@ -197,6 +211,8 @@ func (c *CLI) printHelp() {
 	fmt.Println("  --shell       REPL — type one op per line; bindings persist")
     fmt.Println("  --check       Parse and statically check commands.perch; report problems")
 	fmt.Println("  --completions SHELL  Print shell completions (bash|zsh|fish)")
+	fmt.Println("  --install-lsp        Install the perch-lsp language server (via `go install`)")
+	fmt.Println("  --install-vscode     Install perch-lsp + the perch VS Code extension")
 	fmt.Println()
 	fmt.Println("Per-command help:")
 	fmt.Println("  perch <command> --help   Show args, defaults, examples for one command")

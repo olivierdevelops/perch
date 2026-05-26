@@ -1,0 +1,109 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "perch",
+  "scopeName": "source.perch",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#booleans-nulls" },
+    { "include": "#structural-keywords" },
+    { "include": "#config-modifiers" },
+    { "include": "#block-ops" },
+    { "include": "#capturables" },
+    { "include": "#process-ops" },
+    { "include": "#fs-ops" },
+    { "include": "#meta-keywords" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [{
+        "name": "comment.line.number-sign.perch",
+        "match": "#.*$"
+      }]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.perch",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            { "name": "constant.character.escape.perch", "match": "\\\\." },
+            { "name": "variable.other.perch", "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}" }
+          ]
+        },
+        {
+          "name": "string.quoted.single.perch",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "name": "constant.character.escape.perch", "match": "\\\\." },
+            { "name": "variable.other.perch", "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}" }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [{
+        "name": "constant.numeric.perch",
+        "match": "\\b-?[0-9]+(\\.[0-9]+)?\\b"
+      }]
+    },
+    "booleans-nulls": {
+      "patterns": [{
+        "name": "constant.language.perch",
+        "match": "\\b(true|false|null)\\b"
+      }]
+    },
+    "meta-keywords": {
+      "patterns": [{
+        "name": "keyword.other.metadata.perch",
+        "match": "^\\s*(name|about|version)\\b"
+      }]
+    },
+    "structural-keywords": {
+      "patterns": [{
+        "name": "keyword.control.perch",
+        "match": "\\b(command|globals|do|end|catch|let|run|fail|exit)\\b"
+      }]
+    },
+    "config-modifiers": {
+      "patterns": [{
+        "name": "storage.modifier.perch",
+        "match": "\\b(description|arg|type|default|optional|index|private|detached|proxy_args|require_os|require_arch|dir|on_signal|env)\\b"
+      }]
+    },
+    "block-ops": {
+      "patterns": [{
+        "name": "keyword.control.flow.perch",
+        "match": "\\b(if|for_each|not)\\b"
+      }]
+    },
+    "process-ops": {
+      "patterns": [{
+        "name": "support.function.perch",
+        "match": "\\b(print|println|eprintln|shell|shell_output|shell_detached|sleep|list_commands)\\b"
+      }]
+    },
+    "fs-ops": {
+      "patterns": [{
+        "name": "support.function.perch",
+        "match": "\\b(mkdir|cp|mv|rm|cd|chmod|touch|write_file|read_file|exists|is_dir|is_file|file_size|gzip|ungzip|tar_create|tar_extract|zip_create|zip_extract|download)\\b"
+      }]
+    },
+    "capturables": {
+      "patterns": [{
+        "name": "support.function.builtin.perch",
+        "match": "\\b(upper|lower|trim|capitalize|length|contains|has_prefix|has_suffix|replace|split|join|repeat|format|md5|sha1|sha256|crc32|md5_file|sha1_file|sha256_file|base64_encode|base64_decode|hex_encode|hex_decode|url_encode|url_decode|json_parse|json_stringify|json_get|http_get|http_post|http_put|http_delete|now|unix_to_iso|regex_match|regex_replace|regex_find_all|hostname|dns_lookup|port_check|get_os|get_arch|get_env|set_env|cwd|home_dir|temp_dir|cache_dir|app_data_dir|pid|user)\\b"
+      }]
+    },
+    "identifiers": {
+      "patterns": [{
+        "name": "variable.other.perch",
+        "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+      }]
+    }
+  }
+}

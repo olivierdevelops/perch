@@ -16,6 +16,8 @@ import (
 	"github.com/luowensheng/perch/io/cli"
 	"github.com/luowensheng/perch/usecases/commandhelp"
 	"github.com/luowensheng/perch/usecases/initconfig"
+	"github.com/luowensheng/perch/usecases/installlsp"
+	"github.com/luowensheng/perch/usecases/installvscode"
 	"github.com/luowensheng/perch/usecases/listcommands"
 	"github.com/luowensheng/perch/usecases/runbuild"
 	"github.com/luowensheng/perch/usecases/runcommand"
@@ -88,6 +90,8 @@ func buildCLI() *cli.CLI {
 		CommandHelp: &commandhelp.Impl{
 			Load: capyloader.Load,
 		},
+		InstallLSP:    &installlsp.Impl{},
+		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
 	}
 
 	return &cli.CLI{
@@ -137,6 +141,8 @@ func buildEmbeddedCLI(p *domain.Program) *cli.CLI {
 		CommandHelp: &commandhelp.Impl{
 			Load: loadEmbedded,
 		},
+		InstallLSP:    &installlsp.Impl{},
+		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
 	}
 
 	version := p.Version
