@@ -58,6 +58,17 @@ type Interpreter struct {
 	// via ${NAME} fallthrough. Wired into every fresh Bindings made by
 	// Run. nil means "all host env vars visible" (legacy).
 	EnvAllowlist map[string]bool
+	// AllowedShellBins, when non-nil, restricts the first token of every
+	// `shell` command to the listed names. Without this, even with
+	// `--env` scrubbing the subprocess could be anything (`curl`,
+	// `nc`, `cp ~/.ssh/...`). With it, the user pre-declares which
+	// binaries may be invoked. nil = no restriction.
+	AllowedShellBins map[string]bool
+	// NoShellMetachars, when true, rejects shell commands containing
+	// pipes / redirects / command-substitution / && / || / `;`. Combined
+	// with AllowedShellBins this neutralizes most shell-injection
+	// vectors even inside an otherwise-allowed shell call.
+	NoShellMetachars bool
 }
 
 // New constructs an Interpreter with stdout/stderr/stdin defaulted to os.*.

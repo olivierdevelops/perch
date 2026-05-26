@@ -33,10 +33,14 @@ var restrictBlocks = map[string][]string{
 		"shell", "shell_output", "shell_detached", "shell_in", "try_shell",
 	},
 	RestrictNoSubprocess: {
-		// Process management beyond shell — implies a shell-like effect
-		// (sudo apt install …) even though the user didn't write `shell`.
+		// Process management beyond shell — anything that fork/execs
+		// without going through the `shell` op. These can leak host env
+		// vars, network access, file access into the spawned process
+		// just like `shell` can, so they belong to the same category.
 		"pkg_install", "pkg_uninstall",
 		"kill_by_name", "process_running",
+		"bin_version",   // runs `BIN --version`
+		"os_version",    // runs `sw_vers` / `uname -r` / `cmd /c ver`
 	},
 	RestrictNoNetwork: {
 		"http_get", "http_post", "http_put", "http_delete", "http_status",

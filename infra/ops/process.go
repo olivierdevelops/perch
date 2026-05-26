@@ -37,6 +37,12 @@ func registerProcess(m map[string]interpreter.Handler) {
 // `let docker_ok = try_shell "docker info"`).
 func opTryShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	cmd := argString(args, "cmd", "_0")
+	// Same allowlist / metachar checks as `shell`. A blocked call returns
+	// the error rather than being silently false — the user explicitly
+	// restricted the surface, and a silent false would lie about why.
+	if err := checkShell(i, cmd); err != nil {
+		return false, err
+	}
 	c := buildShell(cmd)
 	c.Dir = b.Cwd
 	applyEnv(c, b)
@@ -49,6 +55,9 @@ func opTryShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[st
 func opShellIn(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	dir := argString(args, "dir", "_0")
 	cmd := argString(args, "cmd", "_1")
+	if err := checkShell(i, cmd); err != nil {
+		return nil, err
+	}
 	c := buildShell(cmd)
 	if dir == "" {
 		c.Dir = b.Cwd
@@ -115,8 +124,61 @@ func opEprintln(i *interpreter.Interpreter, b *interpreter.Bindings, args map[st
 	return nil, nil
 }
 
+// checkShell enforces the two user-side defenses against subprocess
+// escape when shell is allowed: a binary allowlist (first token must
+// be permitted) and a metachar filter (no pipes / redirects / && / ;
+// / $(...) / backticks). Returns nil when the command passes both
+// checks (or when neither is active).
+func checkShell(i *interpreter.Interpreter, raw string) error {
+	if i.NoShellMetachars {
+		for _, ch := range []string{"|", ">", "<", "&", ";", "`", "$("} {
+			if strings.Contains(raw, ch) {
+				return fmt.Errorf(
+					"shell metachar %q rejected by --no-shell-metachars (see https://luowensheng.github.io/perch/sandbox/)",
+					ch,
+				)
+			}
+		}
+	}
+	if i.AllowedShellBins != nil {
+		// Skip leading env-var assignments (FOO=bar BAZ=qux cmd …).
+		fields := strings.Fields(raw)
+		first := ""
+		for _, f := range fields {
+			if strings.Contains(f, "=") && !strings.ContainsAny(f, " \t") {
+				continue
+			}
+			first = f
+			break
+		}
+		if first == "" {
+			return fmt.Errorf("shell: empty command rejected by --allow-bin")
+		}
+		// Use the basename (so /usr/local/bin/git matches `git`).
+		base := first
+		if idx := strings.LastIndexAny(base, "/\\"); idx >= 0 {
+			base = base[idx+1:]
+		}
+		if !i.AllowedShellBins[base] {
+			names := make([]string, 0, len(i.AllowedShellBins))
+			for n := range i.AllowedShellBins {
+				names = append(names, n)
+			}
+			return fmt.Errorf(
+				"shell: binary %q is not in --allow-bin (allowed: %s)",
+				base, strings.Join(names, ", "),
+			)
+		}
+	}
+	return nil
+}
+
 func opShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	cmd := buildShell(argString(args, "cmd", "_0"))
+	raw := argString(args, "cmd", "_0")
+	if err := checkShell(i, raw); err != nil {
+		return nil, err
+	}
+	cmd := buildShell(raw)
 	applyEnv(cmd, b)
 	cmd.Dir = b.Cwd
 	cmd.Stdin = i.Stdin
@@ -126,7 +188,11 @@ func opShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[strin
 }
 
 func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	cmd := buildShell(argString(args, "cmd", "_0"))
+	raw := argString(args, "cmd", "_0")
+	if err := checkShell(i, raw); err != nil {
+		return "", err
+	}
+	cmd := buildShell(raw)
 	applyEnv(cmd, b)
 	cmd.Dir = b.Cwd
 	var out bytes.Buffer
@@ -139,7 +205,11 @@ func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map
 }
 
 func opShellDetached(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	cmd := buildShell(argString(args, "cmd", "_0"))
+	raw := argString(args, "cmd", "_0")
+	if err := checkShell(i, raw); err != nil {
+		return nil, err
+	}
+	cmd := buildShell(raw)
 	applyEnv(cmd, b)
 	cmd.Dir = b.Cwd
 	return nil, cmd.Start()
@@ -219,10 +289,32 @@ func buildShell(s string) *exec.Cmd {
 }
 
 // applyEnv copies the bindings' env into the cmd's environment.
+//
+// SECURITY: if the bindings carry an EnvAllowlist (set by `perch --env`),
+// the subprocess inherits ONLY the named host env vars — not the full
+// host environment. That closes the most obvious subprocess escape:
+// without scrubbing, `shell "echo $AWS_SECRET_KEY"` would happily print
+// a secret even when the user `--env`-excluded it from perch's own
+// interpolation. With scrubbing, the subprocess literally cannot see
+// what the allowlist didn't permit.
+//
+// nil allowlist preserves legacy "everything inherits" behavior so files
+// that don't opt into restrictions work unchanged.
 func applyEnv(cmd *exec.Cmd, b *interpreter.Bindings) {
-	cmd.Env = append(cmd.Env, os.Environ()...)
+	if b.EnvAllowlist == nil {
+		cmd.Env = append(cmd.Env, os.Environ()...)
+	} else {
+		// Pass through only the explicitly-allowed host env vars.
+		for name := range b.EnvAllowlist {
+			if v, ok := os.LookupEnv(name); ok {
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", name, v))
+			}
+		}
+	}
 	// Globals are visible as env vars too — convention: any binding with
-	// an uppercase first letter becomes an env var.
+	// an uppercase first letter becomes an env var. These are values the
+	// user explicitly declared in the .perch file (or via CLI flag), so
+	// they're considered "in scope" regardless of the allowlist.
 	for k, v := range b.Vars {
 		if k == "" {
 			continue

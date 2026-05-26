@@ -54,6 +54,7 @@ func Run() {
 	// parsed value. See docs/sandbox.md for the design.
 	restrictions := extractRestrictionFlags()
 	envAllow := extractEnvFlag()
+	allowBins, noMeta := extractShellGuards()
 	previewMode := extractPreviewFlags()
 
 	if showRestrictionsAndExit() {
@@ -64,9 +65,58 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, previewMode).Run())
+		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, previewMode).Run())
 	}
-	os.Exit(buildCLI(restrictions, envAllow, previewMode).Run())
+	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, previewMode).Run())
+}
+
+// extractShellGuards peels off `--allow-bin NAME[,NAME…]` (additive,
+// repeatable) and `--no-shell-metachars`. These are the second line of
+// defense when `shell` is allowed but you still want to bound which
+// binaries it may invoke and reject pipe / redirect / $() / && / ; tricks.
+// Returns (nil, false) when neither flag is given (legacy "no extra check").
+func extractShellGuards() (map[string]bool, bool) {
+	out := os.Args[:1]
+	var allow map[string]bool
+	noMeta := false
+	add := func(s string) {
+		if allow == nil {
+			allow = map[string]bool{}
+		}
+		for _, name := range strings.Split(s, ",") {
+			name = strings.TrimSpace(name)
+			if name != "" {
+				allow[name] = true
+			}
+		}
+	}
+	i := 1
+	for i < len(os.Args) {
+		a := os.Args[i]
+		switch {
+		case a == "--no-shell-metachars":
+			noMeta = true
+			i++
+		case a == "--allow-bin":
+			if i+1 < len(os.Args) {
+				add(os.Args[i+1])
+				i += 2
+				continue
+			}
+			if allow == nil {
+				allow = map[string]bool{}
+			}
+			i++
+		case strings.HasPrefix(a, "--allow-bin="):
+			add(a[len("--allow-bin="):])
+			i++
+		default:
+			out = append(out, a)
+			i++
+		}
+	}
+	os.Args = out
+	return allow, noMeta
 }
 
 // extractRestrictionFlags walks os.Args, peels off any of:
@@ -187,7 +237,7 @@ func extractPreviewFlags() string {
 // announceSecurityPosture prints a one-line banner naming the active
 // restrictions (if any) so users / reviewers see the posture without
 // having to dig. Silent when nothing's restricted.
-func announceSecurityPosture(r ops.Restrictions, envAllow map[string]bool) {
+func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool) {
 	parts := []string{}
 	if r.Active() {
 		parts = append(parts, strings.Join(r.AsFlags(), " "))
@@ -197,12 +247,21 @@ func announceSecurityPosture(r ops.Restrictions, envAllow map[string]bool) {
 		for k := range envAllow {
 			names = append(names, k)
 		}
-		// Stable order for the banner.
 		if len(names) > 0 {
 			parts = append(parts, fmt.Sprintf("--env %s", strings.Join(names, ",")))
 		} else {
 			parts = append(parts, "--env (empty)")
 		}
+	}
+	if allowBins != nil {
+		names := make([]string, 0, len(allowBins))
+		for k := range allowBins {
+			names = append(names, k)
+		}
+		parts = append(parts, fmt.Sprintf("--allow-bin %s", strings.Join(names, ",")))
+	}
+	if noMeta {
+		parts = append(parts, "--no-shell-metachars")
 	}
 	if len(parts) > 0 {
 		fmt.Fprintf(os.Stderr, "🔒 security: %s\n", strings.Join(parts, "  "))
@@ -237,15 +296,17 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(r ops.Restrictions, envAllow map[string]bool, previewMode string) *cli.CLI {
+func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, previewMode string) *cli.CLI {
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta)
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
 		i.BeforeOp = hook
 		i.EnvAllowlist = envAllow
+		i.AllowedShellBins = allowBins
+		i.NoShellMetachars = noMeta
 		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}
@@ -295,11 +356,11 @@ func buildCLI(r ops.Restrictions, envAllow map[string]bool, previewMode string) 
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow map[string]bool, previewMode string) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, previewMode string) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta)
 	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.
@@ -309,6 +370,8 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow map[str
 		i := interpreter.New(handlers, p)
 		i.BeforeOp = hook
 		i.EnvAllowlist = envAllow
+		i.AllowedShellBins = allowBins
+		i.NoShellMetachars = noMeta
 		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}

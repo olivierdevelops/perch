@@ -425,6 +425,17 @@ perch --restrictions                # discover the full lists
 
 A blocked call returns `op "X" is disabled by --no-Y`. When any restriction is active, perch prints a `🔒 security: ...` banner.
 
+## Closing the subprocess escape hatch
+
+Restrictions only fence perch's *own* op dispatch. A `shell` subprocess can ignore `--no-network`/`--env` by calling `curl` / reading `$SECRET` directly. Three layers of mitigation, compose as needed:
+
+- **`--no-shell` (+ `--no-subprocess`)** — bulletproof, but you lose shell.
+- **`--env A,B,C`** — automatically also scrubs the subprocess environment, so `shell "echo $X"` returns empty for any `X` not on the allowlist. Closes the most common leak even when shell is on.
+- **`--allow-bin git,docker`** — when shell IS allowed, restrict the first token. Basename match (so `/usr/local/bin/git` matches `git`), skips leading `FOO=bar` assignments.
+- **`--no-shell-metachars`** — rejects `|`, `>`, `<`, `&`, `;`, `` ` ``, `$(` in shell args. Stops shell-injection style escapes inside an otherwise-allowed call.
+
+Recommended posture for AI-agent surfaces / untrusted files: stack all four `--no-*` flags + `--env <minimal>`. The escape hatch is fully closed only at Layer 1.
+
 ## Host env-var allowlist
 
 `perch --env A,B,C` restricts which host env vars resolve via `${NAME}` fallthrough. By default every env var is reachable; with `--env` only the named ones are. Auto-bound names (`home`, `cache_dir`, `exe_path`, `is_macos`, …) are NOT env vars and are unaffected.

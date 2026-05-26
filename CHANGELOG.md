@@ -28,6 +28,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - `--ask` is the same plan, interactively. For each op the user chooses: `y` (run), `n` (skip), `a` (run this op then everything else without further asking), or `q` (stop immediately).
   - The interpolated args shown are exactly what the handler receives — no daydreaming. Block ops show `{N body ops}` and are entered (or skipped wholesale) by the user's choice.
   - Implementation is a `BeforeOp` hook on `interpreter.Interpreter` — zero overhead when unset, no change to existing handlers. Stacks with the restriction flags (e.g. `perch --no-shell --ask deploy` previews ops AND fences shell at runtime).
+- **Closed the subprocess escape hatch.** Subprocess restrictions only fenced perch's *own* op dispatch — `shell "echo $SECRET"` happily inherited the full host env, and any shell op could spawn any binary. Three new defenses, composable:
+  - **Subprocess env scrubbing (automatic with `--env`).** When `--env A,B,C` is set, spawned processes inherit *only* the named host env vars — no more leaking `$SECRET_KEY` to a `shell` subprocess that perch's own interpolation would have rejected.
+  - **`--allow-bin NAME[,NAME…]`** — when shell is allowed but you want to bound *what* it spawns, declare the basenames permitted. First non-env-assignment token's basename must match. Skips `FOO=bar` leading assignments. Blocked calls cite the flag: `shell: binary "echo" is not in --allow-bin`.
+  - **`--no-shell-metachars`** — rejects `|`, `>`, `<`, `&`, `;`, `` ` ``, `$(` in shell args. Stops shell-injection-style escapes inside an otherwise-allowed call.
+  - **Reclassified `bin_version` and `os_version` as subprocess ops** — they fork-exec but were missed by `--no-subprocess`. Now correctly blocked under the same flag as `pkg_install` etc.
+  - All four layers documented in [docs/sandbox.md §0c](docs/sandbox.md#0c-the-subprocess-escape-hatch--and-the-layered-defense), including an honest "what this still does NOT cover" subsection (an allowed binary reading FS / opening sockets — kernel-level sandboxing required for those, not in scope).
 - **Composable restriction flags** + **`--env` host env-var allowlist** — the CLI side of the sandbox design at [sandbox.md](docs/sandbox.md). Each flag names exactly what it disables; flags compose.
   - **`--no-shell`** — disables `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell`.
   - **`--no-subprocess`** — disables `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running`.
