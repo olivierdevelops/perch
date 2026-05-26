@@ -158,7 +158,7 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 | [docs/op-reference.md](docs/op-reference.md) | The built-in op catalog (the "stdlib") |
 | [docs/embedding.md](docs/embedding.md) | The `--build` fat-binary format |
 | [docs/mcp.md](docs/mcp.md) | MCP server for AI agents |
-| [docs/applications.md](docs/applications.md) | **What perch is *for* — 19 real applications with worked examples** |
+| [docs/applications.md](docs/applications.md) | **What perch is *for* — 22 real applications with worked examples** |
 | [docs/faq.md](docs/faq.md) | vs Make / Just / Task / etc. |
 
 Four worked examples live under [demos/](demos) — each a complete `commands.perch` you can run.

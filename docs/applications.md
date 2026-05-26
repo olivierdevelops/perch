@@ -265,7 +265,306 @@ This is the application that **most teams will discover first**. Wrapping a know
 
 ---
 
-### 4. Cross-platform machine setup / new-hire onboarding
+### 4. Extend an existing tool with team conventions (catch passthrough)
+
+A close cousin of section 3, but a distinct pattern with its own use case. Instead of *replacing* a tool's UX, you **extend** it: add your team's high-value shortcuts on top while still letting users (and muscle memory) reach the underlying tool for anything else.
+
+Inside `catch`, perch binds the full unknown invocation as `${proxy_args}`. Forward it to the real binary and you have a drop-in superset.
+
+```capy
+name "git"
+
+command ship
+    description "Commit all changes, push HEAD, open a PR"
+    arg msg
+        type string
+        description "Commit message"
+    end
+    do
+        shell "git add -A"
+        shell "git commit -m '${msg}'"
+        shell "git push -u origin HEAD"
+        shell "gh pr create --fill"
+    end
+end
+
+command fixup
+    description "Amend the most recent commit with current changes"
+    do
+        shell "git add -A"
+        shell "git commit --amend --no-edit"
+    end
+end
+
+command cleanup
+    description "Delete branches already merged into main"
+    do
+        shell "git branch --merged main | grep -v '^[* ]*main$' | xargs -r git branch -d"
+    end
+end
+
+catch passthrough
+    description "Forward unknown commands to real git"
+    do
+        shell "git ${proxy_args}"
+    end
+end
+```
+
+Then `perch --build -o git-team`:
+
+| Invocation | What happens |
+|---|---|
+| `git-team ship -msg="fix bug"` | Your custom multi-step workflow |
+| `git-team fixup` | Amend + no-edit |
+| `git-team cleanup` | Prune merged branches |
+| `git-team status` | Falls through to real `git status` |
+| `git-team log --oneline -10` | Falls through; args preserved |
+| `git-team rebase -i HEAD~3` | Falls through |
+
+**Why perch wins:** you get a *superset* of the underlying tool, not a replacement. Users keep their muscle memory; your team's conventions become first-class. `--help` lists only the additions, so people discover the new commands; familiar commands still work without docs.
+
+Other tools that benefit from extension over replacement:
+
+- **`kubectl`** — add `kc deploy <svc>`, `kc rollback <svc>`, `kc tail <svc>`; passthrough for `kc get pods`, `kc describe`, etc.
+- **`terraform`** — add `tf plan-staging`, `tf apply-staging`, `tf destroy-staging` with safety guards; passthrough for `tf init`, `tf fmt`.
+- **`docker`** — add `d up`, `d down`, `d shell`; passthrough for `d ps`, `d inspect`.
+- **`npm`** — add `n release`, `n bump-major`, `n publish-canary`; passthrough for `n install`, `n run`.
+
+---
+
+### 5. LLM-safe wrapper around dangerous tools
+
+When you give an AI agent access to a powerful tool, the grammar perch enforces becomes the security boundary. Instead of letting Claude / Cursor / Zed call `kubectl` or `aws` or `terraform` directly via a shell tool — where any prompt injection could cause arbitrary damage — you expose only the operations you've vetted, with explicit confirmation tokens for destructive ones.
+
+```capy
+name "prod-kubectl"
+about "AI-safe surface for production kubectl ops"
+
+# ── Read-only ops — agents can call these freely ───────────────────
+
+command get_pods
+    description "List pods in prod"
+    do
+        shell "kubectl get pods -n prod"
+    end
+end
+
+command logs
+    description "Tail recent logs of one pod"
+    arg pod
+        type string
+        description "Pod name"
+    end
+    arg lines
+        type int
+        default 100
+        description "How many lines"
+    end
+    do
+        shell "kubectl logs -n prod ${pod} --tail=${lines}"
+    end
+end
+
+command status
+    description "Cluster snapshot"
+    do
+        shell "kubectl get all -n prod"
+    end
+end
+
+# ── Mutating ops — require an explicit confirmation token ─────────
+
+command restart_api
+    description "Roll-restart the api deployment (mutating)"
+    arg confirm
+        type string
+        description "Must be 'YES' — proves the agent meant to mutate"
+    end
+    do
+        if confirm != "YES"
+            fail "restart_api requires -confirm=YES (got: '${confirm}')"
+        end
+        print "Restarting api in prod…"
+        shell "kubectl rollout restart deployment/api -n prod"
+        shell "kubectl rollout status deployment/api -n prod"
+    end
+end
+
+# ── No catch-all — anything else is rejected hard ─────────────────
+```
+
+Wire it into the MCP client:
+
+```jsonc
+{
+  "mcpServers": {
+    "prod-k8s": {
+      "command": "perch-mcp",
+      "args": ["-f", "/abs/prod-kubectl.perch"]
+    }
+  }
+}
+```
+
+The agent sees `get_pods`, `logs`, `status`, `restart_api`. It **cannot** call `kubectl delete pod`, `kubectl drain node`, `kubectl scale --replicas=0`. The grammar is exhaustive: every callable operation is declared.
+
+**Multi-layer safety the wrapper enforces:**
+
+1. **Whitelist by declaration.** Unlisted operations are unreachable. No catch-all, no shell escape.
+2. **Typed args.** `arg lines int default 100` — the agent can't sneak in a `; rm -rf /` (the value goes into a structured op, not a shell string).
+3. **Confirmation tokens.** Mutating ops require `-confirm=YES` (or "TYPED_OUT_REASON" for stricter cases). The agent must produce the literal string, which means the LLM has to "intend" the mutation.
+4. **Audit log for free.** `perch --server` streams every op as NDJSON. Pipe to your observability stack and you have a complete audit trail of every agent action.
+5. **`--check` keeps the policy honest.** As you add ops, the validator catches typo'd arg references / unresolved placeholders / unreachable branches before they ship.
+
+Compare to giving the agent raw `kubectl`: prompt injection or hallucination → cluster damage. With perch's curated surface, the worst the agent can do is something you decided was safe to expose.
+
+**Same pattern for other "dangerous engine" tools:**
+
+- **`rm`** / file-system ops — only the deletes you've vetted; everything else absent
+- **`terraform apply`** — only against pre-named environments; only after `terraform plan` (encoded as a `run plan_first` op)
+- **`aws`** / cloud APIs — only the read/write surfaces your security team approves
+- **DB clients** — only the queries you've parameterised; no raw SQL
+
+> The grammar is the policy. The schema **is** the boundary.
+
+---
+
+### 6. Unify multiple binaries under one tool
+
+Your dev environment depends on 10 tools: node, postgres, redis, kubectl, helm, terraform, jq, ripgrep, gh, docker. New hires spend half a day installing them, often wrong, with version drift. Status checks ("which version of helm do I have?") are a folder full of one-liners.
+
+A single perch binary becomes your team's *meta-tool*:
+
+```capy
+name "devtools"
+about "Install / status / update the team's dev toolkit"
+version "0.1.0"
+
+globals
+    NODE_VER  = "20"
+    PG_VER    = "15"
+    HELM_VER  = "3.14"
+    TF_VER    = "1.7"
+end
+
+command install_all
+    description "Install everything"
+    do
+        run install_node
+        run install_postgres
+        run install_redis
+        run install_kubectl
+        run install_helm
+        run install_terraform
+        run install_jq
+        run install_ripgrep
+        run install_gh
+        run install_docker
+        print "All tools installed."
+    end
+end
+
+command install_node
+    do
+        if exists "/usr/local/bin/node"
+            print "node already installed"
+        end
+        if not exists "/usr/local/bin/node"
+            if os == "darwin"
+                shell "brew install node@${NODE_VER}"
+            end
+            if os == "linux"
+                shell "curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | sudo bash -"
+                shell "sudo apt-get install -y nodejs"
+            end
+        end
+    end
+end
+
+command install_postgres
+    do
+        if os == "darwin"
+            shell "brew install postgresql@${PG_VER}"
+        end
+        if os == "linux"
+            shell "sudo apt-get install -y postgresql-${PG_VER}"
+        end
+    end
+end
+
+# … one install command per tool …
+
+command status
+    description "What's installed, what's missing"
+    do
+        let n  = exists "/usr/local/bin/node"
+        let pg = exists "/usr/local/bin/psql"
+        let r  = exists "/usr/local/bin/redis-cli"
+        let k  = exists "/usr/local/bin/kubectl"
+        let h  = exists "/usr/local/bin/helm"
+        let tf = exists "/usr/local/bin/terraform"
+        print "node:        ${n}"
+        print "postgres:    ${pg}"
+        print "redis:       ${r}"
+        print "kubectl:     ${k}"
+        print "helm:        ${h}"
+        print "terraform:   ${tf}"
+    end
+end
+
+command update_all
+    description "Re-run installers; package managers handle the upgrade"
+    do
+        run install_all
+    end
+end
+
+command uninstall_all
+    description "Remove everything (irreversible — asks for confirm)"
+    arg confirm
+        type string
+        description "Must be YES"
+    end
+    do
+        if confirm != "YES"
+            fail "Pass -confirm=YES to actually uninstall"
+        end
+        if os == "darwin"
+            shell "brew uninstall node@${NODE_VER} postgresql@${PG_VER} redis kubectl helm terraform jq ripgrep gh"
+        end
+        if os == "linux"
+            shell "sudo apt-get remove -y nodejs postgresql-${PG_VER} redis kubectl jq ripgrep gh"
+        end
+    end
+end
+```
+
+`perch --build -o devtools` and now your team's dev-environment setup, status, update, and teardown all live behind one binary:
+
+```sh
+./devtools install_all       # one-time onboarding
+./devtools status            # which tools are present?
+./devtools install_helm      # add one missing tool
+./devtools update_all        # bump everything
+./devtools uninstall_all -confirm=YES   # before reimaging the machine
+```
+
+**Why perch wins:** the alternative is an `install.sh` per tool, a `README#installation` section that lies, and a Slack channel where people ask "what version of helm do you have?" The unified binary collapses all of that into one auditable source.
+
+Add `--server` and your laptop-provisioning team gets a web UI. Add MCP and the AI agent helping a new hire can install missing tools on demand.
+
+**Variations of "multi-binary unifier":**
+
+- **Polyglot language manager** — wraps asdf / mise / pyenv / nvm / rustup under one set of commands (`langs install node 20`, `langs use python 3.11`).
+- **Cloud provider unifier** — same verb-set across AWS/GCP/Azure (`cloud list-instances`, `cloud start-vm`).
+- **Service stack starter** — `stack up` brings up postgres + redis + the app, with `if exists` guards for already-running services.
+- **Backup destination router** — `backup s3`, `backup b2`, `backup rsync` — same recipe, different targets.
+- **Editor/IDE plugin manager** — install / update / list plugins for vim, vscode, neovim from one CLI.
+
+---
+
+### 7. Cross-platform machine setup / new-hire onboarding
 
 A new engineer joins. They need to install ~10 packages, clone two private repos, set five env vars, and run `make init`. Today that's a README with instructions that drift, or a `setup.sh` that doesn't work on Windows.
 
@@ -303,7 +602,7 @@ curl -fsSL https://internal/team-bootstrap -o bootstrap && chmod +x bootstrap &&
 
 ---
 
-### 5. Safe operational surface for non-engineers
+### 8. Safe operational surface for non-engineers
 
 Your support team needs to flush a customer's cache, regenerate an invoice, or rotate an API key. Today they Slack you and you do it from your laptop. Or worse, you give them shell access.
 
@@ -346,7 +645,7 @@ The support team gets a form for each command, with arg validation. Output strea
 
 ---
 
-### 6. CI pipeline as code (one source for local + remote)
+### 9. CI pipeline as code (one source for local + remote)
 
 The classic problem: your `.github/workflows/ci.yml` and your local `make test` slowly diverge. Six months in, "it passes locally but fails in CI" is the team's most-said phrase.
 
@@ -395,7 +694,7 @@ The whole CI definition shrinks:
 
 ---
 
-### 7. Data pipeline / ETL orchestration
+### 10. Data pipeline / ETL orchestration
 
 You have 10 shell scripts that run nightly via cron. They download, decompress, transform, upload. Half of them broke once when curl's flag syntax changed; the other half broke when someone renamed a JSON field.
 
@@ -427,7 +726,7 @@ Not a full Airflow replacement, but for the "I have 10 shell scripts and 5 of th
 
 ---
 
-### 8. AI-agent tooling (curated MCP surface)
+### 11. AI-agent tooling (curated MCP surface)
 
 Give an AI agent (Claude Desktop, Claude Code, Cursor, Zed) the ability to *do things* in your environment — restart services, query metrics, fetch logs — without giving it shell access.
 
@@ -454,7 +753,7 @@ This is a sweet spot: **curated, safe, structured execution for AI agents.** A s
 
 ---
 
-### 9. Self-service runbooks
+### 12. Self-service runbooks
 
 Every on-call engineer has a folder of runbooks. They're markdown files with shell snippets. Half the snippets stop working when the cluster gets upgraded.
 
@@ -488,7 +787,7 @@ end
 
 ---
 
-### 10. Configuration management (Ansible-lite)
+### 13. Configuration management (Ansible-lite)
 
 For small jobs that don't justify Ansible/Chef/Puppet:
 
@@ -521,7 +820,7 @@ Run it locally for the first time, then `perch --build -o provision` and SCP to 
 
 ---
 
-### 11. Multi-target build orchestration for game / native development
+### 14. Multi-target build orchestration for game / native development
 
 Game studios + native-app teams have weird per-platform build dances: Xcode for iOS, Gradle for Android, MSBuild for Windows, plus signing + notarization + uploads to four stores.
 
@@ -554,7 +853,7 @@ end
 
 ---
 
-### 12. Personal "me" CLI (dotfiles, side projects)
+### 15. Personal "me" CLI (dotfiles, side projects)
 
 Personal automation. The kind of thing where you'd otherwise have `~/bin/blog-deploy`, `~/bin/backup`, `~/bin/cleanup`:
 
@@ -591,7 +890,7 @@ Build it once (`perch --build -o ~/bin/me`) and now `me deploy_blog` is your too
 
 ---
 
-### 13. Scaffold / template generator
+### 16. Scaffold / template generator
 
 You have a "create a new microservice" recipe that does ~20 things: clone a template, rename files, set up CI, register with service discovery, …
 
@@ -619,7 +918,7 @@ end
 
 ---
 
-### 14. Documentation site / blog tooling
+### 17. Documentation site / blog tooling
 
 The kind of thing that should be Make but ends up being five separate scripts:
 
@@ -649,7 +948,7 @@ end
 
 ---
 
-### 15. Quick API smoke tests / health probes
+### 18. Quick API smoke tests / health probes
 
 You want a "is the system OK?" command that pings five services and reports.
 
@@ -676,7 +975,7 @@ Pair with a cron, or expose via `--server` for a real-time dashboard.
 
 ---
 
-### 16. AI-assisted refactor / migration tools
+### 19. AI-assisted refactor / migration tools
 
 Internal tools that combine human-driven and AI-driven operations:
 
@@ -700,7 +999,7 @@ Expose via `perch-mcp` and Claude can drive the migration command-by-command, ch
 
 ---
 
-### 17. Embedded scripting for your own Go program
+### 20. Embedded scripting for your own Go program
 
 Less obvious but real: you can import perch's capy loader + interpreter as a Go library to give *your* program a scriptable interface. Think: vim's vimscript, or Emacs's elisp, but for a Go application.
 
@@ -725,7 +1024,7 @@ Your users can write `.perch` files that drive your program. You control which o
 
 ---
 
-### 18. Workshops, tutorials, demos
+### 21. Workshops, tutorials, demos
 
 If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful classroom tool. The DSL is small enough that students learn it in 20 minutes. The op catalog gives them real capability without "first install jq, brew install …". A `commands.perch` is a small, complete, runnable artifact you can hand them.
 
@@ -733,7 +1032,7 @@ If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful c
 
 ---
 
-### 19. Internal-tools framework for low-engineering teams
+### 22. Internal-tools framework for low-engineering teams
 
 Marketing / design / ops / product orgs sometimes want a "button" that triggers something:
 

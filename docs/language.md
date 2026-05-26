@@ -161,7 +161,7 @@ See the [op catalog](op-reference.md) for every built-in op.
 
 ## `catch NAME … end`
 
-A fallback dispatched when the user types a command we don't have. The unknown name is bound to `NAME` inside the body.
+A fallback dispatched when the user types a command we don't have. The unknown name is bound to `NAME` inside the body. The full unknown invocation (command name + every remaining arg, joined with spaces) is also bound as `${proxy_args}` — this lets `catch` forward to an underlying tool.
 
 ```capy
 catch unknown
@@ -174,6 +174,19 @@ catch unknown
     end
 end
 ```
+
+**Passthrough pattern** — extend an existing tool with team conventions:
+
+```capy
+catch passthrough
+    description "Forward unknown commands to real git"
+    do
+        shell "git ${proxy_args}"
+    end
+end
+```
+
+With that catch in place, `./mywrapper status` calls `git status`, `./mywrapper log --oneline -10` calls `git log --oneline -10`, and any custom commands you declare above the catch still take precedence over the underlying tool.
 
 ## Interpolation
 

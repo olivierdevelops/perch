@@ -153,6 +153,29 @@ func TestCatch(t *testing.T) {
 	}
 }
 
+func TestCatchProxyArgs(t *testing.T) {
+	// catch should expose the full unknown invocation as ${proxy_args}
+	// so wrappers can forward to an underlying tool.
+	handlers, out := makeHandlers(t)
+	p := &domain.Program{
+		Commands: map[string]*domain.Command{},
+		Catch: &domain.Catch{
+			Bind: "name",
+			Ops: []domain.Op{
+				{Kind: "print", Args: map[string]any{"msg": "→ ${proxy_args}"}},
+			},
+		},
+	}
+	i := New(handlers, p)
+	i.Stdout = out
+	if err := i.Run("log", []string{"--oneline", "-10"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "→ log --oneline -10") {
+		t.Errorf("output: %q", out.String())
+	}
+}
+
 func TestPrivateCommandFallsToCatch(t *testing.T) {
 	handlers, out := makeHandlers(t)
 	p := &domain.Program{

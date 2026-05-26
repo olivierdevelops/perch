@@ -169,6 +169,7 @@ Map the request to perch concepts:
 | "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get body "a.b.c"` |
 | "compress this folder" | `tar_create "src" "out.tar.gz"` |
 | "skip a step if a file already exists" | `if exists "PATH" ... end` — or `let e = exists "PATH"; if not e ... end` for the inverse |
+| "wrap / extend an existing tool, forwarding unknown commands" | `catch passthrough ... shell "REAL_TOOL ${proxy_args}"` — see Language Reference for the passthrough pattern |
 | "ship this as a binary" | `perch --build -f commands.perch -o NAME` |
 | "serve a web UI" | `perch --server` |
 | "play interactively" | `perch --shell` |

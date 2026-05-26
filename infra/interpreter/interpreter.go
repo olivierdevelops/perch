@@ -51,8 +51,14 @@ func (i *Interpreter) Run(commandName string, cliArgs []string) error {
 		if i.Program.Catch == nil {
 			return fmt.Errorf("command not found: %q", commandName)
 		}
-		// catch: bind the unknown name and run the catch body.
+		// catch: bind the unknown name plus the full argv as proxy_args
+		// (the command name + every remaining arg, joined with spaces).
+		// This lets `shell "real-tool ${proxy_args}"` forward unknown
+		// invocations through to the real tool — the "extend an existing
+		// tool" pattern.
 		b.Set(i.Program.Catch.Bind, commandName)
+		full := append([]string{commandName}, cliArgs...)
+		b.Set("proxy_args", strings.Join(full, " "))
 		return i.RunOps(i.Program.Catch.Ops, b)
 	}
 
