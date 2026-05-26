@@ -3,16 +3,20 @@ about   "perch — a cross-platform command runner driven by capy"
 version "0.1.0"
 
 globals
-    BUILD_OUT = "./ignore"
+    BUILD_DIR = "${script_dir}/.ignore"
+    BUILD_OUT = "${script_dir}/.ignore/perch"
 end
 
 command build
-    description "Build the perch binary"
+    description "Build the perch binary into .ignore/ and register it with bman"
     do
+        mkdir "${BUILD_DIR}"
         print "Building ${BUILD_OUT}…"
-        shell "go build -o ${BUILD_OUT} ./orchestrator"
+        shell "go build -o ${BUILD_OUT} ."
         let size = file_size "${BUILD_OUT}"
         print "Built ${size} bytes."
+        print "Registering with bman…"
+        shell "bman add ${BUILD_OUT}"
     end
 end
 

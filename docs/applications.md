@@ -122,7 +122,150 @@ end
 
 ---
 
-### 3. Cross-platform machine setup / new-hire onboarding
+### 3. Wrap a clunky CLI as a friendly tool
+
+Probably the highest-leverage application — and the one most teams have a use for.
+
+Many tools have a **good engine, bad UX**. Docker is the canonical example: enormously powerful, but the day-to-day flow ("pull the image, run with these mounts and ports, stream logs, stop, clean up") requires memorising six different invocations. Same story for ffmpeg, kubectl, AWS CLI, openssl, rsync, gh, tar, git — every team has a handful of "I always have to look up the flags" tools.
+
+perch lets you wrap any of these with a sane verb-driven CLI in 30 lines. The shippable binary doesn't require the recipient to learn the underlying tool at all.
+
+Concrete example — a friendly Redis-via-Docker wrapper:
+
+```capy
+name    "redis"
+about   "Friendly wrapper around the official Redis Docker image"
+version "0.1.0"
+
+globals
+    IMAGE     = "redis:7-alpine"
+    CONTAINER = "my-redis"
+end
+
+command install
+    description "Pull the Redis Docker image"
+    do
+        shell "docker pull ${IMAGE}"
+    end
+end
+
+command run
+    description "Start Redis in the background on the host port"
+    arg port
+        type int
+        default 6379
+        description "Host port to expose Redis on"
+    end
+    do
+        shell "docker run -d --rm --name ${CONTAINER} -p ${port}:6379 ${IMAGE}"
+        print "Redis running on port ${port}. Use 'redis cli' to connect."
+    end
+end
+
+command cli
+    description "Open a redis-cli session into the running container"
+    do
+        shell "docker exec -it ${CONTAINER} redis-cli"
+    end
+end
+
+command logs
+    description "Stream container logs"
+    do
+        shell "docker logs -f ${CONTAINER}"
+    end
+end
+
+command status
+    description "Is Redis running?"
+    do
+        shell "docker ps --filter name=${CONTAINER}"
+    end
+end
+
+command stop
+    description "Stop the running container"
+    do
+        shell "docker stop ${CONTAINER}"
+    end
+end
+
+command uninstall
+    description "Stop and remove the image"
+    do
+        run stop
+        shell "docker rmi ${IMAGE}"
+    end
+end
+```
+
+Then:
+
+```sh
+perch --build -o redis
+./redis install
+./redis run -port=6380
+./redis cli
+./redis logs
+./redis stop
+./redis uninstall
+```
+
+The recipient never types `docker` once. `./redis --help` is the discoverable command list. `./redis run --help` shows the typed arg with its default.
+
+**Pair it with `--server`** and someone non-technical clicks buttons:
+
+```sh
+./redis --server --port 8080
+```
+
+A designer who wants Redis locally for testing now opens a browser, clicks "run", and never thinks about Docker. The wrapper is the user-facing interface; the underlying tool is an implementation detail.
+
+**Pair it with MCP** and an AI agent uses the same surface:
+
+```jsonc
+{
+  "mcpServers": {
+    "redis": { "command": "perch-mcp", "args": ["-f", "/abs/redis.perch"] }
+  }
+}
+```
+
+The agent sees `redis_install` / `redis_run` / `redis_cli` / `redis_stop` — semantic verbs, not Docker syntax. It can reliably orchestrate complex sequences without learning Docker.
+
+**Other "good engine, bad UX" candidates** where this pattern shines:
+
+| Underlying tool | What you wrap | Example commands |
+|---|---|---|
+| **Docker** / Podman | Image lifecycle for a specific service | `install` / `run` / `cli` / `logs` / `stop` / `uninstall` |
+| **kubectl** | Your team's deploy / rollback / status flows | `deploy` / `rollback` / `status` / `logs` / `exec` |
+| **ffmpeg** | Specific recipes you actually use | `to_mp4` / `extract_audio` / `make_gif` / `compress` / `concat` |
+| **AWS CLI** | Operations your team does | `list_instances` / `rotate_key` / `fetch_logs` / `tail_cloudwatch` |
+| **gh** (GitHub) | Team-specific workflows | `start_feature` / `open_pr` / `rebase_main` / `release_notes` |
+| **openssl** | Cert lifecycle | `generate_cert` / `verify_cert` / `convert_pem` / `inspect` |
+| **rsync** | Curated backup / sync recipes | `backup_docs` / `sync_dotfiles` / `mirror` |
+| **tar / unzip** | Project-specific archive flows | `pack_release` / `unpack_release` |
+| **git** | Internal workflow conventions | `start_feature` / `ship` / `fixup` / `cleanup_branches` |
+| **terraform** | Plan/apply/destroy with team guardrails | `plan_staging` / `apply_staging` / `destroy_staging` |
+| **psql / pg_dump** | DB ops | `db_backup` / `db_restore` / `db_psql` / `db_migrate` |
+| **gpg** | Encrypt/decrypt with sane defaults | `encrypt_for_team` / `decrypt` / `verify_signature` |
+| **systemctl / launchctl** | Service management for your services | `start` / `stop` / `restart` / `tail_logs` |
+
+Every one of these is something a team has a "wiki page of incantations" for. Each wiki page → a `commands.perch` → a shippable binary that turns the wiki page into a discoverable, type-safe CLI.
+
+**Why perch wins for this case specifically:**
+
+1. **The wrapper is 30 lines, not a 500-line Cobra app.** No flag-parsing scaffolding, no `--help` boilerplate.
+2. **It ships as one binary.** The recipient doesn't install perch, doesn't need Go, doesn't need the recipe file.
+3. **Three frontends from one source.** CLI for developers, web UI for non-engineers, MCP for AI agents. You write the recipe once.
+4. **`--check` keeps the wrapper honest.** If you typo a flag in `docker run -i …`, `perch --check` won't catch the typo (it's inside a shell string), but typo'd command refs, missing args, broken `run` targets all surface before users hit them.
+5. **`--help` is auto-generated** from the `description` fields, with typed args and defaults. No "documentation drift."
+
+This is the application that **most teams will discover first**. Wrapping a known-clunky tool is the gateway use case; from there, the same team finds they can do all the other applications below.
+
+---
+
+### 4. Cross-platform machine setup / new-hire onboarding
 
 A new engineer joins. They need to install ~10 packages, clone two private repos, set five env vars, and run `make init`. Today that's a README with instructions that drift, or a `setup.sh` that doesn't work on Windows.
 
@@ -160,7 +303,7 @@ curl -fsSL https://internal/team-bootstrap -o bootstrap && chmod +x bootstrap &&
 
 ---
 
-### 4. Safe operational surface for non-engineers
+### 5. Safe operational surface for non-engineers
 
 Your support team needs to flush a customer's cache, regenerate an invoice, or rotate an API key. Today they Slack you and you do it from your laptop. Or worse, you give them shell access.
 
@@ -203,7 +346,7 @@ The support team gets a form for each command, with arg validation. Output strea
 
 ---
 
-### 5. CI pipeline as code (one source for local + remote)
+### 6. CI pipeline as code (one source for local + remote)
 
 The classic problem: your `.github/workflows/ci.yml` and your local `make test` slowly diverge. Six months in, "it passes locally but fails in CI" is the team's most-said phrase.
 
@@ -252,7 +395,7 @@ The whole CI definition shrinks:
 
 ---
 
-### 6. Data pipeline / ETL orchestration
+### 7. Data pipeline / ETL orchestration
 
 You have 10 shell scripts that run nightly via cron. They download, decompress, transform, upload. Half of them broke once when curl's flag syntax changed; the other half broke when someone renamed a JSON field.
 
@@ -284,7 +427,7 @@ Not a full Airflow replacement, but for the "I have 10 shell scripts and 5 of th
 
 ---
 
-### 7. AI-agent tooling (curated MCP surface)
+### 8. AI-agent tooling (curated MCP surface)
 
 Give an AI agent (Claude Desktop, Claude Code, Cursor, Zed) the ability to *do things* in your environment — restart services, query metrics, fetch logs — without giving it shell access.
 
@@ -311,7 +454,7 @@ This is a sweet spot: **curated, safe, structured execution for AI agents.** A s
 
 ---
 
-### 8. Self-service runbooks
+### 9. Self-service runbooks
 
 Every on-call engineer has a folder of runbooks. They're markdown files with shell snippets. Half the snippets stop working when the cluster gets upgraded.
 
@@ -345,7 +488,7 @@ end
 
 ---
 
-### 9. Configuration management (Ansible-lite)
+### 10. Configuration management (Ansible-lite)
 
 For small jobs that don't justify Ansible/Chef/Puppet:
 
@@ -378,7 +521,7 @@ Run it locally for the first time, then `perch --build -o provision` and SCP to 
 
 ---
 
-### 10. Multi-target build orchestration for game / native development
+### 11. Multi-target build orchestration for game / native development
 
 Game studios + native-app teams have weird per-platform build dances: Xcode for iOS, Gradle for Android, MSBuild for Windows, plus signing + notarization + uploads to four stores.
 
@@ -411,7 +554,7 @@ end
 
 ---
 
-### 11. Personal "me" CLI (dotfiles, side projects)
+### 12. Personal "me" CLI (dotfiles, side projects)
 
 Personal automation. The kind of thing where you'd otherwise have `~/bin/blog-deploy`, `~/bin/backup`, `~/bin/cleanup`:
 
@@ -448,7 +591,7 @@ Build it once (`perch --build -o ~/bin/me`) and now `me deploy_blog` is your too
 
 ---
 
-### 12. Scaffold / template generator
+### 13. Scaffold / template generator
 
 You have a "create a new microservice" recipe that does ~20 things: clone a template, rename files, set up CI, register with service discovery, …
 
@@ -476,7 +619,7 @@ end
 
 ---
 
-### 13. Documentation site / blog tooling
+### 14. Documentation site / blog tooling
 
 The kind of thing that should be Make but ends up being five separate scripts:
 
@@ -506,7 +649,7 @@ end
 
 ---
 
-### 14. Quick API smoke tests / health probes
+### 15. Quick API smoke tests / health probes
 
 You want a "is the system OK?" command that pings five services and reports.
 
@@ -533,7 +676,7 @@ Pair with a cron, or expose via `--server` for a real-time dashboard.
 
 ---
 
-### 15. AI-assisted refactor / migration tools
+### 16. AI-assisted refactor / migration tools
 
 Internal tools that combine human-driven and AI-driven operations:
 
@@ -557,7 +700,7 @@ Expose via `perch-mcp` and Claude can drive the migration command-by-command, ch
 
 ---
 
-### 16. Embedded scripting for your own Go program
+### 17. Embedded scripting for your own Go program
 
 Less obvious but real: you can import perch's capy loader + interpreter as a Go library to give *your* program a scriptable interface. Think: vim's vimscript, or Emacs's elisp, but for a Go application.
 
@@ -582,7 +725,7 @@ Your users can write `.perch` files that drive your program. You control which o
 
 ---
 
-### 17. Workshops, tutorials, demos
+### 18. Workshops, tutorials, demos
 
 If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful classroom tool. The DSL is small enough that students learn it in 20 minutes. The op catalog gives them real capability without "first install jq, brew install …". A `commands.perch` is a small, complete, runnable artifact you can hand them.
 
@@ -590,7 +733,7 @@ If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful c
 
 ---
 
-### 18. Internal-tools framework for low-engineering teams
+### 19. Internal-tools framework for low-engineering teams
 
 Marketing / design / ops / product orgs sometimes want a "button" that triggers something:
 
