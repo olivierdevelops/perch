@@ -142,7 +142,7 @@ end
 do
     OP ARGS...
     let NAME = OP ARGS...        # capture an op's return value
-    if_os "darwin"
+    if os == "darwin"
         OP ARGS...               # nested ops, only run on macOS
     end
     run other_command            # dispatch into another command

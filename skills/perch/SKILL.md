@@ -57,7 +57,7 @@ end
 2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.perch` for op arguments — they're a library-internal token.
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
 4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
-5. **One op per line. Block ops (`if_os`, `if_arch`, `if_eq`, `if_gt`, `if_lt`, `if_exists`, `if_neq`, `if_empty`, `if_not_empty`) wrap a nested body terminated by `end`.**
+5. **One op per line. Block ops — the unified `if EXPR ... end` form (comparisons, predicates, truthy/falsy) — wrap a nested body terminated by `end`. See the dedicated section below.**
 6. **`let NAME = OP ARG` form is for capturing return values. `let` is NOT a standalone op — it must precede an op-call expression with 0, 1, or 2 args.**
 
 ## The full config vocabulary (config region, before `do`)
@@ -110,12 +110,32 @@ end
 ### HTTP
 - `download URL DST`
 
-### Block ops (each wraps `... end`)
-- `if_os "darwin" | "linux" | "windows"`
-- `if_arch "amd64" | "arm64"`
-- `if_exists "path"`
-- `if_eq A B`, `if_neq A B`, `if_gt A B`, `if_lt A B`
-- `if_empty X`, `if_not_empty X`
+### Conditionals — the unified `if EXPR ... end`
+
+Every conditional is the same `if … end` block. The expression takes one of these shapes:
+
+| Shape | Example | When it runs |
+|---|---|---|
+| `NAME == LITERAL` | `if os == "linux"` | bindings[NAME] equals the literal |
+| `NAME != LITERAL` | `if mode != "prod"` | bindings[NAME] differs |
+| `NAME > NUMBER` | `if COUNT > 5` | numeric > |
+| `NAME < NUMBER` | `if size < 0` | numeric < |
+| `NAME >= NUMBER` | `if size >= 1024` | numeric >= |
+| `NAME <= NUMBER` | `if retries <= 3` | numeric <= |
+| `NAME` | `if has_bin` | bindings[NAME] is truthy (non-empty / non-zero / non-"false") |
+| `not NAME` | `if not has_bin` | bindings[NAME] is falsy |
+| `FUNC ARG` | `if exists "./bin"` | calls FUNC(ARG); body runs if return value is truthy |
+
+`os` and `arch` are **auto-bound** at command start (no declaration needed). Globals, args, and `let` captures are all addressable by NAME.
+
+For complex predicates — e.g. comparing a captured value — capture first then compare:
+
+```capy
+let size = file_size "./bin"
+if size > 1000000
+    print "big"
+end
+```
 
 ### Capturable ops (use via `let X = OP ARG`)
 
@@ -141,14 +161,14 @@ Map the request to perch concepts:
 | User says | Use |
 |---|---|
 | "build for multiple platforms" | a `release` command that calls `run build target:"..."` three times |
-| "install dev tools cross-platform" | `if_os` blocks running brew / apt / choco |
+| "install dev tools cross-platform" | `if os == "darwin"` / `if os == "linux"` blocks running brew / apt / choco |
 | "I want a help text on this" | `description "..."` in the config region |
 | "make this command not show up in --help" | `private` modifier |
 | "compute a checksum" | `let h = sha256_file "..."` |
 | "fetch a URL and save it" | `download "url" "dst"` (no `let` needed) |
 | "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get body "a.b.c"` |
 | "compress this folder" | `tar_create "src" "out.tar.gz"` |
-| "skip a step if a file already exists" | `if_exists "PATH" ... end` (run the SKIP body) — or invert with `if_not_empty` for absence |
+| "skip a step if a file already exists" | `if exists "PATH" ... end` — or `let e = exists "PATH"; if not e ... end` for the inverse |
 | "ship this as a binary" | `perch --build -f commands.perch -o NAME` |
 | "serve a web UI" | `perch --server` |
 | "play interactively" | `perch --shell` |

@@ -78,7 +78,7 @@
     "block-ops": {
       "patterns": [{
         "name": "keyword.control.flow.perch",
-        "match": "\\b(if_os|if_arch|if_exists|if_eq|if_neq|if_gt|if_lt|if_empty|if_not_empty|for_each)\\b"
+        "match": "\\b(if|for_each|not)\\b"
       }]
     },
     "process-ops": {

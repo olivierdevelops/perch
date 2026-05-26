@@ -200,13 +200,13 @@ func TestBlockOpRecurses(t *testing.T) {
 		"x": {
 			Name: "x", Description: "d",
 			Ops: []domain.Op{
-				{Kind: "if_os", Args: map[string]any{"os": "darwin"}, Body: []domain.Op{
+				{Kind: "if", Args: map[string]any{"op": "eq", "lhs": "os", "rhs": "darwin"}, Body: []domain.Op{
 					{Kind: "print", Args: map[string]any{"msg": "${nope}"}},
 				}},
 			},
 		},
 	}}
-	issues := Check(p, known("if_os", "print"))
+	issues := Check(p, known("if", "print"))
 	if !hasErr(issues, "${nope}") {
 		t.Errorf("expected placeholder error inside block; got %v", issues)
 	}

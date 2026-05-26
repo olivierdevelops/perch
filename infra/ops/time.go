@@ -32,7 +32,7 @@ func registerTime(m map[string]interpreter.Handler) {
 		return time.Now().Format(layout), nil
 	}
 	m["unix_to_iso"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		secs := int64(asFloat(args["_0"]))
+		secs := int64(toFloat(args["_0"]))
 		return time.Unix(secs, 0).UTC().Format(time.RFC3339), nil
 	}
 }

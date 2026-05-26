@@ -515,10 +515,8 @@ func completionsFor(text string, s scope) []completionItem {
 		items = append(items, completionItem{Label: "let", Kind: 14, Detail: "let NAME = OP ARGS  — capture an op's output"})
 		items = append(items, completionItem{Label: "run", Kind: 14, Detail: "run NAME — call another command"})
 		items = append(items, completionItem{Label: "end", Kind: 14, Detail: "close do block"})
-		// Block ops.
-		for _, name := range []string{"if_os", "if_arch", "if_exists", "if_eq", "if_neq", "if_gt", "if_lt", "if_empty", "if_not_empty"} {
-			items = append(items, completionItem{Label: name, Kind: 14, Detail: "block op; ends with `end`"})
-		}
+		// `if` block opener — surfaces the unified `if EXPR ... end`.
+		items = append(items, completionItem{Label: "if", Kind: 14, Detail: "if EXPR ... end — comparison / predicate / truthy / falsy"})
 		// Command names from this file (for `run`).
 		for _, n := range scanCommandNames(text) {
 			items = append(items, completionItem{Label: n, Kind: 22, Detail: "command in this file"})
@@ -686,7 +684,7 @@ func (s *server) documentSymbol(req *rpcMessage) {
 // are NOT tokenised so this is best-effort.
 func findMatchingEnd(lines []string, start int) int {
 	depth := 0
-	openers := regexp.MustCompile(`^\s*(command|catch|globals|arg|do|if_os|if_arch|if_exists|if_eq|if_neq|if_gt|if_lt|if_empty|if_not_empty|for_each)\b`)
+	openers := regexp.MustCompile(`^\s*(command|catch|globals|arg|do|if|for_each)\b`)
 	for i := start; i < len(lines); i++ {
 		t := strings.TrimSpace(lines[i])
 		if openers.MatchString(t) {
@@ -778,15 +776,8 @@ var opDocs = map[string]opDoc{
 	"is_file":    {"(string) → bool", "Return whether the path is a regular file."},
 	"file_size":  {"(string) → int", "Return size in bytes."},
 
-	"if_os":        {"(string) … end", "Run nested ops only on this OS."},
-	"if_arch":      {"(string) … end", "Run nested ops only on this arch."},
-	"if_exists":    {"(string) … end", "Run nested ops only if the path exists."},
-	"if_eq":        {"(any, any) … end", "Run nested ops if LHS == RHS."},
-	"if_neq":       {"(any, any) … end", "Run nested ops if LHS != RHS."},
-	"if_gt":        {"(any, any) … end", "Run nested ops if LHS > RHS (numeric)."},
-	"if_lt":        {"(any, any) … end", "Run nested ops if LHS < RHS."},
-	"if_empty":     {"(any) … end", "Run nested ops if the value is empty."},
-	"if_not_empty": {"(any) … end", "Run nested ops if the value is non-empty."},
+	"if":      {"EXPR … end", "Run nested ops when EXPR holds. EXPR can be: `NAME == LIT` / `!= LIT` / `> N` / `< N` / `>= N` / `<= N` / bare `NAME` (truthy) / `not NAME` (falsy)."},
+	"if_call": {"FUNC ARG … end", "Run nested ops if FUNC(ARG) is truthy. E.g. `if exists \"./bin\"`."},
 
 	"upper":      {"(string) → string", "Uppercase. Use via `let X = upper \"hi\"`."},
 	"lower":      {"(string) → string", "Lowercase."},

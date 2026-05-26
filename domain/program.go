@@ -75,8 +75,7 @@ type Catch struct {
 
 // Op is one statement inside a command body (or inside a block op's body).
 //
-// Block ops (if_os, if_arch, if_eq, if_neq, if_gt, if_lt, if_exists,
-// if_empty, if_not_empty, for_each) carry their nested ops in Body.
+// Block ops (`if`, `if_call`, `for_each`) carry their nested ops in Body.
 type Op struct {
 	Kind        string         `json:"kind"`
 	Line        int            `json:"line,omitempty"`
@@ -88,9 +87,7 @@ type Op struct {
 // IsBlock reports whether this op kind contains a nested body.
 func (o Op) IsBlock() bool {
 	switch o.Kind {
-	case "if_os", "if_arch", "if_eq", "if_neq",
-		"if_gt", "if_lt", "if_exists", "if_empty", "if_not_empty",
-		"for_each":
+	case "if", "if_call", "for_each":
 		return true
 	}
 	return false

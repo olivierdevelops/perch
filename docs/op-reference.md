@@ -49,15 +49,15 @@ Each block op wraps a body that runs only when the condition holds.
 
 | Op | Signature |
 |---|---|
-| `if_os "darwin" … end`         | matches `runtime.GOOS` |
-| `if_arch "arm64" … end`        | matches `runtime.GOARCH` |
-| `if_exists "path" … end`       | the path exists on disk |
-| `if_eq A B … end`              | `A == B` (string compare) |
-| `if_neq A B … end`             | `A != B` |
-| `if_gt A B … end`              | `A > B` (numeric) |
-| `if_lt A B … end`              | `A < B` (numeric) |
-| `if_empty X … end`             | `X` is empty string |
-| `if_not_empty X … end`         | `X` is non-empty |
+| `if os == "darwin" … end`         | matches `runtime.GOOS` |
+| `if arch == "arm64" … end`        | matches `runtime.GOARCH` |
+| `if exists "path" … end`       | the path exists on disk |
+| `if A == B … end`              | `A == B` (string compare) |
+| `if A != B … end`             | `A != B` |
+| `if A > B … end`              | `A > B` (numeric) |
+| `if A < B … end`              | `A < B` (numeric) |
+| `if not X … end`             | `X` is empty string |
+| `if X … end`         | `X` is non-empty |
 
 ## Strings
 

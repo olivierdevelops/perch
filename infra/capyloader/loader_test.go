@@ -160,10 +160,10 @@ func TestNestedBlockOps(t *testing.T) {
 	src := `name "x"
 command setup
     do
-        if_os "darwin"
+        if os == "darwin"
             shell "brew install jq"
         end
-        if_os "linux"
+        if os == "linux"
             shell "apt install jq"
         end
     end
@@ -178,11 +178,14 @@ end
 		t.Fatalf("Ops: want 2 got %d", len(c.Ops))
 	}
 	for i, op := range c.Ops {
-		if op.Kind != "if_os" {
-			t.Errorf("ops[%d].Kind: want if_os got %s", i, op.Kind)
+		if op.Kind != "if" {
+			t.Errorf("ops[%d].Kind: want if got %s", i, op.Kind)
 		}
 		if len(op.Body) != 1 || op.Body[0].Kind != "shell" {
 			t.Errorf("ops[%d].Body: want one shell, got %+v", i, op.Body)
+		}
+		if op.Args["op"] != "eq" || op.Args["lhs"] != "os" {
+			t.Errorf("ops[%d].Args: %+v", i, op.Args)
 		}
 	}
 }

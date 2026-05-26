@@ -39,7 +39,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - `--shell`: interactive REPL with persistent bindings
   - `--build`: bundle the parsed program into a self-extracting fat binary
 - Built-in op catalog (~70 ops): process / file system / strings / hashing / encoding / HTTP / compression / archives / time / regex / network / system.
-- Block ops: `if_os`, `if_arch`, `if_exists`, `if_eq`, `if_neq`, `if_gt`, `if_lt`, `if_empty`, `if_not_empty`.
+- Block ops: `if os == "..."`, `if arch == "..."`, `if exists "..."`, `if A == B`, `if A != B`, `if A > B`, `if A < B`, `if not A`, `if A`.
 - `let NAME = OP ARG` capture syntax (0, 1, and 2-arg forms).
 - `catch NAME ... end` fallback for unknown commands.
 - Cross-platform: tested on macOS, Linux, Windows via CI matrix.

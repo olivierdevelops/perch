@@ -15,21 +15,41 @@ go install github.com/luowensheng/perch/cmd/perch-lsp@latest
 
 Then make sure `perch-lsp` is on your `$PATH` (Go puts it in `$(go env GOBIN)` or `$(go env GOPATH)/bin`).
 
-## VS Code
+## VS Code (one command)
 
-Install the bundled extension from [`editors/vscode-perch`](https://github.com/luowensheng/perch/tree/main/editors/vscode-perch) (marketplace publish pending):
+From a perch repo checkout:
+
+```sh
+./scripts/install-vscode.sh
+```
+
+The script:
+
+1. installs `perch-lsp` via `go install`
+2. installs node deps inside `editors/vscode-perch/`
+3. packages the extension into a `.vsix`
+4. runs `code --install-extension perch.vsix`
+
+Open any `.perch` file — the LSP boots automatically. The extension is plain JS, so **no TypeScript build step**.
+
+Configurable via VS Code settings (the only setting):
+
+```jsonc
+{ "perch.lsp.path": "perch-lsp" }   // override if perch-lsp isn't on $PATH
+```
+
+If the server hiccups, run **perch: Restart Language Server** from the command palette.
+
+### Manual install
+
+If `code --install-extension` isn't available:
 
 ```sh
 cd editors/vscode-perch
 npm install
-npm run compile
-npx vsce package
-code --install-extension perch-0.1.0.vsix
+npx @vscode/vsce package
+# → produces perch-0.1.0.vsix; install from VS Code's UI: Extensions panel → "..." → "Install from VSIX…"
 ```
-
-The extension auto-spawns `perch-lsp` when a `.perch` file opens. To point at a non-default location, set `perch.lsp.path` in your VS Code settings.
-
-If the server fails to start, run **perch: Restart Language Server** from the command palette after fixing the path.
 
 ## Neovim (built-in LSP)
 

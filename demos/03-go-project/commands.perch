@@ -29,9 +29,12 @@ end
 command release
     description "Cross-compile darwin + linux + windows in one go"
     do
-        run build target:"darwin"
-        run build target:"linux"
-        run build target:"windows"
+        mkdir "${BIN_DIR}/darwin"
+        shell "GOOS=darwin  go build -ldflags='-s -w' -o ${BIN_DIR}/darwin/${APP_NAME}  ${MAIN_PKG}"
+        mkdir "${BIN_DIR}/linux"
+        shell "GOOS=linux   go build -ldflags='-s -w' -o ${BIN_DIR}/linux/${APP_NAME}   ${MAIN_PKG}"
+        mkdir "${BIN_DIR}/windows"
+        shell "GOOS=windows go build -ldflags='-s -w' -o ${BIN_DIR}/windows/${APP_NAME}.exe ${MAIN_PKG}"
     end
 end
 
@@ -46,7 +49,7 @@ command lint
     description "Vet + staticcheck (install once with: go install honnef.co/go/tools/cmd/staticcheck@latest)"
     do
         shell "go vet ./..."
-        if_exists "${HOME}/go/bin/staticcheck"
+        if exists "${HOME}/go/bin/staticcheck"
             shell "${HOME}/go/bin/staticcheck ./..."
         end
     end

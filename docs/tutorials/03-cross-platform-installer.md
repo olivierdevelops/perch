@@ -44,19 +44,19 @@ end
 command install_packages
     description "Install system packages for the current OS"
     do
-        if_os "darwin"
+        if os == "darwin"
             print "macOS — using Homebrew"
             shell "brew install jq ripgrep watchexec gh"
         end
 
-        if_os "linux"
+        if os == "linux"
             print "Linux — using apt"
             shell "sudo apt-get update"
             shell "sudo apt-get install -y jq ripgrep gh"
             print "(watchexec is not in apt; install via cargo)"
         end
 
-        if_os "windows"
+        if os == "windows"
             print "Windows — using Chocolatey"
             shell "choco install jq ripgrep watchexec gh -y"
         end
@@ -64,7 +64,7 @@ command install_packages
 end
 ```
 
-Three `if_os` blocks. Each runs *only* on the matching OS. The other two are skipped, not even attempted.
+Three `if os == "..."` blocks. Each runs *only* on the matching OS. The other two are skipped, not even attempted.
 
 ## Step 3 — Fetch shared config
 
@@ -74,19 +74,19 @@ Suppose the team keeps shared shell config in a private GitHub repo. Cloning it 
 command fetch_config
     description "Clone team-config into ~/.team-config"
     do
-        if_exists "${HOME}/.team-config"
+        if exists "${HOME}/.team-config"
             print "team-config already cloned; pulling latest"
             cd "${HOME}/.team-config"
             shell "git pull"
         end
-        if_os "windows"
-            if_exists "${USERPROFILE}/.team-config"
+        if os == "windows"
+            if exists "${USERPROFILE}/.team-config"
                 cd "${USERPROFILE}/.team-config"
                 shell "git pull"
             end
         end
         # Clone if missing
-        if_exists "${HOME}/.team-config"
+        if exists "${HOME}/.team-config"
             print "(already present)"
         end
     end
@@ -103,15 +103,15 @@ Different shells, different files. Use `write_file` so the content is identical 
 command setup_env
     description "Append PERCH_* env vars to the shell rc file"
     do
-        if_os "darwin"
+        if os == "darwin"
             write_file "${HOME}/.zshrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
             print "Add to your .zshrc: source ~/.zshrc.perch"
         end
-        if_os "linux"
+        if os == "linux"
             write_file "${HOME}/.bashrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
             print "Add to your .bashrc: source ~/.bashrc.perch"
         end
-        if_os "windows"
+        if os == "windows"
             shell "setx PERCH_HOME \"%USERPROFILE%\\.team-config\""
             shell "setx EDITOR \"code\""
         end
@@ -159,14 +159,14 @@ Because each sub-command is independent, partial recovery is straightforward.
 
 ## Step 8 — Future-proof for new platforms
 
-When you add support for Fedora (apt → dnf), you don't touch the `setup` command. You add an extra `if_os "linux"` distinction inside `install_packages`:
+When you add support for Fedora (apt → dnf), you don't touch the `setup` command. You add an extra `if os == "linux"` distinction inside `install_packages`:
 
 ```capy
-if_os "linux"
-    if_exists "/etc/fedora-release"
+if os == "linux"
+    if exists "/etc/fedora-release"
         shell "sudo dnf install -y jq ripgrep"
     end
-    if_exists "/etc/debian_version"
+    if exists "/etc/debian_version"
         shell "sudo apt-get install -y jq ripgrep"
     end
 end
@@ -176,7 +176,7 @@ The shape stays clean as the project grows.
 
 ## What you learned
 
-- `if_os` + `if_arch` make cross-platform conditionals first-class.
+- `if os == "..."` + `if arch == "..."` make cross-platform conditionals first-class.
 - `run NAME` composes commands without recursion or duplication.
 - `write_file` cleanly handles per-OS config files.
 - The whole installer ships as one binary via `perch --build`.

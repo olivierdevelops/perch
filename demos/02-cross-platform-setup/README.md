@@ -14,7 +14,7 @@ In a Makefile you'd either:
 - write three Makefiles (one per OS), or
 - write one Makefile that breaks on Windows because `sudo` and `brew` don't exist there.
 
-In perch you write the OS branches as **first-class structure**: `if_os "darwin" … end` is a block op the interpreter evaluates against the current host. Branches that don't match are skipped entirely.
+In perch you write the OS branches as **first-class structure**: `if os == "darwin" … end` is a block op the interpreter evaluates against the current host. Branches that don't match are skipped entirely.
 
 ## Concepts
 

@@ -6,7 +6,7 @@ Syntax highlighting for `.perch` files written against the [perch](https://githu
 
 - Highlights `command`, `do`, `end`, `globals`, `catch`, `let`, `run`
 - Highlights config modifiers (`description`, `arg`, `private`, `require_os`, …)
-- Highlights block ops (`if_os`, `if_arch`, `if_exists`, `if_eq`, `if_gt`, …)
+- Highlights block ops (`if os == "..."`, `if arch == "..."`, `if exists "..."`, `if A == B`, `if A > B`, …)
 - Highlights the built-in op catalog
 - `${name}` placeholders highlighted as variables inside strings
 - `#`-line comments

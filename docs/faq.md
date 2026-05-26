@@ -46,7 +46,7 @@ Three approaches:
     command test_build
         do
             run build
-            if_exists "./bin/myapp"
+            if exists "./bin/myapp"
                 print "✓ build produced an artifact"
             end
             let s = file_size "./bin/myapp"
@@ -65,7 +65,7 @@ First-class `perch test` (with assertions, mocks, golden files) is on the roadma
 
 No. Every op handler returns `(any, error)`. If it returns an error, the interpreter halts the command and propagates the error up. The exit code reflects this.
 
-If you want fail-soft behavior, wrap the op in `if_exists` / `if_eq` etc. — the block-op style.
+If you want fail-soft behavior, wrap the op in `if exists "..."` / `if A == B` etc. — the block-op style.
 
 ## What's the relationship to capy?
 

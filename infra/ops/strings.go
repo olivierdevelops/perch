@@ -65,7 +65,7 @@ func registerStrings(m map[string]interpreter.Handler) {
 	}
 	m["repeat"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 		s := argString(args, "value", "_0")
-		n := int(asFloat(args["count"]))
+		n := int(toFloat(args["count"]))
 		if n < 0 {
 			return "", fmt.Errorf("repeat: negative count")
 		}

@@ -19,7 +19,7 @@ end
 command clean
     description "Remove the built binary"
     do
-        if_exists "${BUILD_OUT}"
+        if exists "${BUILD_OUT}"
             rm "${BUILD_OUT}"
             print "Removed ${BUILD_OUT}."
         end

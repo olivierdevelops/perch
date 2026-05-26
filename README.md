@@ -39,17 +39,20 @@ end
 command setup
     description "Install dev dependencies, cross-platform"
     do
-        if_os "darwin"
+        if os == "darwin"
             shell "brew install jq ripgrep"
         end
-        if_os "linux"
+        if os == "linux"
             shell "sudo apt-get install -y jq ripgrep"
         end
-        if_os "windows"
+        if os == "windows"
             shell "choco install jq ripgrep -y"
         end
     end
 end
+```
+
+> `os` and `arch` are auto-bound at command start; reference them anywhere with `${os}` / `${arch}`. The unified `if EXPR ... end` form supersedes the old `if_os` / `if_eq` / `if_gt` keywords — see [docs/language.md](docs/language.md#conditionals).
 ```
 
 ```sh
@@ -98,7 +101,7 @@ See [docs/mcp.md](docs/mcp.md) for client setup. There's also a [Claude Code ski
 go install github.com/luowensheng/perch/cmd/perch-lsp@latest
 ```
 
-- **VS Code:** install from [`editors/vscode-perch`](editors/vscode-perch) (auto-spawns `perch-lsp`).
+- **VS Code:** one command — `./scripts/install-vscode.sh` (installs `perch-lsp`, packages the extension, runs `code --install-extension`).
 - **Neovim / Helix / Zed:** see [docs/lsp.md](docs/lsp.md) for one-screen setup snippets.
 - **Tree-sitter** grammar (for syntax highlighting beyond what the LSP gives you): [`editors/tree-sitter-perch`](editors/tree-sitter-perch).
 
@@ -115,7 +118,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 ## What perch gives you
 
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://github.com/luowensheng/capy), so the grammar is itself data.
-2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, `if_os` are first-class ops the runtime knows — not bash one-liners you re-write per OS.
+2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Three frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), and steppable in a REPL (`--shell`).
 4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
 

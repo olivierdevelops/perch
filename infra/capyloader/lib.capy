@@ -373,62 +373,131 @@ function download
 end
 
 # ────────────────────────────────────────────────────────────────────────────
-# Block ops — wrap their inner body with `_enter` / `_leave` markers.
+# Conditionals — unified `if EXPR ... end`.
+#
+# Surface forms (all are normal block ops; bodies run only when the
+# expression holds):
+#
+#   if NAME == LITERAL                  comparison
+#   if NAME != LITERAL
+#   if NAME >  NUMBER
+#   if NAME <  NUMBER
+#   if NAME >= NUMBER
+#   if NAME <= NUMBER
+#   if NAME                             truthy   (empty string/false/0/null/nil ⇒ false)
+#   if not NAME                         falsy
+#   if FUNC ARG                         predicate call (e.g. `if exists "./bin"`)
+#
+# `os` and `arch` are auto-bound at command start, so:
+#
+#   if os == "linux"
+#   if arch == "arm64"
+#
+# All emit the unified `if` op kind (or `if_call` for the predicate form);
+# the runtime evaluates and dispatches.
 # ────────────────────────────────────────────────────────────────────────────
 
-function if_os
-    arg literal "if_os"
-    arg capture os string
-    block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_os","args":{"os":${os}}}
-${body}{"event":"op","kind":"_leave"}
-`
-end
-
-function if_arch
-    arg literal "if_arch"
-    arg capture arch string
-    block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_arch","args":{"arch":${arch}}}
-${body}{"event":"op","kind":"_leave"}
-`
-end
-
-function if_exists
-    arg literal "if_exists"
-    arg capture path string
-    block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_exists","args":{"path":${path}}}
-${body}{"event":"op","kind":"_leave"}
-`
-end
-
-function if_eq
-    arg literal "if_eq"
-    arg capture lhs any
+function cond_eq
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal "=="
     arg capture rhs any
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_eq","args":{"lhs":${lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"eq","lhs":${toJSON lhs},"rhs":${rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
 
-function if_gt
-    arg literal "if_gt"
-    arg capture lhs any
+function cond_neq
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal "!="
     arg capture rhs any
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_gt","args":{"lhs":${lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"neq","lhs":${toJSON lhs},"rhs":${rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
 
-function if_lt
-    arg literal "if_lt"
-    arg capture lhs any
+function cond_gt
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal ">"
     arg capture rhs any
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_lt","args":{"lhs":${lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"gt","lhs":${toJSON lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function cond_lt
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal "<"
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"lt","lhs":${toJSON lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function cond_ge
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal ">="
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"ge","lhs":${toJSON lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function cond_le
+    priority 200
+    arg literal "if"
+    arg capture lhs ident
+    arg literal "<="
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"le","lhs":${toJSON lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# `if not NAME` outranks `if FUNC ARG` so that `not` doesn't get treated
+# as a predicate function. Both are arity-3.
+function cond_falsy
+    priority 300
+    arg literal "if"
+    arg literal "not"
+    arg capture lhs ident
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"falsy","lhs":${toJSON lhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function cond_call
+    priority 150
+    arg literal "if"
+    arg capture func ident
+    arg capture a0 string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_call","args":{"func":${toJSON func},"_0":${a0}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function cond_truthy
+    arg literal "if"
+    arg capture lhs ident
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"truthy","lhs":${toJSON lhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end

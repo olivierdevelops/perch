@@ -1,8 +1,6 @@
 package ops
 
 import (
-	"os"
-	"runtime"
 	"strconv"
 
 	"github.com/luowensheng/perch/domain"
@@ -10,15 +8,8 @@ import (
 )
 
 func registerFlow(m map[string]interpreter.Handler) {
-	m["if_os"] = opIfOS
-	m["if_arch"] = opIfArch
-	m["if_eq"] = opIfEq
-	m["if_neq"] = opIfNeq
-	m["if_gt"] = opIfGt
-	m["if_lt"] = opIfLt
-	m["if_exists"] = opIfExists
-	m["if_empty"] = opIfEmpty
-	m["if_not_empty"] = opIfNotEmpty
+	m["if"] = opIf
+	m["if_call"] = opIfCall
 }
 
 func runBody(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) error {
@@ -29,71 +20,92 @@ func runBody(i *interpreter.Interpreter, b *interpreter.Bindings, args map[strin
 	return i.RunOps(body, b)
 }
 
-func opIfOS(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "os") == runtime.GOOS {
+// opIf evaluates `if NAME OP VALUE`, `if NAME`, or `if not NAME`.
+// args.op ∈ { "eq", "neq", "gt", "lt", "ge", "le", "truthy", "falsy" }.
+// args.lhs is a binding name (auto-bound + globals + args + lets + env).
+// args.rhs is the literal to compare against (for comparison ops only).
+func opIf(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	op, _ := args["op"].(string)
+	lhsName, _ := args["lhs"].(string)
+	lhsVal, _ := b.Lookup(lhsName)
+	rhs := args["rhs"]
+
+	var matched bool
+	switch op {
+	case "eq":
+		matched = lhsVal == interpreter.ToStringValue(rhs)
+	case "neq":
+		matched = lhsVal != interpreter.ToStringValue(rhs)
+	case "gt":
+		matched = toFloat(lhsVal) > toFloat(rhs)
+	case "lt":
+		matched = toFloat(lhsVal) < toFloat(rhs)
+	case "ge":
+		matched = toFloat(lhsVal) >= toFloat(rhs)
+	case "le":
+		matched = toFloat(lhsVal) <= toFloat(rhs)
+	case "truthy":
+		matched = truthy(lhsVal)
+	case "falsy":
+		matched = !truthy(lhsVal)
+	}
+	if matched {
 		return nil, runBody(i, b, args)
 	}
 	return nil, nil
 }
 
-func opIfArch(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "arch") == runtime.GOARCH {
+// opIfCall evaluates `if FUNC ARG ... end` by invoking the named op
+// with one argument and running the body if the return value is truthy.
+func opIfCall(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	fname, _ := args["func"].(string)
+	if fname == "" {
+		return nil, nil
+	}
+	h, ok := i.Handlers[fname]
+	if !ok {
+		return nil, nil
+	}
+	val, err := h(i, b, map[string]any{"_0": args["_0"]})
+	if err != nil {
+		return nil, err
+	}
+	if truthyValue(val) {
 		return nil, runBody(i, b, args)
 	}
 	return nil, nil
 }
 
-func opIfEq(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "lhs") == argString(args, "rhs") {
-		return nil, runBody(i, b, args)
+// ── helpers ────────────────────────────────────────────────────────────
+
+// truthy: empty string / "false" / "0" / "" are false; everything else true.
+func truthy(s string) bool {
+	if s == "" || s == "false" || s == "0" {
+		return false
 	}
-	return nil, nil
+	return true
 }
 
-func opIfNeq(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "lhs") != argString(args, "rhs") {
-		return nil, runBody(i, b, args)
+// truthyValue: the raw return value from an op handler (a Go any).
+func truthyValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case bool:
+		return x
+	case string:
+		return truthy(x)
+	case int:
+		return x != 0
+	case int64:
+		return x != 0
+	case float64:
+		return x != 0
 	}
-	return nil, nil
+	return true
 }
 
-func opIfGt(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if asFloat(args["lhs"]) > asFloat(args["rhs"]) {
-		return nil, runBody(i, b, args)
-	}
-	return nil, nil
-}
-
-func opIfLt(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if asFloat(args["lhs"]) < asFloat(args["rhs"]) {
-		return nil, runBody(i, b, args)
-	}
-	return nil, nil
-}
-
-func opIfExists(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	path := argString(args, "path")
-	if _, err := os.Stat(path); err == nil {
-		return nil, runBody(i, b, args)
-	}
-	return nil, nil
-}
-
-func opIfEmpty(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "value", "_0") == "" {
-		return nil, runBody(i, b, args)
-	}
-	return nil, nil
-}
-
-func opIfNotEmpty(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	if argString(args, "value", "_0") != "" {
-		return nil, runBody(i, b, args)
-	}
-	return nil, nil
-}
-
-func asFloat(v any) float64 {
+func toFloat(v any) float64 {
 	switch x := v.(type) {
 	case float64:
 		return x
@@ -101,14 +113,14 @@ func asFloat(v any) float64 {
 		return float64(x)
 	case int64:
 		return float64(x)
-	case string:
-		f, _ := strconv.ParseFloat(x, 64)
-		return f
 	case bool:
 		if x {
 			return 1
 		}
 		return 0
+	case string:
+		f, _ := strconv.ParseFloat(x, 64)
+		return f
 	}
 	return 0
 }

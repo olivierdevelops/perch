@@ -14,7 +14,7 @@ perch clean                      # delete ./bin
 ## Why this beats a Makefile
 
 - `run other_command` is a real op that calls another command — no recursive-make tricks needed.
-- `if_exists "…/staticcheck"` only invokes the linter if it's actually installed. No `command -v` boilerplate.
+- `if exists "…/staticcheck"` only invokes the linter if it's actually installed. No `command -v` boilerplate.
 - One file describes both the dev workflow AND the CI workflow. Drop into `.github/workflows/`:
 
   ```yaml
@@ -27,4 +27,4 @@ perch clean                      # delete ./bin
 
 - `globals` for cross-cutting paths and names.
 - `run NAME` op for invoking other commands.
-- `if_exists "PATH" … end` block op — skips the body if the path doesn't exist.
+- `if exists "PATH" … end` block op — skips the body if the path doesn't exist.

@@ -12,8 +12,7 @@
     "directory": "editors/vscode-perch"
   },
   "license": "Apache-2.0",
-  "icon": "icon.png",
-  "main": "./out/extension.js",
+  "main": "./extension.js",
   "activationEvents": [
     "onLanguage:perch"
   ],
@@ -39,23 +38,19 @@
         "perch.lsp.path": {
           "type": "string",
           "default": "perch-lsp",
-          "description": "Path (or `$PATH` name) of the perch-lsp binary."
+          "description": "Path (or $PATH name) of the perch-lsp binary."
         }
       }
     }
   },
   "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -p . -w",
-    "package": "vsce package"
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/vscode": "^1.80.0",
-    "typescript": "^5.3.0",
     "@vscode/vsce": "^2.22.0"
   }
 }

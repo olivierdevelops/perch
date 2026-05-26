@@ -129,6 +129,11 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 }
 
 func (i *Interpreter) seedGlobalsAndEnv(b *Bindings) {
+	// Auto-bindings: stable, host-derived values that conditionals can
+	// reference without the user declaring them. These appear BEFORE
+	// globals so a user-declared global of the same name takes priority.
+	b.Set("os", runtime.GOOS)
+	b.Set("arch", runtime.GOARCH)
 	for _, g := range i.Program.Globals.Bindings {
 		b.Set(g.Name, g.Value)
 	}

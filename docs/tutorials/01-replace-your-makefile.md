@@ -104,7 +104,7 @@ command lint
     description "Run go vet plus staticcheck if available"
     do
         shell "go vet ./..."
-        if_exists "${HOME}/go/bin/staticcheck"
+        if exists "${HOME}/go/bin/staticcheck"
             shell "${HOME}/go/bin/staticcheck ./..."
         end
     end
@@ -119,7 +119,7 @@ command clean
 end
 ```
 
-Notice `if_exists`: this is what Make's `which staticcheck > /dev/null && ...` is trying to express, except now it's a real block op. The `|| true` ugly-hack is gone.
+Notice `if exists "..."`: this is what Make's `which staticcheck > /dev/null && ...` is trying to express, except now it's a real block op. The `|| true` ugly-hack is gone.
 
 ## Step 5 — `release` with cross-compile
 
@@ -183,18 +183,18 @@ command lint
     description "Run go vet plus staticcheck if available"
     do
         shell "go vet ./..."
-        if_os "windows"
-            if_exists "${USERPROFILE}/go/bin/staticcheck.exe"
+        if os == "windows"
+            if exists "${USERPROFILE}/go/bin/staticcheck.exe"
                 shell "${USERPROFILE}/go/bin/staticcheck.exe ./..."
             end
         end
-        if_os "darwin"
-            if_exists "${HOME}/go/bin/staticcheck"
+        if os == "darwin"
+            if exists "${HOME}/go/bin/staticcheck"
                 shell "${HOME}/go/bin/staticcheck ./..."
             end
         end
-        if_os "linux"
-            if_exists "${HOME}/go/bin/staticcheck"
+        if os == "linux"
+            if exists "${HOME}/go/bin/staticcheck"
                 shell "${HOME}/go/bin/staticcheck ./..."
             end
         end
@@ -208,7 +208,7 @@ Same file. Three platforms. Zero Makefile-per-OS dance.
 
 - Globals replace Makefile variables. Interpolation is `${name}` not `$(name)`.
 - Each Make target maps to a `command NAME ... end` block.
-- Ops (`mkdir`, `rm`, `if_exists`, `if_os`) replace shell incantations and platform-conditional Makefile-snippet hackery.
+- Ops (`mkdir`, `rm`, `if exists "..."`, `if os == "..."`) replace shell incantations and platform-conditional Makefile-snippet hackery.
 - `run COMMAND` replaces recursive Make.
 - One file drives both local dev and CI.
 

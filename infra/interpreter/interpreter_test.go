@@ -23,10 +23,12 @@ func makeHandlers(t *testing.T) (map[string]Handler, *bytes.Buffer) {
 			v, _ := args["_0"].(string)
 			return strings.ToUpper(v), nil
 		},
-		"if_eq": func(i *Interpreter, b *Bindings, args map[string]any) (any, error) {
+		"if": func(i *Interpreter, b *Bindings, args map[string]any) (any, error) {
+			// Minimal test stub: matches "eq" via direct args.lhs/args.rhs.
 			lhs, _ := args["lhs"].(string)
 			rhs, _ := args["rhs"].(string)
-			if lhs == rhs {
+			lv, _ := b.Lookup(lhs)
+			if lv == rhs {
 				if body, ok := args["_body"].([]domain.Op); ok {
 					return nil, i.RunOps(body, b)
 				}
@@ -176,14 +178,19 @@ func TestPrivateCommandFallsToCatch(t *testing.T) {
 
 func TestBlockOpRunsBody(t *testing.T) {
 	handlers, out := makeHandlers(t)
+	// The stub `if` handler resolves lhs via bindings. Auto-bound `os`
+	// is convenient: compare it to itself via a host-derived value.
 	p := &domain.Program{
+		Globals: domain.Globals{Bindings: []domain.GlobalBinding{
+			{Name: "mode", Type: "string", Value: "yes"},
+		}},
 		Commands: map[string]*domain.Command{
 			"x": {
 				Name: "x",
 				Ops: []domain.Op{
 					{
-						Kind: "if_eq",
-						Args: map[string]any{"lhs": "a", "rhs": "a"},
+						Kind: "if",
+						Args: map[string]any{"lhs": "mode", "rhs": "yes"},
 						Body: []domain.Op{
 							{Kind: "print", Args: map[string]any{"msg": "matched"}},
 						},
