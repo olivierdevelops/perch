@@ -56,6 +56,10 @@ type InstallVSCodeUseCase interface {
 	Execute() error
 }
 
+type ImportShUseCase interface {
+	Execute(srcPath, outPath string) error
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -67,6 +71,7 @@ type UseCases struct {
 	CommandHelp   CommandHelpUseCase
 	InstallLSP    InstallLSPUseCase
 	InstallVSCode InstallVSCodeUseCase
+	ImportSh      ImportShUseCase
 }
 
 type Config struct {
@@ -129,6 +134,22 @@ func (c *CLI) Run() int {
 		return errExit(c.UseCases.InstallLSP.Execute())
 	case "--install-vscode":
 		return errExit(c.UseCases.InstallVSCode.Execute())
+	case "--import":
+		// `perch --import script.sh [-o out.perch]` → best-effort
+		// translation. Pure code-gen, no execution.
+		if len(remaining) < 1 {
+			fmt.Println("Usage: perch --import <script.sh> [-o <out.perch>]")
+			return 1
+		}
+		src := remaining[0]
+		out := ""
+		for i := 1; i < len(remaining)-1; i++ {
+			if remaining[i] == "-o" {
+				out = remaining[i+1]
+				break
+			}
+		}
+		return errExit(c.UseCases.ImportSh.Execute(src, out))
 	}
 
 	path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)

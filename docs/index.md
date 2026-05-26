@@ -472,6 +472,8 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 ## Common questions
 
+**I already have bash scripts — what's the migration story?** Three options, ranked by effort: **(1) Wrap** — write a thin `.perch` that calls your existing `.sh` files via the `shell` op; gain typed args + `--help` + MCP + web UI + audit log in minutes. **(2) Translate** — `perch --import deploy.sh` produces a `.perch` scaffold preserving semantics line-for-line (mostly `shell` ops to start), reviewable + statically checkable. **(3) Rewrite** — promote each `shell` op to native ops over time; once nothing needs `shell`, `--no-shell` becomes a real fence. Full guide: **[migrating-from-shell.md](migrating-from-shell.md)**.
+
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
 **Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.

@@ -63,6 +63,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Migrating from shell scripts: migrating-from-shell.md
   - perch as an OS-in-a-program: os-in-a-program.md
   - Tutorials:
       - Replace your Makefile: tutorials/01-replace-your-makefile.md

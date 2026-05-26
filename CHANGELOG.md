@@ -23,6 +23,16 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **`perch --import script.sh`** — best-effort bash → `.perch` translator. Produces a scaffold the user can immediately run (`--check` passes, `--help` works, every command callable) while preserving original semantics by routing most lines through `shell` ops. Recognised patterns:
+  - `#!/bin/bash` and `# comments` → file-level / inline comments
+  - `NAME=value` at top level → `globals` entry, with `$VAR → ${VAR}` rewrite
+  - `function f { … }` or `f() { … }` → `command f ... do ... end end`
+  - `echo "literal"` (no metachars) → `print`
+  - `cmd &` (background) → `shell_detached`
+  - top-level executable lines → wrapped in a default `main` command
+  - everything else → `shell` op with the original line preserved verbatim
+  - The "pick whichever delimiter doesn't appear in your content" rule is applied automatically per line, so JSON / SQL / mixed-quote bodies get the right wrapper without manual escaping. Three-or-more-quote-types lines get a `# TODO: fix quoting` flag.
+- **New doc: [docs/migrating-from-shell.md](docs/migrating-from-shell.md)** — three-option migration guide (Wrap / Translate / Rewrite) with a rewriting checklist mapping common bash idioms to perch ops.
 - **Three string delimiters documented** — `"..."`, `'...'`, `` `...` ``. All three are equivalent (raw, interpolation-active), so authors pick whichever doesn't appear in their content. Massive readability win for JSON / SQL / shell-with-quotes:
 
   ```capy

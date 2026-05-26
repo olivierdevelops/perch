@@ -28,6 +28,7 @@ import (
 	"github.com/luowensheng/perch/usecases/initconfig"
 	"github.com/luowensheng/perch/usecases/installlsp"
 	"github.com/luowensheng/perch/usecases/installvscode"
+	"github.com/luowensheng/perch/usecases/importsh"
 	"github.com/luowensheng/perch/usecases/listcommands"
 	"github.com/luowensheng/perch/usecases/runbuild"
 	"github.com/luowensheng/perch/usecases/runcommand"
@@ -435,6 +436,7 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		},
 		InstallLSP:    &installlsp.Impl{},
 		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
+		ImportSh:      &importsh.Impl{},
 	}
 
 	return &cli.CLI{
@@ -513,6 +515,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		},
 		InstallLSP:    &installlsp.Impl{},
 		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
+		ImportSh:      &importsh.Impl{},
 	}
 
 	version := p.Version
