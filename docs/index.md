@@ -438,6 +438,10 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
+**Is it a cross-platform shell?** Yes — and that's the point. With ~110 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
+
+**Can I lock down what a `.perch` file is allowed to do?** That's the in-progress design at [sandbox.md](sandbox.md) — declared env vars only, FS read/write allowlists, network allowlists, shell-binary allowlists, resource ceilings, `perch --untrusted` mode with permission previews. The goal: safely run `.perch` files from strangers and serve them to AI agents.
+
 **Do recipients need to install perch?** No. `perch --build` produces a standalone binary. They run that.
 
 **Does it work on Windows?** Yes. The ~70 built-in ops are Go implementations, identical on macOS / Linux / Windows. Only `shell` invocations are inherently OS-specific.
@@ -508,6 +512,7 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 | [op-reference.md](op-reference.md) | The built-in op catalog (~70 ops) |
 | [embedding.md](embedding.md) | Fat-binary format spec |
 | [mcp.md](mcp.md) | AI agent integration |
+| [sandbox.md](sandbox.md) | **Sandboxing design — env / FS / net / shell scopes, `--untrusted`** |
 | [lsp.md](lsp.md) | Editor integration |
 | [applications.md](applications.md) | **What perch is for — 22 real applications** |
 | [faq.md](faq.md) | vs Make / Just / Task / etc. |

@@ -59,6 +59,7 @@ nav:
   - Op catalog: op-reference.md
   - Embedding (`--build`): embedding.md
   - MCP server (AI agents): mcp.md
+  - Sandboxing (design): sandbox.md
   - Editor integration (LSP): lsp.md
   - What perch is for: applications.md
   - FAQ: faq.md
