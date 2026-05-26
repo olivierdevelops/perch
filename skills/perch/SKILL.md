@@ -378,6 +378,19 @@ catch unknown
 end
 ```
 
+## Security modes
+
+`perch --mode NAME` disables groups of ops globally. Useful when serving a `.perch` to an AI agent, a non-engineer (via `--server`), or running one from a stranger.
+
+| Mode | Blocks |
+|---|---|
+| `safe` | `shell` and friends, `pkg_install`, `kill_by_name`, `process_running` |
+| `offline` | every network op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`) |
+| `read-only` | every FS-mutation op (`write_file`, `cp`, `rm`, `mkdir`, `chmod`, `touch`, `append_*`, archive create/extract, `symlink`, …) |
+| `pure` | union of all three |
+
+A blocked op call returns `op "X" is disabled by --mode NAME`. Run `perch --modes` to see the exact lists. Full design + the upcoming capability sandbox is at [sandbox.md](https://luowensheng.github.io/perch/sandbox/).
+
 ## When in doubt
 
 - The op catalog is the source of truth. If you're unsure whether something is an op, look at [op-reference.md](https://github.com/luowensheng/perch/blob/main/docs/op-reference.md). If it's not there, fall back to `shell "..."`.

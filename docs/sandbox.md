@@ -8,6 +8,38 @@ It also addresses the meta-question: **is perch a cross-platform shell?** Short 
 
 ---
 
+## 0. What ships today: `--mode`
+
+Before the full sandbox lands, perch ships **named modes** — opinionated subsets of the op catalog. One flag, no per-op declarations needed, no .perch-file changes. This is the Phase-0 mechanism.
+
+```sh
+perch --mode safe       run                  # no shell, no subprocess
+perch --mode offline    run                  # no network ops
+perch --mode read-only  run                  # no filesystem mutation
+perch --mode pure       run                  # safe + offline + read-only
+perch --modes                                # list all modes + what each blocks
+```
+
+When a blocked op is called you get a precise error:
+
+```
+op "shell" is disabled by --mode safe (see https://luowensheng.github.io/perch/sandbox/)
+```
+
+| Mode | What it blocks | When to use |
+|---|---|---|
+| `trusted` (default) | nothing | local dev, internal CLIs you wrote |
+| `safe` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell`, `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running` | running a `.perch` from a teammate; serving to a non-engineer via `--server` |
+| `offline` | every network-touching op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`) | airgapped CI; data-only scripts |
+| `read-only` | every filesystem mutation op (`write_file`, `append_*`, `cp`, `mv`, `rm`, `mkdir`, `chmod`, `touch`, `copy_dir`, `symlink`, archive extract / create, `bundle_extract`/`dir`) | analysis scripts; report generators |
+| `pure` | union of `safe` + `offline` + `read-only` | running a `.perch` from a stranger; the strictest preset |
+
+Modes apply to **everything** the binary does — `perch --mode safe COMMAND`, `perch --mode safe --server`, `perch --mode safe --shell`. They also propagate into built binaries: `perch --mode safe -f my.perch CMD` runs `CMD` with shell denied; if you `--build` *with* shell calls, the build itself succeeds (build doesn't run the script), but `./mybinary --mode safe CMD` enforces the mode at run time.
+
+Modes are the **80% answer**. The full sandbox below (env scopes, FS roots, network allowlists, resource ceilings) is the 100% answer.
+
+---
+
 ## 1. Why we need this
 
 ### 1.1 The threat model

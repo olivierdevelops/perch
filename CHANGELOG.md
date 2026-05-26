@@ -6,6 +6,15 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **`perch --mode NAME`** — opinionated security presets that disable groups of ops globally. Phase-0 of the capability sandbox design at [sandbox.md](docs/sandbox.md).
+  - **`safe`** — disables `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell`, `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running`. No subprocess access.
+  - **`offline`** — disables every network-touching op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`).
+  - **`read-only`** — disables every filesystem-mutation op (`write_file`, `append_*`, `cp`, `mv`, `rm`, `mkdir`, `chmod`, `touch`, `copy_dir`, `symlink`, `tar_create/extract`, `gzip`/`ungzip`, `zip_create/extract`, `bundle_extract`, `bundle_dir`, …).
+  - **`pure`** — union of all three. The strictest preset.
+  - **`trusted`** (default; empty string) — full op catalog.
+  - **`perch --modes`** lists every mode with the exact ops it blocks.
+  - Blocked calls return `op "X" is disabled by --mode NAME` rather than a confusing "unknown op" — precise feedback for both humans and AI agents.
+  - Applies to every surface uniformly: CLI, `--server`, `--shell`, embedded binaries.
 - **~30 auto-bound variables** every command can use as `${name}` without declaration — the building blocks of cross-platform install / build / uninstall scripts:
   - **OS flags**: `is_windows`, `is_macos`, `is_linux`, `is_unix`, `is_arm64`, `is_amd64` — write `if is_windows ... end` instead of `if os == "windows"`.
   - **Path conventions**: `path_sep`, `path_list_sep`, `exe_ext`, `null_device`, `shell_name` — the things that differ per OS.

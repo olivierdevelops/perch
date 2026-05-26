@@ -47,13 +47,79 @@ const DefaultCommandsFile = "commands.perch"
 //
 // Top-level main.go is a one-liner that calls this function.
 func Run() {
+	// `--mode NAME` is global to the invocation; strip it from os.Args
+	// before any sub-CLI sees it, then apply to the op catalog. Modes
+	// are how a caller picks a Phase-0 security posture — see
+	// docs/sandbox.md and the modes package for the full list.
+	mode := extractModeFlag()
+	if mode == "list" {
+		fmt.Println("Available --mode values:")
+		for _, m := range ops.Modes() {
+			if m == ops.ModeTrusted {
+				fmt.Printf("  %-10s  (default; full op catalog)\n", m)
+			} else {
+				fmt.Printf("  %-10s  blocks: %v\n", m, ops.BlockedOps(m))
+			}
+		}
+		os.Exit(0)
+	}
+
 	if bundle, ok, err := embed.Load(); err != nil {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle).Run())
+		os.Exit(buildEmbeddedCLI(bundle, mode).Run())
 	}
-	os.Exit(buildCLI().Run())
+	os.Exit(buildCLI(mode).Run())
+}
+
+// extractModeFlag removes any `--mode NAME` / `--mode=NAME` pair from
+// os.Args and returns NAME (or "" if not provided). Done before the
+// CLI parser so sub-commands never see the flag. Returns "list" if
+// the user passed `--modes` (the discovery flag).
+func extractModeFlag() string {
+	out := os.Args[:1]
+	mode := ""
+	i := 1
+	for i < len(os.Args) {
+		a := os.Args[i]
+		switch {
+		case a == "--modes":
+			return "list"
+		case a == "--mode":
+			if i+1 < len(os.Args) {
+				mode = os.Args[i+1]
+				i += 2
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "--mode requires a value (one of: "+joinModes()+")")
+			os.Exit(2)
+		case len(a) > 7 && a[:7] == "--mode=":
+			mode = a[7:]
+			i++
+			continue
+		default:
+			out = append(out, a)
+			i++
+		}
+	}
+	if mode != "" && !ops.IsValidMode(mode) {
+		fmt.Fprintf(os.Stderr, "unknown --mode %q (valid: %s)\n", mode, joinModes())
+		os.Exit(2)
+	}
+	os.Args = out
+	return mode
+}
+
+func joinModes() string {
+	out := ""
+	for i, m := range ops.Modes() {
+		if i > 0 {
+			out += ", "
+		}
+		out += m
+	}
+	return out
 }
 
 // knownOps returns the set of op kinds the interpreter knows how to
@@ -68,8 +134,12 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI() *cli.CLI {
+func buildCLI(mode string) *cli.CLI {
 	handlers := ops.AllHandlers()
+	if err := ops.ApplyMode(handlers, mode); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	runFn := func(p *domain.Program, name string, args []string) error {
 		return interpreter.New(handlers, p).Run(name, args)
 	}
@@ -120,9 +190,13 @@ func buildCLI() *cli.CLI {
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, mode string) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
+	if err := ops.ApplyMode(handlers, mode); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.
 	ops.SetBundle(bundle.Archive, bundle.ArchiveHash)

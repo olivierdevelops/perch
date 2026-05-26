@@ -170,6 +170,11 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
+  <h4>Security modes</h4>
+  <p><code>perch --mode safe</code> disables shell + subprocess. <code>--mode offline</code> kills network. <code>--mode read-only</code> kills filesystem mutation. <code>--mode pure</code> = all three. The strictest preset for files from strangers and AI-agent surfaces — full sandbox spec in <a href="sandbox/">sandbox.md</a>.</p>
+</div>
+
+<div class="card">
   <h4>Bundle ops for installers</h4>
   <p><code>bundle_hash</code> / <code>bundle_extract</code> / <code>bundle_dir</code> let your binary install itself into a content-addressable cache. Multiple versions coexist; pruning is <code>rm -rf</code> by hash.</p>
 </div>
@@ -440,7 +445,7 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 **Is it a cross-platform shell?** Yes — and that's the point. With ~110 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
-**Can I lock down what a `.perch` file is allowed to do?** That's the in-progress design at [sandbox.md](sandbox.md) — declared env vars only, FS read/write allowlists, network allowlists, shell-binary allowlists, resource ceilings, `perch --untrusted` mode with permission previews. The goal: safely run `.perch` files from strangers and serve them to AI agents.
+**Can I lock down what a `.perch` file is allowed to do?** Yes — `perch --mode safe` disables shell + subprocess, `--mode offline` disables network ops, `--mode read-only` disables filesystem mutation, `--mode pure` does all three. Run `perch --modes` to see what each blocks. The fuller capability sandbox (env scopes, FS roots, network allowlists, `--untrusted` with permission previews) is designed in [sandbox.md](sandbox.md).
 
 **Do recipients need to install perch?** No. `perch --build` produces a standalone binary. They run that.
 
