@@ -13,11 +13,11 @@ command build
     arg         target string "Target OS (darwin/linux/windows)"
     arg_default target "darwin"
     do
-        print "Building {{APP_NAME}} for {{target}}…"
-        mkdir "{{BIN_DIR}}/{{target}}"
-        shell "GOOS={{target}} go build -ldflags='-s -w' -o {{BIN_DIR}}/{{target}}/{{APP_NAME}} {{MAIN_PKG}}"
-        let size = file_size "{{BIN_DIR}}/{{target}}/{{APP_NAME}}"
-        print "✓ {{size}} bytes."
+        print "Building ${APP_NAME} for ${target}…"
+        mkdir "${BIN_DIR}/${target}"
+        shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN_PKG}"
+        let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
+        print "✓ ${size} bytes."
     end
 end
 
@@ -41,8 +41,8 @@ command lint
     description "Vet + staticcheck (install once with: go install honnef.co/go/tools/cmd/staticcheck@latest)"
     do
         shell "go vet ./..."
-        if_exists "{{HOME}}/go/bin/staticcheck"
-            shell "{{HOME}}/go/bin/staticcheck ./..."
+        if_exists "${HOME}/go/bin/staticcheck"
+            shell "${HOME}/go/bin/staticcheck ./..."
         end
     end
 end
@@ -50,8 +50,8 @@ end
 command clean
     description "Remove all build artifacts"
     do
-        rm "{{BIN_DIR}}"
-        print "Cleaned {{BIN_DIR}}/"
+        rm "${BIN_DIR}"
+        print "Cleaned ${BIN_DIR}/"
     end
 end
 

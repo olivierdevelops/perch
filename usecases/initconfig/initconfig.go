@@ -33,7 +33,7 @@ end
 command hello
     description "Say hello"
     do
-        print "Hello from {{HOME}}"
+        print "Hello from ${HOME}"
     end
 end
 `, filepath.Base(cwd))) + "\n"

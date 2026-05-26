@@ -46,7 +46,7 @@ func TestRunCommandWithDefaultArg(t *testing.T) {
 					{Name: "name", Type: "string", Default: "world", HasDefault: true},
 				},
 				Ops: []domain.Op{
-					{Kind: "print", Args: map[string]any{"msg": "Hello {{name}}"}},
+					{Kind: "print", Args: map[string]any{"msg": "Hello ${name}"}},
 				},
 			},
 		},
@@ -71,7 +71,7 @@ func TestRunCommandWithArg(t *testing.T) {
 					{Name: "name", Type: "string", Default: "world", HasDefault: true},
 				},
 				Ops: []domain.Op{
-					{Kind: "print", Args: map[string]any{"msg": "Hello {{name}}"}},
+					{Kind: "print", Args: map[string]any{"msg": "Hello ${name}"}},
 				},
 			},
 		},
@@ -115,7 +115,7 @@ func TestLetCaptureFlowsToNextOp(t *testing.T) {
 				Name: "x",
 				Ops: []domain.Op{
 					{Kind: "upper", Args: map[string]any{"_0": "hi"}, CaptureInto: "U"},
-					{Kind: "print", Args: map[string]any{"msg": "got {{U}}"}},
+					{Kind: "print", Args: map[string]any{"msg": "got ${U}"}},
 				},
 			},
 		},
@@ -137,7 +137,7 @@ func TestCatch(t *testing.T) {
 		Catch: &domain.Catch{
 			Bind: "name",
 			Ops: []domain.Op{
-				{Kind: "print", Args: map[string]any{"msg": "huh: {{name}}"}},
+				{Kind: "print", Args: map[string]any{"msg": "huh: ${name}"}},
 			},
 		},
 	}
@@ -160,7 +160,7 @@ func TestPrivateCommandFallsToCatch(t *testing.T) {
 		Catch: &domain.Catch{
 			Bind: "name",
 			Ops: []domain.Op{
-				{Kind: "print", Args: map[string]any{"msg": "caught: {{name}}"}},
+				{Kind: "print", Args: map[string]any{"msg": "caught: ${name}"}},
 			},
 		},
 	}

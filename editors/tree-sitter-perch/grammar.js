@@ -151,17 +151,17 @@ module.exports = grammar({
     ),
 
     _string_char_dq: $ => choice(
-      /[^"\\{}]+/,
+      /[^"\\$]+/,
       /\\./,
-      /\{[^{]/,
+      /\$[^{]/,
     ),
     _string_char_sq: $ => choice(
-      /[^'\\{}]+/,
+      /[^'\\$]+/,
       /\\./,
-      /\{[^{]/,
+      /\$[^{]/,
     ),
 
-    interpolation: $ => seq('{{', $.identifier, '}}'),
+    interpolation: $ => seq('${', $.identifier, '}'),
 
     integer:    $ => /-?\d+/,
     float:      $ => /-?\d+\.\d+/,

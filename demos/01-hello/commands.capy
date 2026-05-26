@@ -11,7 +11,7 @@ command hello
     arg         name string "Who to greet"
     arg_default name "world"
     do
-        print "{{GREETING}}, {{name}}!"
+        print "${GREETING}, ${name}!"
     end
 end
 
@@ -20,9 +20,9 @@ command sysinfo
     do
         let host = hostname
         let now  = now "rfc3339"
-        print "host:  {{host}}"
-        print "user:  {{USER}}"
-        print "home:  {{HOME}}"
-        print "now:   {{now}}"
+        print "host:  ${host}"
+        print "user:  ${USER}"
+        print "home:  ${HOME}"
+        print "now:   ${now}"
     end
 end

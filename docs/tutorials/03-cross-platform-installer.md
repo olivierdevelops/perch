@@ -74,19 +74,19 @@ Suppose the team keeps shared shell config in a private GitHub repo. Cloning it 
 command fetch_config
     description "Clone team-config into ~/.team-config"
     do
-        if_exists "{{HOME}}/.team-config"
+        if_exists "${HOME}/.team-config"
             print "team-config already cloned; pulling latest"
-            cd "{{HOME}}/.team-config"
+            cd "${HOME}/.team-config"
             shell "git pull"
         end
         if_os "windows"
-            if_exists "{{USERPROFILE}}/.team-config"
-                cd "{{USERPROFILE}}/.team-config"
+            if_exists "${USERPROFILE}/.team-config"
+                cd "${USERPROFILE}/.team-config"
                 shell "git pull"
             end
         end
         # Clone if missing
-        if_exists "{{HOME}}/.team-config"
+        if_exists "${HOME}/.team-config"
             print "(already present)"
         end
     end
@@ -104,11 +104,11 @@ command setup_env
     description "Append PERCH_* env vars to the shell rc file"
     do
         if_os "darwin"
-            write_file "{{HOME}}/.zshrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
+            write_file "${HOME}/.zshrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
             print "Add to your .zshrc: source ~/.zshrc.perch"
         end
         if_os "linux"
-            write_file "{{HOME}}/.bashrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
+            write_file "${HOME}/.bashrc.perch" "export PERCH_HOME=$HOME/.team-config\nexport EDITOR=code\n"
             print "Add to your .bashrc: source ~/.bashrc.perch"
         end
         if_os "windows"

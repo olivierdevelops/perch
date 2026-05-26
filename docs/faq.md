@@ -14,7 +14,7 @@
 
 The closest competitor in spirit is [Just](https://github.com/casey/just). perch differs by:
 
-1. Treating `{{name}}` as a runtime placeholder — args/lets/globals/env are one uniform binding table.
+1. Treating `${name}` as a runtime placeholder — args/lets/globals/env are one uniform binding table.
 2. Having a real op catalog (file ops, hashing, HTTP, regex…) so command bodies aren't just bash strings.
 3. Producing a redistributable binary so non-developers on your team can run jobs without installing anything.
 
@@ -50,7 +50,7 @@ Three approaches:
                 print "✓ build produced an artifact"
             end
             let s = file_size "./bin/myapp"
-            if_eq "{{s}}" "0"
+            if_eq "${s}" "0"
                 fail "binary is empty"
             end
         end

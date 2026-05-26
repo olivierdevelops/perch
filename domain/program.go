@@ -21,7 +21,7 @@ type Program struct {
 
 // Globals holds bindings shared by every command invocation.
 // Each entry's value type is preserved (bool/int/float/string) and
-// surfaces as both a CLI flag and a {{name}} binding at runtime.
+// surfaces as both a CLI flag and a ${name} binding at runtime.
 type Globals struct {
 	Bindings []GlobalBinding `json:"bindings"`
 }

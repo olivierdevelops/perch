@@ -3,7 +3,7 @@
 The complete surface of the `commands.capy` DSL. Two firm rules to keep in mind everywhere:
 
 1. **Config vs body is syntactic.** Between `command NAME` and `do` is *declarative configuration*. Inside `do … end` is the *executable body*. They never mix.
-2. **`{{name}}` interpolates at runtime.** Capy itself doesn't touch `{{…}}` in strings, so the placeholder round-trips through parsing into the program JSON unchanged. The Go runtime substitutes from the bindings table (args → globals → host env) just before each op runs.
+2. **`${name}` interpolates at runtime.** Capy parses `${name}` inside `"..."` captures as literal characters (it only interpolates inside its own template/backtick contexts), so the placeholder round-trips through parsing into the program JSON unchanged. The Go runtime substitutes from the bindings table (args → globals → host env) just before each op runs. To pass a literal `${VAR}` through to a `shell` call (e.g. an actual shell variable), prefix with a backslash: `\${VAR}`.
 
 ## File structure
 
@@ -52,7 +52,7 @@ globals
 end
 ```
 
-Globals are visible inside every command body as `{{verbose}}`, `{{BUILD_DIR}}`, etc. By convention, UPPER_SNAKE_CASE globals are also exported as environment variables to every spawned `shell` call.
+Globals are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc. By convention, UPPER_SNAKE_CASE globals are also exported as environment variables to every spawned `shell` call.
 
 ## Commands
 
@@ -69,8 +69,8 @@ command build
 
     # ── body ──
     do
-        print "Building for {{target}}"
-        shell "go build -o ./bin/{{target}}/myapp"
+        print "Building for ${target}"
+        shell "go build -o ./bin/${target}/myapp"
     end
 end
 ```
@@ -86,7 +86,7 @@ end
 | `arg_optional NAME`               | Mark arg optional even without a default. |
 | `private`                         | Hide from CLI; only callable via `run` from another command. |
 | `detached`                        | Don't wait on processes spawned by `shell_detached`. |
-| `proxy_args`                      | Skip arg parsing; argv comes through as `{{proxy_args}}`. |
+| `proxy_args`                      | Skip arg parsing; argv comes through as `${proxy_args}`. |
 | `require_os "darwin" ...`         | Refuse to run on other OSes. Repeatable. |
 | `require_arch "arm64" ...`        | Refuse to run on other architectures. |
 | `dir "./subdir"`                  | Set the cwd for the body. |
@@ -110,7 +110,7 @@ end
 Inside the body:
 
 - Every line is an **op call**. The op kind (`print`, `shell`, `mkdir`, …) is the first identifier; args follow.
-- **`let NAME = OP ARGS`** runs the op and stores the return value under `NAME`. Subsequent strings interpolate via `{{NAME}}`.
+- **`let NAME = OP ARGS`** runs the op and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
 - **Block ops** (`if_os`, `if_arch`, `if_exists`, `if_eq`, `if_gt`, `if_lt`) wrap a nested body that runs only when the condition holds.
 - **`run NAME`** calls another command in the same file (private commands are callable here).
 
@@ -124,7 +124,7 @@ A fallback dispatched when the user types a command we don't have. The unknown n
 catch unknown
     description "Help users who typo"
     do
-        print "Unknown command: {{unknown}}"
+        print "Unknown command: ${unknown}"
         print "Try one of:"
         list_commands
         exit 1
@@ -134,14 +134,14 @@ end
 
 ## Interpolation
 
-`{{NAME}}` inside any string-valued op argument is resolved at runtime. Resolution order:
+`${NAME}` inside any string-valued op argument is resolved at runtime. Resolution order:
 
 1. Command-local bindings: parsed arg values and `let` captures.
 2. `globals` block.
 3. Per-command `env` declarations.
-4. Host process environment (so `{{HOME}}`, `{{USER}}`, `{{PATH}}` just work).
+4. Host process environment (so `${HOME}`, `${USER}`, `${PATH}` just work).
 
-Unknown names produce an error at op-run time. To embed a literal `{{`, escape with `\{{`.
+Unknown names produce an error at op-run time. To pass a literal `${VAR}` through to a child process (e.g. a real shell variable inside a `shell` op), escape with a backslash: `\${VAR}`.
 
 ## Comments
 

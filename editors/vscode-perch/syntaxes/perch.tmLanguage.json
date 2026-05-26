@@ -31,7 +31,7 @@
           "end": "\"",
           "patterns": [
             { "name": "constant.character.escape.perch", "match": "\\\\." },
-            { "name": "variable.other.perch", "match": "\\{\\{[A-Za-z_][A-Za-z0-9_]*\\}\\}" }
+            { "name": "variable.other.perch", "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}" }
           ]
         },
         {
@@ -40,7 +40,7 @@
           "end": "'",
           "patterns": [
             { "name": "constant.character.escape.perch", "match": "\\\\." },
-            { "name": "variable.other.perch", "match": "\\{\\{[A-Za-z_][A-Za-z0-9_]*\\}\\}" }
+            { "name": "variable.other.perch", "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}" }
           ]
         }
       ]

@@ -47,7 +47,7 @@ end
 command hello
     description "Say hello"
     do
-        print "Hello from {{HOME}}"
+        print "Hello from ${HOME}"
     end
 end
 ```
@@ -71,8 +71,8 @@ command greet
     arg         name string "Person to greet"
     arg_default name "world"
     do
-        let upper_name = upper "{{name}}"
-        print "Hello, {{upper_name}}!"
+        let upper_name = upper "${name}"
+        print "Hello, ${upper_name}!"
     end
 end
 ```
@@ -86,7 +86,7 @@ Three new ideas just appeared:
 
 - **`arg NAME TYPE "desc"`** declares a typed CLI flag.
 - **`arg_default NAME VALUE`** gives it a fallback so the flag is optional.
-- **`let X = OP ARGS`** runs an op and stores the result; later strings interpolate `{{X}}`.
+- **`let X = OP ARGS`** runs an op and stores the result; later strings interpolate `${X}`.
 
 ## Ship it as a binary
 

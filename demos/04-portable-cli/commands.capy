@@ -9,7 +9,7 @@ command hello
     arg         greeting  string "Greeting word"
     arg_default greeting  "Hello"
     do
-        print "{{greeting}}, {{name}}!"
+        print "${greeting}, ${name}!"
     end
 end
 
@@ -18,8 +18,8 @@ command upper
     arg         name string "Person to shout at"
     arg_default name "world"
     do
-        let n = upper "{{name}}"
-        print "OI, {{n}}!"
+        let n = upper "${name}"
+        print "OI, ${n}!"
     end
 end
 
@@ -28,15 +28,15 @@ command facts
     do
         let h = hostname
         let now = now "rfc3339"
-        print "host:  {{h}}"
-        print "now:   {{now}}"
+        print "host:  ${h}"
+        print "now:   ${now}"
     end
 end
 
 catch unknown
     description "What runs when the user types a command we don't have"
     do
-        print "greet doesn't know about '{{unknown}}'."
+        print "greet doesn't know about '${unknown}'."
         print "Try: greet hello | greet upper | greet facts"
         exit 1
     end

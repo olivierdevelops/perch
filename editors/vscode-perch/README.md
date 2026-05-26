@@ -8,7 +8,7 @@ Syntax highlighting for `.capy` files written against the [perch](https://github
 - Highlights config modifiers (`description`, `arg`, `private`, `require_os`, …)
 - Highlights block ops (`if_os`, `if_arch`, `if_exists`, `if_eq`, `if_gt`, …)
 - Highlights the built-in op catalog
-- `{{name}}` placeholders highlighted as variables inside strings
+- `${name}` placeholders highlighted as variables inside strings
 - `#`-line comments
 - Smart indent on `command`/`do`/`if_*`/`catch` openers
 

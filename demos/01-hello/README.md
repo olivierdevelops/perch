@@ -10,7 +10,7 @@ perch sysinfo                # → host/user/home/now lines
 
 ## Concepts
 
-- `globals` block holds shared values. `GREETING` is referenced from inside the command body as `{{GREETING}}`.
+- `globals` block holds shared values. `GREETING` is referenced from inside the command body as `${GREETING}`.
 - `arg NAME TYPE "desc"` declares a typed CLI flag. `arg_default` gives it a fallback.
-- `let X = OP ARGS` runs an op and captures its return value; subsequent ops use `{{X}}` to interpolate.
-- Names that don't resolve to a global or arg fall back to the host process environment, so `{{HOME}}` and `{{USER}}` just work.
+- `let X = OP ARGS` runs an op and captures its return value; subsequent ops use `${X}` to interpolate.
+- Names that don't resolve to a global or arg fall back to the host process environment, so `${HOME}` and `${USER}` just work.

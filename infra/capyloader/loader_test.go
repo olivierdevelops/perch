@@ -56,7 +56,7 @@ command build
     arg_default target "darwin"
     private
     do
-        print "Building {{target}}"
+        print "Building ${target}"
         shell "go build"
     end
 end
@@ -150,7 +150,7 @@ func TestCatch(t *testing.T) {
 catch unknown
     description "fallback"
     do
-        print "no such: {{unknown}}"
+        print "no such: ${unknown}"
         exit 1
     end
 end

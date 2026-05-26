@@ -38,7 +38,7 @@ end
 catch unknown                    # optional fallback
     description "..."
     do
-        print "no command named {{unknown}}"
+        print "no command named ${unknown}"
         exit 1
     end
 end
@@ -49,7 +49,7 @@ end
 1. **Config statements must appear before `do`. Ops must appear inside `do … end`.** They never mix. Putting `arg foo string "x"` inside a `do` block is a hard syntax error.
 2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.capy` for op arguments — they're a library-internal token.
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
-4. **`{{name}}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `{{name}}` after capy is done.
+4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
 5. **One op per line. Block ops (`if_os`, `if_arch`, `if_eq`, `if_gt`, `if_lt`, `if_exists`, `if_neq`, `if_empty`, `if_not_empty`) wrap a nested body terminated by `end`.**
 6. **`let NAME = OP ARG` form is for capturing return values. `let` is NOT a standalone op — it must precede an op-call expression with 0, 1, or 2 args.**
 
@@ -64,7 +64,7 @@ end
 | `arg_optional NAME`               | Mark optional (with no default) |
 | `private`                         | Hide from CLI; only callable via `run` |
 | `detached`                        | Don't wait on detached spawns |
-| `proxy_args`                      | Skip arg parsing; argv → `{{proxy_args}}` |
+| `proxy_args`                      | Skip arg parsing; argv → `${proxy_args}` |
 | `require_os "darwin" "linux"`     | Refuse to run on other OSes (one call per OS or multiple values) |
 | `require_arch "arm64"`            | Same idea for arch |
 | `dir "./subdir"`                  | cwd for the body |
@@ -115,10 +115,10 @@ end
 
 ## Interpolation rules
 
-- `{{name}}` resolves in this order: command args → `let` captures → `globals` → per-command `env` → host process environment.
+- `${name}` resolves in this order: command args → `let` captures → `globals` → per-command `env` → host process environment.
 - Unknown names produce a runtime error. Defining a default via `arg_default` is the cleanest fix.
 - UPPER_SNAKE_CASE globals are also exported as environment variables to `shell` calls automatically.
-- `{{HOME}}`, `{{USER}}`, `{{PATH}}` work out of the box (they fall through to host env).
+- `${HOME}`, `${USER}`, `${PATH}` work out of the box (they fall through to host env).
 
 ## When the user asks for something
 
@@ -142,7 +142,7 @@ Map the request to perch concepts:
 ## Anti-patterns — DO NOT write these
 
 ```capy
-# ❌ Don't use Go-template syntax — perch uses {{name}} not {{.name}}
+# ❌ Don't use Go-template syntax — perch uses ${name} not {{.name}}
 print "hello {{.name}}"
 
 # ❌ Don't put ops in the config region
@@ -202,10 +202,10 @@ command build
     arg         target string "darwin/linux/windows"
     arg_default target "darwin"
     do
-        mkdir "{{BIN_DIR}}/{{target}}"
-        shell "GOOS={{target}} go build -ldflags='-s -w' -o {{BIN_DIR}}/{{target}}/{{APP_NAME}} {{MAIN_PKG}}"
-        let size = file_size "{{BIN_DIR}}/{{target}}/{{APP_NAME}}"
-        print "✓ built ({{size}} bytes)"
+        mkdir "${BIN_DIR}/${target}"
+        shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN_PKG}"
+        let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
+        print "✓ built (${size} bytes)"
     end
 end
 
@@ -235,7 +235,7 @@ end
 
 catch unknown
     do
-        print "Unknown command: {{unknown}}"
+        print "Unknown command: ${unknown}"
         list_commands
         exit 1
     end

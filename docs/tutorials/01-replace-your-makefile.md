@@ -72,8 +72,8 @@ In perch:
 command build
     description "Compile the binary"
     do
-        mkdir "{{BIN_DIR}}"
-        shell "go build -ldflags='-s -w' -o {{BIN_DIR}}/{{APP_NAME}} {{MAIN}}"
+        mkdir "${BIN_DIR}"
+        shell "go build -ldflags='-s -w' -o ${BIN_DIR}/${APP_NAME} ${MAIN}"
     end
 end
 ```
@@ -88,7 +88,7 @@ ls bin/
 Two improvements over Make:
 
 - `mkdir` is a first-class op — works on Windows too. `mkdir -p` doesn't exist there.
-- `{{VAR}}` and shell `$VAR` don't fight. perch substitutes before the shell sees anything.
+- `${VAR}` and shell `$VAR` don't fight. perch substitutes before the shell sees anything.
 
 ## Step 4 — `test`, `lint`, `clean`
 
@@ -104,8 +104,8 @@ command lint
     description "Run go vet plus staticcheck if available"
     do
         shell "go vet ./..."
-        if_exists "{{HOME}}/go/bin/staticcheck"
-            shell "{{HOME}}/go/bin/staticcheck ./..."
+        if_exists "${HOME}/go/bin/staticcheck"
+            shell "${HOME}/go/bin/staticcheck ./..."
         end
     end
 end
@@ -113,8 +113,8 @@ end
 command clean
     description "Remove build artifacts"
     do
-        rm "{{BIN_DIR}}"
-        print "Cleaned {{BIN_DIR}}/"
+        rm "${BIN_DIR}"
+        print "Cleaned ${BIN_DIR}/"
     end
 end
 ```
@@ -131,8 +131,8 @@ command build_for
     arg         target string "Target OS"
     arg_default target "darwin"
     do
-        mkdir "{{BIN_DIR}}/{{target}}"
-        shell "GOOS={{target}} go build -ldflags='-s -w' -o {{BIN_DIR}}/{{target}}/{{APP_NAME}} {{MAIN}}"
+        mkdir "${BIN_DIR}/${target}"
+        shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN}"
     end
 end
 
@@ -179,18 +179,18 @@ command lint
     do
         shell "go vet ./..."
         if_os "windows"
-            if_exists "{{USERPROFILE}}/go/bin/staticcheck.exe"
-                shell "{{USERPROFILE}}/go/bin/staticcheck.exe ./..."
+            if_exists "${USERPROFILE}/go/bin/staticcheck.exe"
+                shell "${USERPROFILE}/go/bin/staticcheck.exe ./..."
             end
         end
         if_os "darwin"
-            if_exists "{{HOME}}/go/bin/staticcheck"
-                shell "{{HOME}}/go/bin/staticcheck ./..."
+            if_exists "${HOME}/go/bin/staticcheck"
+                shell "${HOME}/go/bin/staticcheck ./..."
             end
         end
         if_os "linux"
-            if_exists "{{HOME}}/go/bin/staticcheck"
-                shell "{{HOME}}/go/bin/staticcheck ./..."
+            if_exists "${HOME}/go/bin/staticcheck"
+                shell "${HOME}/go/bin/staticcheck ./..."
             end
         end
     end
@@ -201,7 +201,7 @@ Same file. Three platforms. Zero Makefile-per-OS dance.
 
 ## What you learned
 
-- Globals replace Makefile variables. Interpolation is `{{name}}` not `$(name)`.
+- Globals replace Makefile variables. Interpolation is `${name}` not `$(name)`.
 - Each Make target maps to a `command NAME ... end` block.
 - Ops (`mkdir`, `rm`, `if_exists`, `if_os`) replace shell incantations and platform-conditional Makefile-snippet hackery.
 - `run COMMAND` replaces recursive Make.

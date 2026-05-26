@@ -28,7 +28,7 @@ func NewBindings(cwd string) *Bindings {
 // Lookup returns the string form of a binding's value (suitable for
 // substitution into op args). Resolution order: command bindings (args /
 // globals / lets), per-command env, then the host process env (so
-// {{HOME}}, {{USER}}, {{PATH}} etc. work out of the box).
+// ${HOME}, ${USER}, ${PATH} etc. work out of the box).
 func (b *Bindings) Lookup(name string) (string, bool) {
 	if v, ok := b.Vars[name]; ok {
 		return ToStringValue(v), true

@@ -23,11 +23,11 @@ command build
     arg         target string "Target OS"
     arg_default target "darwin"
     do
-        print "Building for {{target}}…"
-        mkdir "{{BUILD_DIR}}/{{target}}"
-        shell "GOOS={{target}} go build -o {{BUILD_DIR}}/{{target}}/myapp ./cmd/myapp"
-        let size = file_size "{{BUILD_DIR}}/{{target}}/myapp"
-        print "Built {{size}} bytes."
+        print "Building for ${target}…"
+        mkdir "${BUILD_DIR}/${target}"
+        shell "GOOS=${target} go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp"
+        let size = file_size "${BUILD_DIR}/${target}/myapp"
+        print "Built ${size} bytes."
     end
 end
 

@@ -1,7 +1,7 @@
 // Package runshell is the perch REPL: each line is wrapped as a
 // throwaway `command __repl__ do <LINE> end`, fed through capy, and
 // dispatched by the interpreter. Bindings persist across lines so
-// `let x = …` then `print "{{x}}"` works one line apart.
+// `let x = …` then `print "${x}"` works one line apart.
 package runshell
 
 import (

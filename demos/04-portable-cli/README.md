@@ -33,6 +33,6 @@ Details in [`docs/embedding.md`](../../docs/embedding.md).
 
 ## Concepts
 
-- `catch NAME ... end` — fallback command. The unknown name is bound as `{{NAME}}` inside the body.
+- `catch NAME ... end` — fallback command. The unknown name is bound as `${NAME}` inside the body.
 - The output binary inherits its `--version` from the program's `version` field.
 - `--build` produces a binary for the **host** OS/arch. Cross-compile is on the roadmap.

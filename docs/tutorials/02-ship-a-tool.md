@@ -26,10 +26,10 @@ command backup
     description "Snapshot the primary DB to S3"
     do
         let stamp = now "unix"
-        shell "pg_dump -h {{DB_HOST}} -Fc > /tmp/backup-{{stamp}}.dump"
-        shell "aws s3 cp /tmp/backup-{{stamp}}.dump {{BACKUP_S3}}/db-{{stamp}}.dump"
-        rm "/tmp/backup-{{stamp}}.dump"
-        print "✓ uploaded as db-{{stamp}}.dump"
+        shell "pg_dump -h ${DB_HOST} -Fc > /tmp/backup-${stamp}.dump"
+        shell "aws s3 cp /tmp/backup-${stamp}.dump ${BACKUP_S3}/db-${stamp}.dump"
+        rm "/tmp/backup-${stamp}.dump"
+        print "✓ uploaded as db-${stamp}.dump"
     end
 end
 
@@ -51,7 +51,7 @@ end
 
 catch unknown
     do
-        print "Unknown command: {{unknown}}"
+        print "Unknown command: ${unknown}"
         print "Try: backup | restart-api | check-disk"
         exit 1
     end

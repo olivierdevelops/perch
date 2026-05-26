@@ -88,7 +88,7 @@ Three layers:
 ```
 domain/program_test.go              -- Op.IsBlock, marshaling round-trip
 infra/capyloader/loader_test.go     -- parsing each event kind; nested if_os; catch; globals
-infra/interpreter/interpolate_test.go -- {{x}} substitution, escape, errors
+infra/interpreter/interpolate_test.go -- ${x} substitution, escape, errors
 infra/interpreter/bindings_test.go   -- ToStringValue for every value kind
 infra/interpreter/interpreter_test.go -- arg parsing, defaults, required, ProxyArgs
 infra/ops/*_test.go                 -- each handler with a tiny fixture
@@ -165,7 +165,7 @@ Should be done before announcing publicly. Stuff that turns "interesting" into "
 Reading order — six pages, each under 1,000 words:
 
 1. **`docs/getting-started.md`** — install → `--init` → first command → run.
-2. **`docs/language.md`** — every keyword and modifier in §2 of the original plan: command/do/end, globals, args/arg_default/etc., config modifiers, catch, the `{{x}}` interpolation rules. A cheat sheet at the bottom.
+2. **`docs/language.md`** — every keyword and modifier in §2 of the original plan: command/do/end, globals, args/arg_default/etc., config modifiers, catch, the `${x}` interpolation rules. A cheat sheet at the bottom.
 3. **`docs/op-reference.md`** — auto-generated from `infra/ops/` registrations: kind, signature, return value, example. The "stdlib" reference.
 4. **`docs/embedding.md`** — `--build` and how the fat binary works. When to use it. The on-disk format spec (so people can audit security).
 5. **`docs/ci-recipes.md`** — drop-in GitHub Actions / GitLab CI snippets calling `perch <cmd>`.

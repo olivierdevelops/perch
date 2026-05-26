@@ -5,34 +5,35 @@ import (
 	"strings"
 )
 
-// Interpolate substitutes {{name}} placeholders in s with values from b.
-// Unknown names produce an error. Double-open `\{{` is an escape for
-// a literal `{{`.
+// Interpolate substitutes ${name} placeholders in s with values from b.
+// Unknown names produce an error. Use `\${name}` (literal backslash) to
+// emit a literal `${name}` without substitution — useful for shell
+// variables that should reach bash untouched.
 func Interpolate(s string, b *Bindings) (string, error) {
-	if !strings.Contains(s, "{{") {
+	if !strings.Contains(s, "${") {
 		return s, nil
 	}
 	var out strings.Builder
 	i := 0
 	for i < len(s) {
-		if i+1 < len(s) && s[i] == '\\' && s[i+1] == '{' {
-			out.WriteByte('{')
-			i += 2
+		// `\${` → emit literal `${`, skip both bytes of the escape and the `{`.
+		if i+2 < len(s) && s[i] == '\\' && s[i+1] == '$' && s[i+2] == '{' {
+			out.WriteString("${")
+			i += 3
 			continue
 		}
-		if i+1 < len(s) && s[i] == '{' && s[i+1] == '{' {
-			// find matching }}
-			end := strings.Index(s[i+2:], "}}")
+		if i+1 < len(s) && s[i] == '$' && s[i+1] == '{' {
+			end := strings.IndexByte(s[i+2:], '}')
 			if end < 0 {
-				return "", fmt.Errorf("unterminated {{ in %q", s)
+				return "", fmt.Errorf("unterminated ${ in %q", s)
 			}
 			name := strings.TrimSpace(s[i+2 : i+2+end])
 			v, ok := b.Lookup(name)
 			if !ok {
-				return "", fmt.Errorf("unknown placeholder {{%s}} in %q", name, s)
+				return "", fmt.Errorf("unknown placeholder ${%s} in %q", name, s)
 			}
 			out.WriteString(v)
-			i += 2 + end + 2
+			i += 2 + end + 1
 			continue
 		}
 		out.WriteByte(s[i])

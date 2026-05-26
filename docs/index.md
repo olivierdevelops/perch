@@ -9,7 +9,7 @@ command build
     arg         target string "Target OS"
     arg_default target "darwin"
     do
-        shell "GOOS={{target}} go build -o ./bin/{{target}}/myapp ."
+        shell "GOOS=${target} go build -o ./bin/${target}/myapp ."
     end
 end
 ```

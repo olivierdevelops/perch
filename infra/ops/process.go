@@ -128,7 +128,7 @@ func opRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]
 	if !ok {
 		return nil, fmt.Errorf("run: unknown command %q", target)
 	}
-	// Re-use the current bindings so {{var}} stays visible across calls.
+	// Re-use the current bindings so ${var} stays visible across calls.
 	return nil, i.RunOps(cmd.Ops, b)
 }
 
