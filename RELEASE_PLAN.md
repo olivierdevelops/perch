@@ -192,7 +192,7 @@ Each tutorial ends with a "what you learned" recap and a link to the next one.
 - `scripts/install.sh` — detects OS/arch, downloads from latest release, verifies sha256, installs to `/usr/local/bin` (with sudo only if needed) or `~/.local/bin`. The `curl -fsSL <url> | sh` story.
 - `scripts/install.ps1` — Windows equivalent.
 - `Formula/perch.rb` in a `homebrew-tap` sibling repo (or `Homebrew/Formula/perch.rb` if going for homebrew/core later).
-- Document `go install github.com/<you>/perch/cmd/perch@latest` in README.
+- Document `go install github.com/<you>/perch@latest` in README.
 
 **Files:** `scripts/install.{sh,ps1}`; separate `homebrew-perch` repo with the Formula.
 
