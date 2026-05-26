@@ -831,7 +831,7 @@ command nightly_etl
 end
 ```
 
-**Why perch wins:** `download`, `ungzip`, `json_get`, `http_post` are first-class ops with consistent error handling. No shell quoting drama. `--check` flags typos before the cron fires. If you need this to be more reliable, drop in `if_exists` guards and `fail` checks.
+**Why perch wins:** `download`, `ungzip`, `json_get`, `http_post` are first-class ops with consistent error handling. No shell quoting drama. `--check` flags typos before the cron fires. If you need this to be more reliable, drop in `if exists "X" … end` guards and `fail` checks.
 
 Not a full Airflow replacement, but for the "I have 10 shell scripts and 5 of them have bit-rotted" tier, it's a substantial upgrade.
 

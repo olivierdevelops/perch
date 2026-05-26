@@ -154,7 +154,7 @@ Inside the body:
 
 - Every line is an **op call**. The op kind (`print`, `shell`, `mkdir`, …) is the first identifier; args follow.
 - **`let NAME = OP ARGS`** runs the op and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
-- **Block ops** (`if_os`, `if_arch`, `if_exists`, `if_eq`, `if_gt`, `if_lt`) wrap a nested body that runs only when the condition holds.
+- **Block ops** — the unified `if EXPR ... end` wraps a nested body that runs only when the condition holds. EXPR may be a comparison (`os == "linux"`, `size > 1000000`), a truthy/falsy check (`has_bin`, `not has_bin`), or a predicate call (`exists "./bin"`). See "Conditionals" in the [op catalog](op-reference.md).
 - **`run NAME`** calls another command in the same file (private commands are callable here).
 
 See the [op catalog](op-reference.md) for every built-in op.
@@ -205,4 +205,4 @@ Unknown names produce an error at op-run time. To pass a literal `${VAR}` throug
 
 ## Reserved words
 
-The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if_os`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).
+The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if`, `let`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).

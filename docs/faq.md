@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | Config language | Makefile (kludgy) | Just-script | YAML | **capy DSL** |
 | Cross-platform | painful | best of the three | OK | **first-class** |
-| Built-in ops library | none | none | none | **~70 ops** |
+| Built-in ops library | none | none | none | **~140 ops** |
 | Web UI mode | — | — | — | **`--server`** |
 | REPL | — | — | — | **`--shell`** |
 | Portable binary output | — | — | — | **`--build`** |
@@ -50,7 +50,7 @@ Three approaches:
                 print "✓ build produced an artifact"
             end
             let s = file_size "./bin/myapp"
-            if_eq "${s}" "0"
+            if s == 0
                 fail "binary is empty"
             end
         end

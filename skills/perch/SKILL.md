@@ -383,7 +383,7 @@ end
 - **`perch --dry-run <cmd>`** — walks every op, prints kind + interpolated args, skips the handler. Capture vars become `""` so `${x}` still resolves downstream.
 - **`perch --ask <cmd>`** — interactive step-through. For each op: `y` runs it, `n` skips, `a` runs this op then everything else without further asking, `q` quits the command.
 
-Both work for any command and stack with `--mode`: `perch --mode safe --ask deploy` lets you preview ops AND have the runtime refuse shell calls.
+Both work for any command and stack with the restriction flags: `perch --no-shell --ask deploy` lets you preview ops AND have the runtime refuse shell calls.
 
 ## Restriction flags
 
@@ -421,4 +421,4 @@ Full design + the upcoming capability sandbox is at [sandbox.md](https://luowens
 - The op catalog is the source of truth. If you're unsure whether something is an op, look at [op-reference.md](https://github.com/luowensheng/perch/blob/main/docs/op-reference.md). If it's not there, fall back to `shell "..."`.
 - The language reference is [language.md](https://github.com/luowensheng/perch/blob/main/docs/language.md).
 - The demos folder ([demos/](https://github.com/luowensheng/perch/tree/main/demos)) has canonical patterns for common shapes.
-- Ask the user about their target OS / arch when writing a build pipeline — it changes whether you need `if_os` branches or not.
+- Ask the user about their target OS / arch when writing a build pipeline — it changes whether you need `if os == "..."` branches or not.

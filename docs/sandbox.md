@@ -56,7 +56,7 @@ The interpolated args you see are exactly what the handler receives — no surpr
 
 - `--dry-run` is a **pre-flight check.** Read the plan, decide, then re-run without the flag.
 - `--ask` is **per-op consent.** Best for scripts you're partially trusting — confirm the destructive ops, accept the rest in bulk with `a`.
-- Combine with `--mode safe` to belt-and-braces: shell ops can't fire even if you accidentally hit `y`.
+- Combine with `--no-shell` to belt-and-braces: shell ops can't fire even if you accidentally hit `y`.
 
 This is the lightweight cousin of the `--untrusted` permission-preview mode described in §7 — that one is non-interactive (preview, prompt once, run), this one is op-by-op.
 
@@ -202,7 +202,7 @@ So: yes, perch is a cross-platform shell. The sandbox lets you *prove* it is, fo
 | Deno | (none — author has no say) | `--allow-net=…` etc. on CLI | user-only |
 | systemd | (none) | unit file `RestrictAddressFamilies=`, `ProtectSystem=` | admin-only |
 | Capability languages (Pony, ocaps) | requests capabilities | passes them as args | author-by-construction |
-| **perch** | **`sandbox` block in `.perch`** | **`--mode` / `--allow-*` / `--untrusted` on CLI** | **intersection** |
+| **perch** | **`sandbox` block in `.perch`** | **`--no-*` / `--env` / `--allow-*` / `--untrusted` on CLI** | **intersection** |
 
 perch is closest to Android: a *manifest* the author writes, plus a *grant layer* the user controls at run time. The CLI can only tighten what the file declared — never loosen.
 
@@ -221,13 +221,14 @@ You're not writing the sandbox to *protect yourself from yourself.* You're writi
 
 When you *run* a `.perch` file, you decide what trust to extend on top of whatever the file declared. You layer further restrictions via:
 
-- **`perch --mode safe|offline|read-only|pure`** — preset tightenings (shipping today; see §0).
+- **`perch --no-shell` / `--no-subprocess` / `--no-network` / `--no-write`** — composable tightenings (shipping today; see §0b).
+- **`perch --env A,B,C`** — restrict host env-var visibility (shipping today; see §0b).
 - **`perch --allow-env=A,B`** etc. — per-axis overrides (future; see §8).
 - **`perch --untrusted`** — strictest preset; refuses files without a sandbox; shows permission preview; caps timeouts (future; see §7).
 
 The user can never *grant* more than the file declared. If the file's sandbox says `read "./src"`, no `--allow-read="/"` flag can unlock `/etc`. If the user wants the script to touch `/etc`, they have to edit the script — which means seeing the change in code review.
 
-The user *can* be more restrictive than the file. If the file declares `shell_bins git docker`, the user can still `--mode safe` to forbid shell entirely. The script might fail (some commands unreachable) — that's the user's call. Same as denying Android Contacts permission and accepting that the contact-syncing feature breaks.
+The user *can* be more restrictive than the file. If the file declares `shell_bins git docker`, the user can still `--no-shell` to forbid shell entirely. The script might fail (some commands unreachable) — that's the user's call. Same as denying Android Contacts permission and accepting that the contact-syncing feature breaks.
 
 ### 2.5.3 The admin's role (optional third layer)
 
@@ -249,13 +250,13 @@ Where any side omits a clause, it's treated as "unrestricted on this axis" (whic
 
 ### 2.5.5 Concrete walk-throughs
 
-**Scenario A — trustworthy author, trusting user.** You wrote `dev.perch` for your team. You include a tight sandbox declaring shell, github access, write to `~/.cache/dev-cli`. Your colleague runs `perch -f dev.perch up` — no `--mode`, no CLI restrictions. Effective policy = the author's declaration. Reviewers can audit. Fine.
+**Scenario A — trustworthy author, trusting user.** You wrote `dev.perch` for your team. You include a tight sandbox declaring shell, github access, write to `~/.cache/dev-cli`. Your colleague runs `perch -f dev.perch up` — no `--no-*` flags, no CLI restrictions. Effective policy = the author's declaration. Reviewers can audit. Fine.
 
-**Scenario B — trustworthy author, paranoid user.** Same `dev.perch`. Your colleague is in an audit environment and runs `perch --mode read-only -f dev.perch status`. The file declares it might write to `~/.cache/dev-cli`; the user's `--mode read-only` overrides that to no writes. The `status` command doesn't write so it works. If they ran `up` it'd fail at the first write op — correctly, because the user asked for no writes.
+**Scenario B — trustworthy author, paranoid user.** Same `dev.perch`. Your colleague is in an audit environment and runs `perch --no-write -f dev.perch status`. The file declares it might write to `~/.cache/dev-cli`; the user's `--no-write` overrides that to no writes. The `status` command doesn't write so it works. If they ran `up` it'd fail at the first write op — correctly, because the user asked for no writes.
 
-**Scenario C — malicious author.** You receive `cool.perch` from a stranger. Its sandbox block declares `read "/" write "/" net "*"` — basically asking for everything. `perch --check cool.perch` shows you the declaration; you see it's asking for the moon and refuse to run it. Or you run `perch --untrusted cool.perch` which prints a permission preview and asks for confirmation before doing anything. Or you run `perch --mode pure cool.perch` and the malicious ops simply can't fire. The author's declaration is the worst case; the user's policy decides the actual case.
+**Scenario C — malicious author.** You receive `cool.perch` from a stranger. Its sandbox block declares `read "/" write "/" net "*"` — basically asking for everything. `perch --check cool.perch` shows you the declaration; you see it's asking for the moon and refuse to run it. Or you run `perch --untrusted cool.perch` which prints a permission preview and asks for confirmation before doing anything. Or you run `perch --no-shell --no-network --no-write cool.perch` and the malicious ops simply can't fire. The author's declaration is the worst case; the user's policy decides the actual case.
 
-**Scenario D — script with no sandbox at all.** Backward-compatible. The author hasn't opted in, so the file behaves as today — full ops, full env, full FS, full network. The user can still apply `--mode` / `--untrusted` / `--allow-*` to fence it from the outside.
+**Scenario D — script with no sandbox at all.** Backward-compatible. The author hasn't opted in, so the file behaves as today — full ops, full env, full FS, full network. The user can still apply `--no-*` / `--env` / `--untrusted` / `--allow-*` to fence it from the outside.
 
 **Scenario E — AI-agent surface.** You run `perch-mcp --require-sandbox -f ops.perch`. If `ops.perch` has no sandbox block, the MCP server refuses to start. With a sandbox, the agent gets exactly what the author declared and nothing more — even if the agent crafts a malicious arg, the sandbox's FS/net/shell scopes neutralize it. This is the most important case for the design.
 

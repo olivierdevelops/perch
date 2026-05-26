@@ -10,7 +10,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - `--dry-run` walks every op, prints its kind + interpolated args, and skips the handler. Capture variables get set to `""` so subsequent `${x}` interpolation still works.
   - `--ask` is the same plan, interactively. For each op the user chooses: `y` (run), `n` (skip), `a` (run this op then everything else without further asking), or `q` (stop immediately).
   - The interpolated args shown are exactly what the handler receives — no daydreaming. Block ops show `{N body ops}` and are entered (or skipped wholesale) by the user's choice.
-  - Implementation is a `BeforeOp` hook on `interpreter.Interpreter` — zero overhead when unset, no change to existing handlers. Stacks with `--mode` (e.g. `perch --mode safe --ask deploy` previews ops AND fences shell at runtime).
+  - Implementation is a `BeforeOp` hook on `interpreter.Interpreter` — zero overhead when unset, no change to existing handlers. Stacks with the restriction flags (e.g. `perch --no-shell --ask deploy` previews ops AND fences shell at runtime).
 - **Composable restriction flags** + **`--env` host env-var allowlist** — the CLI side of the sandbox design at [sandbox.md](docs/sandbox.md). Each flag names exactly what it disables; flags compose.
   - **`--no-shell`** — disables `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell`.
   - **`--no-subprocess`** — disables `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running`.

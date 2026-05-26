@@ -465,7 +465,7 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
-**Is it a cross-platform shell?** Yes — and that's the point. With ~110 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
+**Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
 
@@ -511,11 +511,11 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 
 `--no-shell` blocks `shell`/`shell_output`/`shell_detached`/`try_shell`. `--no-subprocess` blocks `pkg_install`/`kill_by_name`/etc. `--no-network` blocks every `http_*`, `download`, `port_*`, etc. `--no-write` blocks every FS-mutation op. `--env` restricts which host env vars resolve via `${…}`. `perch --restrictions` lists exactly what each flag blocks. The full capability sandbox (FS roots, network host allowlists, `--untrusted` with permission previews, file-side `sandbox` block) is designed in [sandbox.md](sandbox.md).
 
-**Who writes the sandbox — the author or the user?** Both. The **author** writes a `sandbox` block in the `.perch` file as a *manifest of intent* — "this is what I need to do my job." Reviewers audit it; `perch --check` enforces it statically. The **user** layers further restrictions at run time (`--mode`, `--allow-*`, `--untrusted`). The runtime enforces the *intersection* — neither side can grant more than the other allows. Same model as Android permissions: app declares, user grants, OS enforces the overlap. Details in [sandbox.md §2.5](sandbox.md#25-who-writes-the-sandbox-the-trust-model).
+**Who writes the sandbox — the author or the user?** Both. The **author** writes a `sandbox` block in the `.perch` file as a *manifest of intent* — "this is what I need to do my job." Reviewers audit it; `perch --check` enforces it statically. The **user** layers further restrictions at run time (`--no-shell`, `--no-network`, `--no-write`, `--env`, `--allow-*`, `--untrusted`). The runtime enforces the *intersection* — neither side can grant more than the other allows. Same model as Android permissions: app declares, user grants, OS enforces the overlap. Details in [sandbox.md §2.5](sandbox.md#25-who-writes-the-sandbox-the-trust-model).
 
 **Do recipients need to install perch?** No. `perch --build` produces a standalone binary. They run that.
 
-**Does it work on Windows?** Yes. The ~70 built-in ops are Go implementations, identical on macOS / Linux / Windows. Only `shell` invocations are inherently OS-specific.
+**Does it work on Windows?** Yes. The ~140 built-in ops are Go implementations, identical on macOS / Linux / Windows. Only `shell` invocations are inherently OS-specific.
 
 **What about secrets?** perch reads env vars at runtime (`${HOME}`, `${API_KEY}`, …). Don't bake secrets into the file. The static `--check` doesn't store anything.
 
@@ -553,7 +553,7 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 <h4>For AI / agent teams</h4>
 <ul>
 <li><a href="mcp/">MCP server integration</a></li>
-<li><a href="op-reference/">Op catalog (~70 ops)</a></li>
+<li><a href="op-reference/">Op catalog (~140 ops)</a></li>
 <li><a href="language/">Language reference</a></li>
 </ul>
 </div>
@@ -580,7 +580,7 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 | [tutorials/02-ship-a-tool.md](tutorials/02-ship-a-tool.md) | `perch --build` deep-dive |
 | [tutorials/03-cross-platform-installer.md](tutorials/03-cross-platform-installer.md) | One installer for three OSes |
 | [language.md](language.md) | Every keyword, modifier, and operator |
-| [op-reference.md](op-reference.md) | The built-in op catalog (~70 ops) |
+| [op-reference.md](op-reference.md) | The built-in op catalog (~140 ops) |
 | [embedding.md](embedding.md) | Fat-binary format spec |
 | [mcp.md](mcp.md) | AI agent integration (reference) |
 | [llm-control-plane.md](llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
