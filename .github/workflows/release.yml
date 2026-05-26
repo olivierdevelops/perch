@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target.os }}-${{ matrix.target.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: darwin,  arch: amd64, ext: ''     }
+          - { os: darwin,  arch: arm64, ext: ''     }
+          - { os: linux,   arch: amd64, ext: ''     }
+          - { os: linux,   arch: arm64, ext: ''     }
+          - { os: windows, arch: amd64, ext: '.exe' }
+          - { os: windows, arch: arm64, ext: '.exe' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: build
+        env:
+          GOOS:   ${{ matrix.target.os }}
+          GOARCH: ${{ matrix.target.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          OUT="perch-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
+          go build -ldflags='-s -w' -trimpath -o "$OUT" ./cmd/perch
+          shasum -a 256 "$OUT" > "$OUT.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perch-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          path: |
+            perch-*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: write checksums
+        run: |
+          (cd dist && shasum -a 256 perch-* | grep -v '.sha256' > ../checksums.txt)
+          mv checksums.txt dist/
+
+      - name: gh release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            dist/*

@@ -1,0 +1,65 @@
+name    "go-project"
+about   "Build / test / lint a Go project — replaces your Makefile"
+version "0.1.0"
+
+globals
+    BIN_DIR    = "./bin"
+    APP_NAME   = "myapp"
+    MAIN_PKG   = "./cmd/myapp"
+end
+
+command build
+    description "Compile myapp for one target OS"
+    arg         target string "Target OS (darwin/linux/windows)"
+    arg_default target "darwin"
+    do
+        print "Building {{APP_NAME}} for {{target}}…"
+        mkdir "{{BIN_DIR}}/{{target}}"
+        shell "GOOS={{target}} go build -ldflags='-s -w' -o {{BIN_DIR}}/{{target}}/{{APP_NAME}} {{MAIN_PKG}}"
+        let size = file_size "{{BIN_DIR}}/{{target}}/{{APP_NAME}}"
+        print "✓ {{size}} bytes."
+    end
+end
+
+command release
+    description "Cross-compile darwin + linux + windows in one go"
+    do
+        run build target:"darwin"
+        run build target:"linux"
+        run build target:"windows"
+    end
+end
+
+command test
+    description "Run the test suite"
+    do
+        shell "go test ./..."
+    end
+end
+
+command lint
+    description "Vet + staticcheck (install once with: go install honnef.co/go/tools/cmd/staticcheck@latest)"
+    do
+        shell "go vet ./..."
+        if_exists "{{HOME}}/go/bin/staticcheck"
+            shell "{{HOME}}/go/bin/staticcheck ./..."
+        end
+    end
+end
+
+command clean
+    description "Remove all build artifacts"
+    do
+        rm "{{BIN_DIR}}"
+        print "Cleaned {{BIN_DIR}}/"
+    end
+end
+
+command ci
+    description "What CI runs: lint + test + release"
+    do
+        run lint
+        run test
+        run release
+    end
+end

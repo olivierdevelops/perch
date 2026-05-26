@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{.Program.Name}} — perch</title>
+<style>
+  body { font: 14px/1.5 -apple-system, ui-sans-serif, system-ui, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; color: #222; }
+  header { border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 24px; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: #666; font-size: 13px; }
+  .cmd { border: 1px solid #e4e4e7; border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+  .cmd h2 { margin: 0 0 4px; font-size: 16px; }
+  .cmd .desc { color: #555; margin-bottom: 8px; }
+  .args { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; margin: 8px 0; }
+  .args label { font-family: ui-monospace, monospace; font-size: 12px; align-self: center; }
+  .args input { padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font: inherit; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  button { padding: 6px 14px; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
+  button:hover { background: #1452b8; }
+  .out { background: #0d1117; color: #c9d1d9; padding: 10px 12px; border-radius: 6px; font: 12px/1.55 ui-monospace, monospace; white-space: pre-wrap; max-height: 280px; overflow: auto; margin-top: 8px; display: none; }
+  .out.show { display: block; }
+  .err { color: #f88; }
+  .status-ok { color: #6cf; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{.Program.Name}}</h1>
+  <div class="sub">{{.Program.Description}} · v{{.Program.Version}}</div>
+</header>
+
+{{range .Commands}}
+<div class="cmd" data-name="{{.Name}}">
+  <h2>{{.Name}}</h2>
+  <div class="desc">{{.Description}}</div>
+  {{if .Args}}
+  <div class="args">
+    {{range .Args}}
+    <label for="{{$.Name}}-{{.Name}}">-{{.Name}} <span class="sub">({{.Type}})</span></label>
+    <input id="{{$.Name}}-{{.Name}}" data-arg="{{.Name}}" data-type="{{.Type}}" placeholder="{{.Description}}" value="{{if .HasDefault}}{{.Default}}{{end}}" />
+    {{end}}
+  </div>
+  {{end}}
+  <div class="row"><button onclick="run('{{.Name}}', this)">Run</button></div>
+  <div class="out"></div>
+</div>
+{{end}}
+
+<script>
+async function run(name, btn) {
+  const card = btn.closest('.cmd');
+  const out = card.querySelector('.out');
+  out.classList.add('show');
+  out.textContent = '';
+  const args = {};
+  card.querySelectorAll('input[data-arg]').forEach(el => {
+    const t = el.dataset.type;
+    let v = el.value;
+    if (t === 'int') v = v === '' ? 0 : parseInt(v, 10);
+    else if (t === 'float') v = v === '' ? 0 : parseFloat(v);
+    else if (t === 'bool') v = v === 'true';
+    if (v !== '' && v !== undefined && v !== null) args[el.dataset.arg] = v;
+  });
+  btn.disabled = true;
+  try {
+    const resp = await fetch('/api/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: name, args }),
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const e = JSON.parse(line);
+          const span = document.createElement('span');
+          if (e.kind === 'err') span.className = 'err';
+          if (e.kind === 'status') span.className = 'status-ok';
+          span.textContent = (e.kind === 'status' ? '\n[' + e.msg + ']\n' : e.msg) + '\n';
+          out.appendChild(span);
+        } catch (_) {}
+      }
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

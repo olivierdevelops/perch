@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+      - name: go build
+        run: go build -o perch ./cmd/perch
+
+      - name: smoke test
+        if: runner.os != 'Windows'
+        run: |
+          ./perch --version
+          ./perch --init -f /tmp/sample.capy
+          ./perch --help -f /tmp/sample.capy
+          ./perch -f /tmp/sample.capy hello
+
+      - name: demos build
+        if: runner.os != 'Windows'
+        run: |
+          for d in demos/*/; do
+            echo "=== ${d} ==="
+            (cd "$d" && ../../perch --help)
+          done
+
+      - name: fat-binary round-trip
+        if: runner.os != 'Windows'
+        run: |
+          (cd demos/04-portable-cli && ../../perch --build -o /tmp/greet)
+          /tmp/greet hello -name=CI
+          /tmp/greet --version

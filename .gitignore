@@ -1,0 +1,23 @@
+# build artifacts
+/perch
+/perch-*
+*.exe
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# local scratch
+/.ignore/
+
+# test artifacts
+/coverage.out
+/coverage.html
+/_site/
+
+# go
+vendor/

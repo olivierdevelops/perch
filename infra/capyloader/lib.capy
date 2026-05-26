@@ -1,0 +1,466 @@
+# perch DSL — the surface grammar users write.
+#
+# Capy parses each user-written .capy file with this library and emits a
+# stream of NDJSON events. The Go loader consumes the stream and builds a
+# domain.Program. No context state is used — every function just `write`s
+# one (or a few) JSON-line event(s).
+#
+# Interpolation conventions inside `write \`...\``:
+#   • ${v}            — capture's source text. For `string`/`int`/`bool`/
+#                       `any` captures this is already valid JSON.
+#   • ${toJSON name}  — for `ident` captures (bare identifiers need quoting
+#                       to become valid JSON strings).
+
+extension json
+
+# ────────────────────────────────────────────────────────────────────────────
+# Top-level
+# ────────────────────────────────────────────────────────────────────────────
+
+function name
+    arg literal "name"
+    arg capture v string
+    write `{"event":"name","value":${v}}
+`
+end
+
+function about
+    arg literal "about"
+    arg capture v string
+    write `{"event":"about","value":${v}}
+`
+end
+
+function version
+    arg literal "version"
+    arg capture v string
+    write `{"event":"version","value":${v}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# globals { NAME = LITERAL } block
+# ────────────────────────────────────────────────────────────────────────────
+
+function globals
+    arg literal "globals"
+    block_closer end
+    write `{"event":"globals_begin"}
+${body}{"event":"globals_end"}
+`
+end
+
+# One assignment line: NAME = LITERAL. The Go side reads the JSON type.
+function global_assign
+    arg capture k ident
+    arg literal "="
+    arg capture v any
+    write `{"event":"global","name":${toJSON k},"value":${v}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# command NAME ... end / catch NAME ... end
+# ────────────────────────────────────────────────────────────────────────────
+
+function command
+    arg literal "command"
+    arg capture name ident
+    block_closer end
+    write `{"event":"command_begin","name":${toJSON name}}
+${body}{"event":"command_end"}
+`
+end
+
+function catch
+    arg literal "catch"
+    arg capture name ident
+    block_closer end
+    write `{"event":"catch_begin","name":${toJSON name}}
+${body}{"event":"catch_end"}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Inside a command body: config statements (before `do`)
+# ────────────────────────────────────────────────────────────────────────────
+
+function description
+    arg literal "description"
+    arg capture v string
+    write `{"event":"config","kind":"description","value":${v}}
+`
+end
+
+function arg
+    arg literal "arg"
+    arg capture name ident
+    arg capture argtype string
+    arg capture desc string
+    write `{"event":"config","kind":"arg","name":${toJSON name},"argtype":${toQuoted argtype},"description":${desc}}
+`
+end
+
+function arg_default
+    arg literal "arg_default"
+    arg capture name ident
+    arg capture value any
+    write `{"event":"config","kind":"arg_default","name":${toJSON name},"value":${value}}
+`
+end
+
+function arg_index
+    arg literal "arg_index"
+    arg capture name ident
+    arg capture idx int
+    write `{"event":"config","kind":"arg_index","name":${toJSON name},"index":${idx}}
+`
+end
+
+function arg_optional
+    arg literal "arg_optional"
+    arg capture name ident
+    write `{"event":"config","kind":"arg_optional","name":${toJSON name}}
+`
+end
+
+function private
+    arg literal "private"
+    write `{"event":"config","kind":"private"}
+`
+end
+
+function detached
+    arg literal "detached"
+    write `{"event":"config","kind":"detached"}
+`
+end
+
+function proxy_args
+    arg literal "proxy_args"
+    write `{"event":"config","kind":"proxy_args"}
+`
+end
+
+function require_os
+    arg literal "require_os"
+    arg capture v string
+    write `{"event":"config","kind":"require_os","value":${v}}
+`
+end
+
+function require_arch
+    arg literal "require_arch"
+    arg capture v string
+    write `{"event":"config","kind":"require_arch","value":${v}}
+`
+end
+
+function dir
+    arg literal "dir"
+    arg capture v string
+    write `{"event":"config","kind":"dir","value":${v}}
+`
+end
+
+function on_signal
+    arg literal "on_signal"
+    arg capture handler ident
+    write `{"event":"config","kind":"on_signal","value":${toJSON handler}}
+`
+end
+
+function env
+    arg literal "env"
+    arg capture k ident
+    arg capture v string
+    write `{"event":"config","kind":"env","name":${toJSON k},"value":${v}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# `do ... end` body block
+# ────────────────────────────────────────────────────────────────────────────
+
+function do
+    arg literal "do"
+    block_closer end
+    write `{"event":"do_begin"}
+${body}{"event":"do_end"}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Ops (used inside `do`)
+# ────────────────────────────────────────────────────────────────────────────
+
+function print
+    arg literal "print"
+    arg capture msg string
+    write `{"event":"op","kind":"print","args":{"msg":${msg}}}
+`
+end
+
+function println
+    arg literal "println"
+    arg capture msg string
+    write `{"event":"op","kind":"println","args":{"msg":${msg}}}
+`
+end
+
+function eprintln
+    arg literal "eprintln"
+    arg capture msg string
+    write `{"event":"op","kind":"eprintln","args":{"msg":${msg}}}
+`
+end
+
+function shell
+    arg literal "shell"
+    arg capture cmd string
+    write `{"event":"op","kind":"shell","args":{"cmd":${cmd}}}
+`
+end
+
+function shell_detached
+    arg literal "shell_detached"
+    arg capture cmd string
+    write `{"event":"op","kind":"shell_detached","args":{"cmd":${cmd}}}
+`
+end
+
+function fail
+    arg literal "fail"
+    arg capture msg string
+    write `{"event":"op","kind":"fail","args":{"msg":${msg}}}
+`
+end
+
+function exit
+    arg literal "exit"
+    arg capture code int
+    write `{"event":"op","kind":"exit","args":{"code":${code}}}
+`
+end
+
+function sleep
+    arg literal "sleep"
+    arg capture seconds any
+    write `{"event":"op","kind":"sleep","args":{"seconds":${seconds}}}
+`
+end
+
+function list_commands
+    arg literal "list_commands"
+    write `{"event":"op","kind":"list_commands","args":{}}
+`
+end
+
+function run
+    arg literal "run"
+    arg capture target ident
+    write `{"event":"op","kind":"run","args":{"target":${toJSON target}}}
+`
+end
+
+# --- File system ---------------------------------------------------------
+
+function mkdir
+    arg literal "mkdir"
+    arg capture path string
+    write `{"event":"op","kind":"mkdir","args":{"path":${path}}}
+`
+end
+
+function cp
+    arg literal "cp"
+    arg capture src string
+    arg capture dst string
+    write `{"event":"op","kind":"cp","args":{"src":${src},"dst":${dst}}}
+`
+end
+
+function mv
+    arg literal "mv"
+    arg capture src string
+    arg capture dst string
+    write `{"event":"op","kind":"mv","args":{"src":${src},"dst":${dst}}}
+`
+end
+
+function rm
+    arg literal "rm"
+    arg capture path string
+    write `{"event":"op","kind":"rm","args":{"path":${path}}}
+`
+end
+
+function cd
+    arg literal "cd"
+    arg capture path string
+    write `{"event":"op","kind":"cd","args":{"path":${path}}}
+`
+end
+
+function chmod
+    arg literal "chmod"
+    arg capture path string
+    arg capture mode string
+    write `{"event":"op","kind":"chmod","args":{"path":${path},"mode":${mode}}}
+`
+end
+
+function touch
+    arg literal "touch"
+    arg capture path string
+    write `{"event":"op","kind":"touch","args":{"path":${path}}}
+`
+end
+
+function write_file
+    arg literal "write_file"
+    arg capture path string
+    arg capture content string
+    write `{"event":"op","kind":"write_file","args":{"path":${path},"content":${content}}}
+`
+end
+
+# --- Compression ---------------------------------------------------------
+
+function gzip
+    arg literal "gzip"
+    arg capture src string
+    arg capture dst string
+    write `{"event":"op","kind":"gzip","args":{"src":${src},"dst":${dst}}}
+`
+end
+
+function ungzip
+    arg literal "ungzip"
+    arg capture src string
+    arg capture dst string
+    write `{"event":"op","kind":"ungzip","args":{"src":${src},"dst":${dst}}}
+`
+end
+
+# --- HTTP ----------------------------------------------------------------
+
+function download
+    arg literal "download"
+    arg capture url string
+    arg capture dst string
+    write `{"event":"op","kind":"download","args":{"url":${url},"dst":${dst}}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Block ops — wrap their inner body with `_enter` / `_leave` markers.
+# ────────────────────────────────────────────────────────────────────────────
+
+function if_os
+    arg literal "if_os"
+    arg capture os string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_os","args":{"os":${os}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function if_arch
+    arg literal "if_arch"
+    arg capture arch string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_arch","args":{"arch":${arch}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function if_exists
+    arg literal "if_exists"
+    arg capture path string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_exists","args":{"path":${path}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function if_eq
+    arg literal "if_eq"
+    arg capture lhs any
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_eq","args":{"lhs":${lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function if_gt
+    arg literal "if_gt"
+    arg capture lhs any
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_gt","args":{"lhs":${lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function if_lt
+    arg literal "if_lt"
+    arg capture lhs any
+    arg capture rhs any
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"if_lt","args":{"lhs":${lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# `let NAME = OP_KIND ARG [ARG]` — capture an op's output into a variable.
+# ────────────────────────────────────────────────────────────────────────────
+
+function let_0args
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture op_kind ident
+    write `{"event":"op","kind":${toJSON op_kind},"args":{},"capture_into":${toJSON name}}
+`
+end
+
+function let_1arg
+    priority 50
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture op_kind ident
+    arg capture a0 any
+    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0}},"capture_into":${toJSON name}}
+`
+end
+
+function let_2args
+    priority 100
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture op_kind ident
+    arg capture a0 any
+    arg capture a1 any
+    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Block closer (no-op)
+# ────────────────────────────────────────────────────────────────────────────
+
+function end
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Output: just the rendered body — an NDJSON event stream.
+# ────────────────────────────────────────────────────────────────────────────
+
+file_template
+    write `${body}`
+end

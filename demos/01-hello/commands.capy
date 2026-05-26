@@ -1,0 +1,28 @@
+name    "hello"
+about   "The 30-second perch tour"
+version "0.1.0"
+
+globals
+    GREETING = "Hello"
+end
+
+command hello
+    description "Greet someone"
+    arg         name string "Who to greet"
+    arg_default name "world"
+    do
+        print "{{GREETING}}, {{name}}!"
+    end
+end
+
+command sysinfo
+    description "Print info about this machine"
+    do
+        let host = hostname
+        let now  = now "rfc3339"
+        print "host:  {{host}}"
+        print "user:  {{USER}}"
+        print "home:  {{HOME}}"
+        print "now:   {{now}}"
+    end
+end

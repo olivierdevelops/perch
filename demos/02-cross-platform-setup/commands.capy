@@ -1,0 +1,38 @@
+name    "cross-platform-setup"
+about   "One file installs dev tools on macOS, Linux, and Windows"
+version "0.1.0"
+
+command setup
+    description "Install jq + ripgrep + watchexec on whatever this OS is"
+    do
+        if_os "darwin"
+            print "macOS detected — using Homebrew"
+            shell "brew install jq ripgrep watchexec"
+        end
+        if_os "linux"
+            print "Linux detected — using apt"
+            shell "sudo apt-get update && sudo apt-get install -y jq ripgrep"
+            print "(watchexec is not in apt; install via cargo if needed)"
+        end
+        if_os "windows"
+            print "Windows detected — using Chocolatey"
+            shell "choco install jq ripgrep watchexec -y"
+        end
+        print "Setup complete."
+    end
+end
+
+command which
+    description "Show the path of the tools installed by `setup`"
+    do
+        if_os "darwin"
+            shell "which jq rg watchexec"
+        end
+        if_os "linux"
+            shell "which jq rg"
+        end
+        if_os "windows"
+            shell "where jq rg watchexec"
+        end
+    end
+end

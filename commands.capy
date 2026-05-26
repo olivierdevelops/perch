@@ -1,0 +1,41 @@
+name    "perch"
+about   "perch — a cross-platform command runner driven by capy"
+version "0.1.0"
+
+globals
+    BUILD_OUT = "./perch"
+end
+
+command build
+    description "Build the perch binary"
+    do
+        print "Building {{BUILD_OUT}}…"
+        shell "go build -o {{BUILD_OUT}} ./orchestrator"
+        let size = file_size "{{BUILD_OUT}}"
+        print "Built {{size}} bytes."
+    end
+end
+
+command clean
+    description "Remove the built binary"
+    do
+        if_exists "{{BUILD_OUT}}"
+            rm "{{BUILD_OUT}}"
+            print "Removed {{BUILD_OUT}}."
+        end
+    end
+end
+
+command tidy
+    description "Run go mod tidy"
+    do
+        shell "go mod tidy"
+    end
+end
+
+command hello
+    description "A no-op smoke test"
+    do
+        print "Hello from {{HOME}} on {{USER}}."
+    end
+end
