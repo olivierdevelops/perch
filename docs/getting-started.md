@@ -55,10 +55,12 @@ end
 ## Run it three ways
 
 ```sh
-perch --help     # see what's in commands.capy
-perch hello      # run the command
-perch --shell    # REPL — type `hello` then Enter
-perch --server   # serve a web UI at http://127.0.0.1:10032
+perch --help          # see what's in commands.capy
+perch hello           # run the command
+perch hello --help    # per-command help with args + defaults + examples
+perch --check         # statically validate commands.capy before running
+perch --shell         # REPL — type `hello` then Enter
+perch --server        # serve a web UI at http://127.0.0.1:10032
 ```
 
 ## Add an arg

@@ -55,6 +55,8 @@ end
 ```sh
 perch build                    # → run from CLI
 perch build -target=linux      # → with args
+perch build --help             # → per-command help (args, defaults, examples)
+perch --check                  # → statically validate commands.capy
 perch --server                 # → same file, web UI
 perch --shell                  # → same file, REPL
 perch --build -o myapp         # → same file, portable binary

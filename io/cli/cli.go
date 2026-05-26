@@ -40,13 +40,23 @@ type RunShellUseCase interface {
 	Execute(configPath string) error
 }
 
+type ValidateUseCase interface {
+	Execute(configPath string) error
+}
+
+type CommandHelpUseCase interface {
+	Execute(configPath, commandName string) error
+}
+
 type UseCases struct {
-	Run    RunCommandUseCase
-	List   ListCommandsUseCase
-	Init   InitConfigUseCase
-	Build  RunBuildUseCase
-	Server RunServerUseCase
-	Shell  RunShellUseCase
+	Run         RunCommandUseCase
+	List        ListCommandsUseCase
+	Init        InitConfigUseCase
+	Build       RunBuildUseCase
+	Server      RunServerUseCase
+	Shell       RunShellUseCase
+	Validate    ValidateUseCase
+	CommandHelp CommandHelpUseCase
 }
 
 type Config struct {
@@ -102,10 +112,28 @@ func (c *CLI) Run() int {
 		return errExit(c.UseCases.Shell.Execute(path))
 	case "--completions":
 		return printCompletions(remaining)
+	case "--check", "--validate":
+		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+		return errExit(c.UseCases.Validate.Execute(path))
 	}
 
 	path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+
+	// If the next arg is --help/-h, route to per-command help instead.
+	if hasHelp(rest) {
+		return errExit(c.UseCases.CommandHelp.Execute(path, commandName))
+	}
+
 	return errExit(c.UseCases.Run.Execute(path, commandName, rest))
+}
+
+func hasHelp(args []string) bool {
+	for _, a := range args {
+		if a == "--help" || a == "-h" {
+			return true
+		}
+	}
+	return false
 }
 
 func errExit(err error) int {
@@ -167,7 +195,11 @@ func (c *CLI) printHelp() {
 	fmt.Println("  --build -o X  Bundle commands.capy into a portable binary at X")
 	fmt.Println("  --server      Serve commands.capy as an HTTP UI")
 	fmt.Println("  --shell       REPL — type one op per line; bindings persist")
+    fmt.Println("  --check       Parse and statically check commands.capy; report problems")
 	fmt.Println("  --completions SHELL  Print shell completions (bash|zsh|fish)")
+	fmt.Println()
+	fmt.Println("Per-command help:")
+	fmt.Println("  perch <command> --help   Show args, defaults, examples for one command")
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  -f <path>     Specify the config file (default: commands.capy)")

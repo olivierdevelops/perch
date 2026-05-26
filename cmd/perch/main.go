@@ -14,13 +14,27 @@ import (
 	"github.com/luowensheng/perch/infra/ops"
 
 	"github.com/luowensheng/perch/io/cli"
+	"github.com/luowensheng/perch/usecases/commandhelp"
 	"github.com/luowensheng/perch/usecases/initconfig"
 	"github.com/luowensheng/perch/usecases/listcommands"
 	"github.com/luowensheng/perch/usecases/runbuild"
 	"github.com/luowensheng/perch/usecases/runcommand"
 	"github.com/luowensheng/perch/usecases/runserver"
 	"github.com/luowensheng/perch/usecases/runshell"
+	"github.com/luowensheng/perch/usecases/validate"
 )
+
+// knownOps returns the set of op kinds the interpreter knows how to
+// dispatch. Used by the validator to flag misspelt op kinds.
+func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{} {
+	return func() map[string]struct{} {
+		out := make(map[string]struct{}, len(handlers))
+		for k := range handlers {
+			out[k] = struct{}{}
+		}
+		return out
+	}
+}
 
 const Version = "0.1.0"
 const DefaultCommandsFile = "commands.capy"
@@ -46,8 +60,9 @@ func buildCLI() *cli.CLI {
 
 	use := cli.UseCases{
 		Run: &runcommand.Impl{
-			Load: capyloader.Load,
-			Run:  runFn,
+			Load:    capyloader.Load,
+			Run:     runFn,
+			Suggest: commandhelp.Suggest,
 		},
 		List: &listcommands.Impl{
 			Load: capyloader.Load,
@@ -65,6 +80,13 @@ func buildCLI() *cli.CLI {
 			LoadString: capyloader.LoadFromString,
 			Load:       capyloader.Load,
 			Handlers:   handlers,
+		},
+		Validate: &validate.Impl{
+			Load:     capyloader.Load,
+			KnownOps: knownOps(handlers),
+		},
+		CommandHelp: &commandhelp.Impl{
+			Load: capyloader.Load,
 		},
 	}
 
@@ -89,8 +111,9 @@ func buildEmbeddedCLI(p *domain.Program) *cli.CLI {
 
 	use := cli.UseCases{
 		Run: &runcommand.Impl{
-			Load: loadEmbedded,
-			Run:  runFn,
+			Load:    loadEmbedded,
+			Run:     runFn,
+			Suggest: commandhelp.Suggest,
 		},
 		List: &listcommands.Impl{
 			Load: loadEmbedded,
@@ -106,6 +129,13 @@ func buildEmbeddedCLI(p *domain.Program) *cli.CLI {
 			LoadString: capyloader.LoadFromString,
 			Load:       loadEmbedded,
 			Handlers:   handlers,
+		},
+		Validate: &validate.Impl{
+			Load:     loadEmbedded,
+			KnownOps: knownOps(handlers),
+		},
+		CommandHelp: &commandhelp.Impl{
+			Load: loadEmbedded,
 		},
 	}
 
