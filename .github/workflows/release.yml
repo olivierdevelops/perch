@@ -38,6 +38,12 @@ jobs:
           OUT="perch-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
           go build -ldflags='-s -w' -trimpath -o "$OUT" ./cmd/perch
           shasum -a 256 "$OUT" > "$OUT.sha256"
+          OUT_LSP="perch-lsp-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
+          go build -ldflags='-s -w' -trimpath -o "$OUT_LSP" ./cmd/perch-lsp
+          shasum -a 256 "$OUT_LSP" > "$OUT_LSP.sha256"
+          OUT_MCP="perch-mcp-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
+          go build -ldflags='-s -w' -trimpath -o "$OUT_MCP" ./cmd/perch-mcp
+          shasum -a 256 "$OUT_MCP" > "$OUT_MCP.sha256"
 
       - uses: actions/upload-artifact@v4
         with:

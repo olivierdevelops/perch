@@ -53,4 +53,5 @@ nav:
   - Op catalog: op-reference.md
   - Embedding (`--build`): embedding.md
   - MCP server (AI agents): mcp.md
+  - Editor integration (LSP): lsp.md
   - FAQ: faq.md

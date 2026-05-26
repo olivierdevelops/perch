@@ -2,7 +2,13 @@
 /perch
 /perch-*
 /perch-mcp
+/perch-lsp
 *.exe
+
+# vscode extension build
+editors/vscode-perch/out/
+editors/vscode-perch/node_modules/
+editors/vscode-perch/*.vsix
 
 # OS / editor cruft
 .DS_Store

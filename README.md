@@ -90,10 +90,17 @@ go install github.com/luowensheng/perch/cmd/perch-mcp@latest
 
 See [docs/mcp.md](docs/mcp.md) for client setup. There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
 
-### Editor support
+### Editor support (LSP + syntax)
 
-- **VS Code:** install from [`editors/vscode-perch`](editors/vscode-perch) (marketplace publish pending).
-- **Neovim / Helix:** tree-sitter grammar at [`editors/tree-sitter-perch`](editors/tree-sitter-perch).
+`perch-lsp` provides diagnostics (parse + static `--check`), context-aware completion, hover, and document outline.
+
+```sh
+go install github.com/luowensheng/perch/cmd/perch-lsp@latest
+```
+
+- **VS Code:** install from [`editors/vscode-perch`](editors/vscode-perch) (auto-spawns `perch-lsp`).
+- **Neovim / Helix / Zed:** see [docs/lsp.md](docs/lsp.md) for one-screen setup snippets.
+- **Tree-sitter** grammar (for syntax highlighting beyond what the LSP gives you): [`editors/tree-sitter-perch`](editors/tree-sitter-perch).
 
 ### Shell completions
 

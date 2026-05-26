@@ -1,7 +1,7 @@
 {
   "name": "perch",
   "displayName": "perch",
-  "description": "Syntax highlighting for perch (.perch) command files",
+  "description": "Syntax highlighting + LSP for perch (.perch) command files",
   "version": "0.1.0",
   "publisher": "luowensheng",
   "engines": { "vscode": "^1.80.0" },
@@ -13,10 +13,14 @@
   },
   "license": "Apache-2.0",
   "icon": "icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:perch"
+  ],
   "contributes": {
     "languages": [{
       "id": "perch",
-      "aliases": ["perch", "capy (perch)"],
+      "aliases": ["perch"],
       "extensions": [".perch"],
       "configuration": "./language-configuration.json"
     }],
@@ -24,6 +28,34 @@
       "language": "perch",
       "scopeName": "source.perch",
       "path": "./syntaxes/perch.tmLanguage.json"
-    }]
+    }],
+    "commands": [{
+      "command": "perch.restartServer",
+      "title": "perch: Restart Language Server"
+    }],
+    "configuration": {
+      "title": "perch",
+      "properties": {
+        "perch.lsp.path": {
+          "type": "string",
+          "default": "perch-lsp",
+          "description": "Path (or `$PATH` name) of the perch-lsp binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
   }
 }
