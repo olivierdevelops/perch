@@ -604,3 +604,123 @@
 .pfan-icon  { font-size: 20px; line-height: 1; margin-bottom: 6px; }
 .pfan-label { font-weight: 600; font-size: 13px; color: var(--md-default-fg-color); }
 .pfan-sub   { font-size: 11px; color: var(--md-default-fg-color--light); font-family: ui-monospace, monospace; margin-top: 2px; }
+
+/* ─── Capy / perch syntax highlighter ─────────────────────────────── */
+
+.pcode-hl {
+    color: #e2e8f5;
+}
+
+/* Token colors (light theme) — chosen to match the existing pterm palette. */
+.pcode-kw     { color: #c084fc; font-weight: 500; }   /* keyword */
+.pcode-str    { color: #6cf2a4; }                     /* string */
+.pcode-interp { color: #fcd34d; font-weight: 500; }   /* ${name} inside string */
+.pcode-num    { color: #93c5fd; }                     /* number */
+.pcode-bool   { color: #93c5fd; font-weight: 500; }   /* true / false */
+.pcode-com    { color: #7a8aa8; font-style: italic; } /* # comment */
+.pcode-op     { color: #f0a0ff; }                     /* operators */
+.pcode-id     { color: #e2e8f5; }                     /* identifier (op call) */
+
+/* Slate-theme tweaks (mkdocs-material's dark mode) */
+[data-md-color-scheme="slate"] .pcode-hl   { color: #e2e8f5; }
+[data-md-color-scheme="slate"] .pcode-kw   { color: #d4b3ff; }
+[data-md-color-scheme="slate"] .pcode-str  { color: #86efac; }
+
+/* Make the code container darker so token colors pop. mkdocs-material's
+ * default fenced-code background is lighter than our pterm palette;
+ * line up with the rest of the page's monospace blocks. */
+pre code.pcode-hl,
+pre code.language-capy,
+pre code.language-perch {
+    background: #0f1320 !important;
+    color: #e2e8f5 !important;
+    border-radius: 6px;
+}
+pre:has(code.language-capy),
+pre:has(code.language-perch) {
+    background: #0f1320 !important;
+    border: 1px solid #1e2540;
+}
+
+/* ─── Stats bar under the hero ────────────────────────────────────── */
+
+.pstats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin: 1rem 0 2rem;
+    padding: 16px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(252, 211, 77, 0.08), rgba(108, 242, 164, 0.06));
+    border: 1px solid rgba(120, 130, 180, 0.18);
+}
+
+.pstats-item {
+    text-align: center;
+    padding: 4px 6px;
+}
+
+.pstats-num {
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--md-primary-fg-color);
+}
+
+.pstats-label {
+    font-size: 12px;
+    color: var(--md-default-fg-color--light);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+}
+
+/* Counter animation: count up from 0 over 800ms on scroll-in. */
+.pstats-num.is-counting {
+    color: var(--md-primary-fg-color);
+}
+
+/* ─── Trust-model diagram (sandbox.md §2.5) ───────────────────────── */
+
+.ptrust {
+    display: flex;
+    justify-content: center;
+    margin: 1.5rem 0 2rem;
+}
+
+.ptrust svg {
+    max-width: 520px;
+    width: 100%;
+    height: auto;
+}
+
+.ptrust .ring {
+    fill: none;
+    stroke-width: 2;
+}
+
+.ptrust .ring-author { stroke: #fcd34d; fill: rgba(252, 211, 77, 0.06); }
+.ptrust .ring-user   { stroke: #93c5fd; fill: rgba(147, 197, 253, 0.08); }
+.ptrust .ring-admin  { stroke: #f0a0ff; fill: rgba(240, 160, 255, 0.06); }
+
+.ptrust .core {
+    fill: rgba(108, 242, 164, 0.18);
+    stroke: #6cf2a4;
+    stroke-width: 2;
+}
+
+.ptrust text {
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 12px;
+    fill: var(--md-default-fg-color);
+}
+
+.ptrust .label-author { fill: #fcd34d; font-weight: 600; }
+.ptrust .label-user   { fill: #93c5fd; font-weight: 600; }
+.ptrust .label-admin  { fill: #f0a0ff; font-weight: 600; }
+.ptrust .label-core   { fill: #6cf2a4; font-weight: 700; font-size: 13px; }
+
+[data-md-color-scheme="slate"] .ptrust text {
+    fill: #e2e8f5;
+}

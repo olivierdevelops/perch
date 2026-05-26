@@ -497,3 +497,245 @@ redis    <span class="info">100%</span>   12MB`,
         init();
     }
 })();
+
+// ─── Capy / perch syntax highlighter ───────────────────────────────
+//
+// Pygments doesn't know the capy/perch language, so mkdocs ships
+// `language-capy` / `language-perch` code blocks as plain text. We
+// post-process them in the browser: tokenise into comment / string /
+// interpolation / keyword / number / boolean / identifier / op-call /
+// punct and wrap each token in a span with our own class. Colors are
+// defined in extra.css and match the existing dark code-block palette
+// for both light and slate themes.
+//
+// Single linear scanner — no library dependencies, ~3 KB minified.
+(function () {
+    const KW = new Set([
+        // structural
+        "name", "about", "version", "globals", "command", "catch",
+        "description", "do", "end", "arg", "type", "default", "optional", "index",
+        // modifiers
+        "private", "detached", "proxy_args", "require_os", "require_arch",
+        "dir", "on_signal", "env",
+        // control flow
+        "if", "not", "let", "run", "for_each", "fail", "exit",
+        // sandbox (designed)
+        "sandbox", "read", "write", "net", "shell_bins", "no_shell",
+        "no_subprocess", "no_network", "no_write", "no_sudo",
+        "no_shell_metachars", "private_ops", "require_sandbox",
+        "pure", "offline", "read_only",
+        "max_runtime", "max_download", "max_file_size", "max_processes",
+    ]);
+    const BOOL = new Set(["true", "false"]);
+
+    function isIdStart(c) { return /[A-Za-z_]/.test(c); }
+    function isIdCont(c) { return /[A-Za-z0-9_]/.test(c); }
+    function isDigit(c) { return /[0-9]/.test(c); }
+
+    // tokenise(src) → array of {kind, text} tokens.
+    function tokenise(src) {
+        const tokens = [];
+        let i = 0;
+        while (i < src.length) {
+            const c = src[i];
+
+            // line comment
+            if (c === "#") {
+                const end = src.indexOf("\n", i);
+                const j = end < 0 ? src.length : end;
+                tokens.push({ kind: "com", text: src.slice(i, j) });
+                i = j;
+                continue;
+            }
+            // string with interpolation
+            if (c === '"' || c === "'") {
+                const quote = c;
+                let j = i + 1;
+                while (j < src.length && src[j] !== quote) {
+                    if (src[j] === "\\" && j + 1 < src.length) { j += 2; continue; }
+                    j++;
+                }
+                const raw = src.slice(i, Math.min(j + 1, src.length));
+                tokens.push({ kind: "str", text: raw });
+                i = j + 1;
+                continue;
+            }
+            // number (integer or float)
+            if (isDigit(c)) {
+                let j = i + 1;
+                while (j < src.length && (isDigit(src[j]) || src[j] === ".")) j++;
+                tokens.push({ kind: "num", text: src.slice(i, j) });
+                i = j;
+                continue;
+            }
+            // identifier / keyword / boolean
+            if (isIdStart(c)) {
+                let j = i + 1;
+                while (j < src.length && isIdCont(src[j])) j++;
+                const word = src.slice(i, j);
+                let kind = "id";
+                if (KW.has(word))   kind = "kw";
+                else if (BOOL.has(word)) kind = "bool";
+                tokens.push({ kind, text: word });
+                i = j;
+                continue;
+            }
+            // multi-char operators
+            if (i + 1 < src.length) {
+                const two = src.substr(i, 2);
+                if (two === "==" || two === "!=" || two === ">=" || two === "<=") {
+                    tokens.push({ kind: "op", text: two });
+                    i += 2;
+                    continue;
+                }
+            }
+            // single-char operators / punctuation
+            if ("=<>+-*/().,:;".includes(c)) {
+                tokens.push({ kind: "op", text: c });
+                i++;
+                continue;
+            }
+            // whitespace / fallthrough
+            tokens.push({ kind: "ws", text: c });
+            i++;
+        }
+        return tokens;
+    }
+
+    // Re-tokenise strings to highlight ${name} interpolation runs.
+    function splitStringInterp(text) {
+        const out = [];
+        let i = 0;
+        while (i < text.length) {
+            const dollar = text.indexOf("${", i);
+            if (dollar < 0) {
+                out.push({ kind: "str", text: text.slice(i) });
+                break;
+            }
+            if (dollar > i) out.push({ kind: "str", text: text.slice(i, dollar) });
+            const close = text.indexOf("}", dollar);
+            if (close < 0) {
+                out.push({ kind: "str", text: text.slice(dollar) });
+                break;
+            }
+            out.push({ kind: "interp", text: text.slice(dollar, close + 1) });
+            i = close + 1;
+        }
+        return out;
+    }
+
+    function escapeHTML(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function render(tokens) {
+        const parts = [];
+        for (const t of tokens) {
+            if (t.kind === "str") {
+                // Split out ${interp} runs so they get their own color.
+                for (const sub of splitStringInterp(t.text)) {
+                    parts.push(`<span class="pcode-${sub.kind}">${escapeHTML(sub.text)}</span>`);
+                }
+                continue;
+            }
+            if (t.kind === "ws") {
+                parts.push(escapeHTML(t.text));
+                continue;
+            }
+            parts.push(`<span class="pcode-${t.kind}">${escapeHTML(t.text)}</span>`);
+        }
+        return parts.join("");
+    }
+
+    function highlightBlock(code) {
+        const src = code.textContent;
+        code.innerHTML = render(tokenise(src));
+        code.classList.add("pcode-hl");
+    }
+
+    // Pymdownx remaps the unknown "capy" lexer to "text" and the
+    // resulting <div class="language-text highlight"> drops any hint of
+    // the original language. Content-sniff for distinctive perch tokens.
+    function looksLikeCapy(text) {
+        const lines = text.split("\n");
+        for (const raw of lines) {
+            const line = raw.trim();
+            if (!line || line.startsWith("#")) continue;
+            // Top-level / block-opener forms.
+            if (/^(name|about|version|globals|command|catch|sandbox|arg)\s/.test(line)) return true;
+            // Body-form openers (for standalone snippets).
+            if (/^(let\s+\w+\s*=|run\s+\w|if\s+\w|do$|end$|do\b|end\b)/.test(line)) return true;
+            return false;
+        }
+        return false;
+    }
+
+    function init() {
+        // 1) Anything explicitly tagged with the language class.
+        document.querySelectorAll(
+            "code.language-capy, code.language-perch, pre code.language-capy, pre code.language-perch"
+        ).forEach(highlightBlock);
+
+        // 2) For pymdownx-remapped blocks (lexer unknown → "text"),
+        //    scan every fenced code block, skip non-text languages,
+        //    and content-sniff the rest. Idempotent: pcode-hl class
+        //    guards against re-processing.
+        document.querySelectorAll("pre code").forEach(code => {
+            if (code.classList.contains("pcode-hl")) return;
+            const wrapper = code.closest("[class*='language-']");
+            if (wrapper) {
+                const cls = wrapper.className;
+                // Only consider blocks where Pygments fell back to text.
+                if (!/\blanguage-text\b/.test(cls)) return;
+            }
+            if (looksLikeCapy(code.textContent)) highlightBlock(code);
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
+// ─── Stats bar counter — animates 0 → N when scrolled into view ────
+(function () {
+    function animateCounter(el) {
+        const target = parseInt(el.dataset.count || el.textContent, 10);
+        if (!isFinite(target)) return;
+        const dur = 700;
+        const start = performance.now();
+        const suffix = el.dataset.suffix || "";
+        el.classList.add("is-counting");
+        function step(now) {
+            const t = Math.min(1, (now - start) / dur);
+            // ease-out cubic
+            const eased = 1 - Math.pow(1 - t, 3);
+            el.textContent = Math.round(target * eased) + suffix;
+            if (t < 1) requestAnimationFrame(step);
+            else el.textContent = target + suffix;
+        }
+        requestAnimationFrame(step);
+    }
+
+    function init() {
+        const root = document.querySelector(".pstats");
+        if (!root) return;
+        const obs = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    root.querySelectorAll(".pstats-num").forEach(animateCounter);
+                    obs.disconnect();
+                }
+            });
+        }, { threshold: 0.4 });
+        obs.observe(root);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();

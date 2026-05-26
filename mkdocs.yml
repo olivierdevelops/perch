@@ -42,6 +42,10 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight:
       anchor_linenums: true
+      # Keep the `language-X` class on <code> even for languages Pygments
+      # doesn't know (capy / perch). Our extra.js post-processor picks
+      # them up and applies syntax highlighting client-side.
+      pygments_lang_class: true
   - pymdownx.tabbed:
       alternate_style: true
   - tables

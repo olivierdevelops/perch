@@ -14,6 +14,14 @@ The animated demo above cycles through the same `redis.perch` file driving five 
 
 <div id="perch-fanout"></div>
 
+<div class="pstats">
+  <div class="pstats-item"><div class="pstats-num" data-count="146">0</div><div class="pstats-label">built-in ops</div></div>
+  <div class="pstats-item"><div class="pstats-num" data-count="30" data-suffix="+">0</div><div class="pstats-label">auto-bound vars</div></div>
+  <div class="pstats-item"><div class="pstats-num" data-count="5">0</div><div class="pstats-label">frontends</div></div>
+  <div class="pstats-item"><div class="pstats-num" data-count="4">0</div><div class="pstats-label">restriction flags</div></div>
+  <div class="pstats-item"><div class="pstats-num" data-count="1">0</div><div class="pstats-label">binary to ship</div></div>
+</div>
+
 <div class="perch-cta">
   <a class="perch-cta__primary" href="getting-started/">Get started in 5 minutes →</a>
   <a class="perch-cta__secondary" href="applications/">See 22 real applications</a>

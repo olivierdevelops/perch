@@ -236,6 +236,36 @@ In enterprise settings, an org admin can set a `PERCH_DEFAULT_MODE=safe` env var
 
 ### 2.5.4 Effective policy = intersection
 
+<div class="ptrust">
+<svg viewBox="0 0 520 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Trust model: effective policy is the intersection of author, user, and admin declarations">
+  <!-- Three overlapping rings; intersection in the centre = effective policy -->
+  <circle class="ring ring-author" cx="180" cy="150" r="100"/>
+  <circle class="ring ring-user"   cx="340" cy="150" r="100"/>
+  <circle class="ring ring-admin"  cx="260" cy="230" r="100"/>
+
+  <!-- Labels around the rings -->
+  <text class="label-author" x="90"  y="80"  text-anchor="middle">Author</text>
+  <text x="90"  y="98"  text-anchor="middle" font-size="11" opacity="0.85">sandbox { … }</text>
+  <text x="90"  y="112" text-anchor="middle" font-size="11" opacity="0.85">in the .perch file</text>
+
+  <text class="label-user" x="430" y="80"  text-anchor="middle">User</text>
+  <text x="430" y="98"  text-anchor="middle" font-size="11" opacity="0.85">--no-shell, --env,</text>
+  <text x="430" y="112" text-anchor="middle" font-size="11" opacity="0.85">--untrusted on CLI</text>
+
+  <text class="label-admin" x="260" y="310" text-anchor="middle">Admin</text>
+  <text x="260" y="295" text-anchor="middle" font-size="11" opacity="0.85">PERCH_DEFAULT_MODE, system policy</text>
+
+  <!-- Effective-policy core -->
+  <circle class="core" cx="260" cy="180" r="38"/>
+  <text class="label-core" x="260" y="178" text-anchor="middle">Effective</text>
+  <text class="label-core" x="260" y="194" text-anchor="middle">policy</text>
+</svg>
+</div>
+
+Each ring is "what this party allows." The runtime enforces only the green core — what every party allowed. Any one of them can shrink it; none can grow it past what the others allow. If any ring is missing (e.g. no admin layer), the intersection just falls back to the remaining rings.
+
+
+
 For each restriction class:
 
 ```
