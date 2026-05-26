@@ -205,4 +205,4 @@ Unknown names produce an error at op-run time. To pass a literal `${VAR}` throug
 
 ## Reserved words
 
-The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if_os`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://github.com/luowensheng/capy).
+The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if_os`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).

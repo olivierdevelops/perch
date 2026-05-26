@@ -200,3 +200,171 @@
     line-height: 1.5;
     color: var(--md-default-fg-color--light);
 }
+
+/* ─── CTA buttons under the hero demo ──────────────────────────────── */
+
+.perch-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 1.5rem 0 2rem;
+}
+
+.perch-cta a {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.perch-cta a:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+.perch-cta__primary {
+    background: var(--md-primary-fg-color);
+    color: #fff !important;
+}
+
+.perch-cta__secondary {
+    border: 1px solid rgba(120, 130, 180, 0.35);
+    color: var(--md-default-fg-color) !important;
+    background: transparent;
+}
+
+/* ─── Persona cards ────────────────────────────────────────────────── */
+
+.perch-personas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    margin: 1.25rem 0 1.5rem;
+}
+
+.perch-personas .persona {
+    border-left: 3px solid var(--md-primary-fg-color);
+    padding: 8px 14px 8px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0 6px 6px 0;
+}
+[data-md-color-scheme="slate"] .perch-personas .persona {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.perch-personas .persona h4 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    color: var(--md-primary-fg-color);
+}
+
+.perch-personas .persona p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--md-default-fg-color--light);
+}
+
+/* ─── Pain-point checklist ─────────────────────────────────────────── */
+
+.perch-pain {
+    background: rgba(252, 211, 77, 0.06);
+    border-left: 3px solid #fcd34d;
+    border-radius: 0 6px 6px 0;
+    padding: 6px 18px;
+    margin: 1.25rem 0;
+}
+
+.perch-pain ul {
+    margin: 8px 0;
+}
+
+.perch-pain li {
+    margin: 4px 0;
+    font-size: 14px;
+}
+
+/* ─── Use-case blocks ──────────────────────────────────────────────── */
+
+.perch-usecase {
+    border: 1px solid rgba(120, 130, 180, 0.18);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 1rem 0 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+}
+[data-md-color-scheme="slate"] .perch-usecase {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.perch-usecase p:first-child {
+    margin-top: 0;
+}
+
+.perch-usecase p:last-child {
+    margin-bottom: 0;
+}
+
+/* ─── Comparison table ─────────────────────────────────────────────── */
+
+.perch-compare-wrap {
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+}
+
+.perch-compare-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.perch-compare-wrap th,
+.perch-compare-wrap td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(120, 130, 180, 0.18);
+    text-align: center;
+}
+
+.perch-compare-wrap th:first-child,
+.perch-compare-wrap td:first-child {
+    text-align: left;
+    font-weight: 500;
+}
+
+.perch-compare-wrap th {
+    color: var(--md-primary-fg-color);
+    border-bottom: 2px solid rgba(120, 130, 180, 0.3);
+}
+
+/* ─── "Where to next" persona-specific cards ───────────────────────── */
+
+.perch-next {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 1.25rem 0 1.5rem;
+}
+
+.perch-next .next {
+    border: 1px solid rgba(120, 130, 180, 0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.perch-next .next h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--md-primary-fg-color);
+}
+
+.perch-next .next ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13.5px;
+    line-height: 1.7;
+}

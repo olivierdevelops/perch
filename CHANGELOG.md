@@ -41,7 +41,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 ### Added
 
 - Initial public release. User files use the `.perch` extension; perch's own grammar definition (consumed by capy) lives at `infra/capyloader/lib.capy`.
-- DSL defined entirely via [capy](https://github.com/luowensheng/capy) (`infra/capyloader/lib.capy`).
+- DSL defined entirely via [capy](https://luowensheng.github.io/capy) (`infra/capyloader/lib.capy`).
 - Four CLI modes:
   - default: run a named command from `commands.perch`
   - `--server`: HTTP UI with NDJSON-streaming `/api/exec` endpoint

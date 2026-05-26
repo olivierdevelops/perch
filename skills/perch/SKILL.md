@@ -5,7 +5,7 @@ description: Use this skill when the user wants to create, edit, or scaffold a `
 
 # perch authoring guide
 
-You are writing or modifying a `commands.perch` file. perch is a cross-platform task runner whose DSL is defined by [capy](https://github.com/luowensheng/capy). The grammar is small and rigid; do not invent new keywords or ops. Stick to what's documented below.
+You are writing or modifying a `commands.perch` file. perch is a cross-platform task runner whose DSL is defined by [capy](https://luowensheng.github.io/capy). The grammar is small and rigid; do not invent new keywords or ops. Stick to what's documented below.
 
 ## File skeleton
 

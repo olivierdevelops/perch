@@ -5,7 +5,7 @@
 [![CI](https://github.com/luowensheng/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/luowensheng/perch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/luowensheng/perch?include_prereleases)](https://github.com/luowensheng/perch/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://github.com/luowensheng/capy)
+[![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://luowensheng.github.io/capy)
 
 `perch` is what happens when a Makefile, a CI workflow file, a `bin/` of bash scripts, and the helper CLI you keep meaning to write all collapse into **one declarative file** — and that file works on macOS, Linux, and Windows from day one.
 
@@ -118,7 +118,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 ## What perch gives you
 
-1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://github.com/luowensheng/capy), so the grammar is itself data.
+1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Three frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), and steppable in a REPL (`--shell`).
 4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
@@ -142,7 +142,7 @@ perch --build -o ./greet              # bundles commands.perch into ./greet
 
 ## Why "perch"?
 
-Capybaras famously let other animals — birds, monkeys, turtles — sit on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://github.com/luowensheng/capy), which is short for capybara. So the name nods both ways.
+Capybaras famously let other animals — birds, monkeys, turtles — sit on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://luowensheng.github.io/capy), which is short for capybara. So the name nods both ways.
 
 ---
 
@@ -175,4 +175,4 @@ Four worked examples live under [demos/](demos) — each a complete `commands.pe
 
 ## Acknowledgments
 
-perch is built on [capy](https://github.com/luowensheng/capy) — the configurable transpiler engine that defines the entire DSL grammar.
+perch is built on [capy](https://luowensheng.github.io/capy) — the configurable transpiler engine that defines the entire DSL grammar.
