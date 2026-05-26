@@ -106,7 +106,7 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 
 <div class="card">
   <h4>Cross-platform without bash tax</h4>
-  <p>~70 first-class ops — <code>cp</code>, <code>mkdir</code>, <code>gzip</code>, <code>tar_create</code>, <code>http_get</code>, <code>download</code>, <code>sha256_file</code>, <code>regex_replace</code>, <code>json_get</code>, … — implemented in Go, identical on macOS / Linux / Windows.</p>
+  <p>~140 first-class ops — <code>cp</code>, <code>mkdir</code>, <code>gzip</code>, <code>tar_create</code>, <code>http_get</code>, <code>download</code>, <code>sha256_file</code>, <code>regex_replace</code>, <code>json_get</code>, … — implemented in Go, identical on macOS / Linux / Windows.</p>
 </div>
 
 <div class="card">

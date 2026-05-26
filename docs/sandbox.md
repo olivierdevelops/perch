@@ -180,7 +180,7 @@ Yes — and the sandbox makes that claim sharper.
 
 A "cross-platform shell" in this context means: **a language whose primitive operations are file / process / network / string actions, available identically on every host, that can be used to script tasks without falling back to `bash` or `cmd`.**
 
-perch's ~110-op catalog already covers that surface: `cp`, `mkdir`, `rm`, `chmod`, `glob`, `read_file`, `write_file`, `append_line`, `download`, `http_get`, `regex_replace`, `sha256_file`, `tar_create`, `pkg_install`, `wait_for_port`, …. With `shell` op disabled (see §4.5), a `.perch` file is a *pure* cross-platform script — no bash, no cmd, no PowerShell. It runs identically on macOS / Linux / Windows.
+perch's ~140-op catalog already covers that surface: `cp`, `mkdir`, `rm`, `chmod`, `glob`, `read_file`, `write_file`, `append_line`, `download`, `http_get`, `regex_replace`, `sha256_file`, `tar_create`, `pkg_install`, `wait_for_port`, …. With `shell` op disabled (see §4.5), a `.perch` file is a *pure* cross-platform script — no bash, no cmd, no PowerShell. It runs identically on macOS / Linux / Windows.
 
 What the sandbox adds:
 
