@@ -10,7 +10,9 @@ hide:
 
 <div id="perch-demo" class="perch-demo"></div>
 
-The animated demo above cycles through the same `redis.perch` file driving five different frontends. **You write one file. perch produces every surface.**
+The animated demo above cycles through the same `redis.perch` file driving five different frontends. **You write one file. perch produces every surface:**
+
+<div id="perch-fanout"></div>
 
 <div class="perch-cta">
   <a class="perch-cta__primary" href="getting-started/">Get started in 5 minutes →</a>
@@ -81,6 +83,12 @@ perch --check         # static validation
 ```
 
 ---
+
+## Cross-platform without thinking about it
+
+Every command starts with ~30 variables already bound. **No declaration, no `let`, no `if uname`.** Hover any row — that's what perch sees on the running machine.
+
+<div id="perch-bindings"></div>
 
 ## What you get (outcomes, not features)
 
@@ -180,6 +188,36 @@ perch --check         # static validation
 
 **After:** one `commands.perch` shared by local dev and CI. `perch --check` runs in pre-commit. `perch --help` is the README.
 
+<div class="pterm-pair">
+<div class="pterm" id="t-make-before" data-title="make (the bad old days)"></div>
+<div class="pterm" id="t-make-after"  data-title="perch (one file, every OS)"></div>
+</div>
+<script type="application/json" data-pterm="t-make-before">
+[
+  {"k":"in",  "t":"make test"},
+  {"k":"out", "t":"sed: -i requires an argument on macOS"},
+  {"k":"err", "t":"make: *** [test] Error 1"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"make release"},
+  {"k":"err", "t":"GOOS=windows: command not found"},
+  {"k":"dim", "t":"# Karen's laptop only. Don't ask why."}
+]
+</script>
+<script type="application/json" data-pterm="t-make-after">
+[
+  {"k":"in",  "t":"perch test"},
+  {"k":"out", "t":"==> Running unit tests"},
+  {"k":"ok",  "t":"✓ 142 passed (3.1s)"},
+  {"k":"out", "t":"==> Running integration tests"},
+  {"k":"ok",  "t":"✓ 14 passed (8.4s)"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"perch release"},
+  {"k":"ok",  "t":"✓ built darwin/arm64  (12 MB)"},
+  {"k":"ok",  "t":"✓ built linux/amd64   (12 MB)"},
+  {"k":"ok",  "t":"✓ built windows/amd64 (12 MB)"}
+]
+</script>
+
 ```capy
 command test
     description "Run unit + integration tests"
@@ -188,15 +226,6 @@ command test
         if exists "./integration"
             shell "go test -tags=integration ./integration/..."
         end
-    end
-end
-
-command release
-    description "Cross-compile for darwin/linux/windows"
-    do
-        run build target:"darwin"
-        run build target:"linux"
-        run build target:"windows"
     end
 end
 ```
@@ -212,6 +241,30 @@ end
 **Before:** "first install pyenv, then python 3.11, then a venv, then pip install -r requirements.txt, then…" Three pages of README and a Slack channel for install help.
 
 **After:** you hand them `stt_bin`. They run `./stt_bin install`. The binary extracts an embedded archive into `~/.cache/perch/<hash>/`, creates a venv, runs `pip install`, drops a launcher in `~/.local/bin/stt`. Done.
+
+<div class="pterm" id="t-stt" data-title="stt_bin — a self-installing Python project"></div>
+<script type="application/json" data-pterm="t-stt">
+[
+  {"k":"in",  "t":"perch --build -f commands.perch --include ./src -o stt_bin"},
+  {"k":"out", "t":"Bundling ./src …"},
+  {"k":"ok",  "t":"✓ embedded 487 KB"},
+  {"k":"ok",  "t":"✓ Built binary: /abs/stt_bin"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"scp stt_bin ops@host:/usr/local/bin/"},
+  {"k":"out", "t":"stt_bin                                100%  12MB"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"ssh ops@host 'stt_bin install'"},
+  {"k":"dim", "t":"→ ensure_dir ~/.cache/perch/3f9a2b…"},
+  {"k":"dim", "t":"→ bundle_extract → 47 files"},
+  {"k":"dim", "t":"→ python3 -m venv .venv"},
+  {"k":"dim", "t":"→ pip install -r requirements.txt"},
+  {"k":"dim", "t":"→ link_into_path ~/.local/bin/stt"},
+  {"k":"ok",  "t":"✓ installed. stt is on PATH."},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"ssh ops@host 'stt example.wav'"},
+  {"k":"ok",  "t":"✓ transcribed (3.4s)  →  example.txt"}
+]
+</script>
 
 ```sh
 perch --build -f commands.perch --include ./src -o stt_bin
@@ -232,6 +285,24 @@ The recipient needs **only** what your install command requires (here: `python3`
 **Before:** the agent gets a shell. You hope. You write a long system prompt about what it should and shouldn't do. You audit logs after the fact.
 
 **After:** the agent gets `perch-mcp` pointed at `ops.perch`. It can call exactly the verbs you declared, with exactly the arg types you declared. Anything else returns a typed error. No shell escape ever.
+
+<div class="pterm" id="t-mcp" data-title="perch-mcp — the agent's view"></div>
+<script type="application/json" data-pterm="t-mcp">
+[
+  {"k":"dim", "t":"# agent invokes the MCP tool"},
+  {"k":"in",  "t":"perch_run name=\"restart_service\" host=\"api-3\" service=\"worker\""},
+  {"k":"ok",  "t":"✓ restarted worker on api-3"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# agent tries an undeclared verb"},
+  {"k":"in",  "t":"perch_run name=\"drop_database\" db=\"prod\""},
+  {"k":"err", "t":"error: command \"drop_database\" not declared in ops.perch"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# agent tries a bad arg value"},
+  {"k":"in",  "t":"perch_run name=\"restart_service\" host=\"; rm -rf /\""},
+  {"k":"err", "t":"error: host failed regex ^[a-z0-9.-]+$"},
+  {"k":"accent","t":"→ the schema is the security boundary."}
+]
+</script>
 
 ```capy
 command restart_service
@@ -266,6 +337,28 @@ The agent never sees `ssh`. It sees `restart_service(host, service)` with typed 
 **Before:** every team member memorises 12 docker flags. Mistakes cost an afternoon. The Slack channel has the same three questions every week.
 
 **After:** ship `dev` (a perch binary). The team types `dev up`, `dev logs`, `dev shell`, `dev reset`. Unknown verbs fall through to docker via <code>catch passthrough</code>, so power users lose nothing.
+
+<div class="pterm" id="t-dev" data-title="dev — your team's CLI"></div>
+<script type="application/json" data-pterm="t-dev">
+[
+  {"k":"in",  "t":"dev up"},
+  {"k":"out", "t":"==> docker compose up -d"},
+  {"k":"out", "t":"==> docker compose exec api migrate up"},
+  {"k":"ok",  "t":"✓ Stack running at http://localhost:8080"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"dev --help"},
+  {"k":"out", "t":"USAGE: dev <command> [flags]"},
+  {"k":"out", "t":"  up        Start the dev stack"},
+  {"k":"out", "t":"  logs      Tail container logs"},
+  {"k":"out", "t":"  shell     Open a shell in the api container"},
+  {"k":"out", "t":"  reset     Wipe volumes + restart"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# unknown verbs fall through to docker"},
+  {"k":"in",  "t":"dev ps"},
+  {"k":"out", "t":"CONTAINER ID   IMAGE        STATUS"},
+  {"k":"out", "t":"4f2a9b1c       myapp/api    Up 12 minutes"}
+]
+</script>
 
 ```capy
 command up
@@ -316,17 +409,28 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 ## The 30-second tour
 
-```sh
-mkdir hello-perch && cd hello-perch
-perch --init                          # writes a starter commands.perch
-perch --help                          # lists the commands in it
-perch hello                           # runs one
-perch --build -o ./greet              # bundles commands.perch into ./greet
-./greet hello                         # ./greet works anywhere, no perch needed
-perch --server                        # → http://127.0.0.1:10032 in a browser
-perch --shell                         # interactive REPL
-perch --install-vscode                # installs perch-lsp + VS Code extension
-```
+<div class="pterm" id="t-tour" data-title="from zero to shipping binary"></div>
+<script type="application/json" data-pterm="t-tour">
+[
+  {"k":"in",  "t":"mkdir hello-perch && cd hello-perch"},
+  {"k":"in",  "t":"perch --init"},
+  {"k":"ok",  "t":"✓ wrote commands.perch"},
+  {"k":"in",  "t":"perch --help"},
+  {"k":"out", "t":"  hello     Say hello"},
+  {"k":"in",  "t":"perch hello"},
+  {"k":"ok",  "t":"Hello, world!"},
+  {"k":"in",  "t":"perch --check"},
+  {"k":"ok",  "t":"✓ commands.perch: 1 command — no issues"},
+  {"k":"in",  "t":"perch --build -o ./greet"},
+  {"k":"ok",  "t":"✓ Built binary: ./greet  (12 MB)"},
+  {"k":"in",  "t":"./greet hello"},
+  {"k":"ok",  "t":"Hello, world!"},
+  {"k":"dim", "t":"# same file, four more frontends:"},
+  {"k":"dim", "t":"#   perch --server   →  web UI"},
+  {"k":"dim", "t":"#   perch --shell    →  REPL"},
+  {"k":"dim", "t":"#   perch-mcp        →  MCP tool surface"}
+]
+</script>
 
 ---
 

@@ -235,3 +235,265 @@ redis    <span class="info">100%</span>   12MB`,
         renderActive();
     });
 })();
+
+// ─── Inline mini-terminals ──────────────────────────────────────────
+//
+// Usage in markdown:
+//
+//   <div class="pterm" id="t-foo"></div>
+//   <script type="application/json" data-pterm="t-foo">
+//   [
+//     {"k":"in",  "t":"perch test"},
+//     {"k":"out", "t":"==> Running unit tests"},
+//     {"k":"ok",  "t":"✓ 142 passed"}
+//   ]
+//   </script>
+//
+// k = "in" | "out" | "ok" | "err" | "dim" | "hi" | "blank" | "wait"
+//
+// Plays once when scrolled into view. Click ↻ to replay. Multiple
+// terminals on one page are independent. Cheap: pure DOM, no deps.
+(function () {
+    const COLOR = {
+        in:    "fg",
+        out:   "fg",
+        ok:    "ok",
+        err:   "err",
+        dim:   "dim",
+        hi:    "accent",
+    };
+
+    function buildShell(target, lines) {
+        target.classList.add("pterm-shell");
+        target.innerHTML = `
+            <div class="pterm-chrome">
+                <span class="pterm-dot pterm-red"></span>
+                <span class="pterm-dot pterm-yellow"></span>
+                <span class="pterm-dot pterm-green"></span>
+                <span class="pterm-title">${target.dataset.title || "terminal"}</span>
+                <button class="pterm-replay" type="button" title="Replay">↻</button>
+            </div>
+            <pre class="pterm-body" data-pterm-body></pre>`;
+        const body = target.querySelector("[data-pterm-body]");
+        const btn  = target.querySelector(".pterm-replay");
+        btn.onclick = () => play(body, lines);
+        return body;
+    }
+
+    function play(body, lines) {
+        body.innerHTML = "";
+        let lineIdx = 0;
+        function nextLine() {
+            if (lineIdx >= lines.length) return;
+            const line = lines[lineIdx++];
+            if (line.k === "blank") {
+                body.appendChild(document.createElement("br"));
+                setTimeout(nextLine, 80);
+                return;
+            }
+            if (line.k === "wait") {
+                setTimeout(nextLine, line.t || 400);
+                return;
+            }
+            const row = document.createElement("div");
+            row.className = "pterm-row pterm-" + (COLOR[line.k] || "fg");
+            if (line.k === "in") {
+                const prompt = document.createElement("span");
+                prompt.className = "pterm-prompt";
+                prompt.textContent = "$ ";
+                row.appendChild(prompt);
+            }
+            const text = document.createElement("span");
+            row.appendChild(text);
+            body.appendChild(row);
+
+            // Typewriter for "in" lines (the user "typing"), instant for output.
+            if (line.k === "in") {
+                let i = 0;
+                const speed = 28;
+                (function tick() {
+                    if (i >= line.t.length) {
+                        setTimeout(nextLine, 220);
+                        return;
+                    }
+                    text.textContent += line.t[i++];
+                    setTimeout(tick, speed);
+                })();
+            } else {
+                text.textContent = line.t;
+                setTimeout(nextLine, 110);
+            }
+        }
+        nextLine();
+    }
+
+    function init() {
+        const scripts = document.querySelectorAll('script[type="application/json"][data-pterm]');
+        const seen = new WeakSet();
+
+        scripts.forEach(s => {
+            const id = s.dataset.pterm;
+            const target = document.getElementById(id);
+            if (!target) return;
+            let lines;
+            try { lines = JSON.parse(s.textContent); } catch (e) { return; }
+            const body = buildShell(target, lines);
+
+            // Play when scrolled into view (first time only).
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting && !seen.has(target)) {
+                        seen.add(target);
+                        play(body, lines);
+                        obs.disconnect();
+                    }
+                });
+            }, { threshold: 0.35 });
+            obs.observe(target);
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
+// ─── Auto-bindings inspector ───────────────────────────────────────
+//
+// A live panel rendering ${var} = expanded-value rows so readers see
+// concretely what each auto-binding resolves to on the docs server's
+// host. Values are baked at build-time (the JS just renders them) so
+// no requests fire. Each row reveals on a stagger.
+(function () {
+    const ROWS = [
+        ["os",          "darwin"],
+        ["arch",        "arm64"],
+        ["is_macos",    "true"],
+        ["home",        "/Users/you"],
+        ["cache_dir",   "/Users/you/Library/Caches"],
+        ["config_dir",  "/Users/you/Library/Application Support"],
+        ["temp_dir",    "/var/folders/.../T/"],
+        ["exe_path",    "/usr/local/bin/perch"],
+        ["exe_dir",     "/usr/local/bin"],
+        ["script_path", "/abs/path/to/commands.perch"],
+        ["path_sep",    "/"],
+        ["exe_ext",     "(empty on unix; .exe on Windows)"],
+        ["null_device", "/dev/null"],
+        ["cpu_count",   "10"],
+        ["user",        "you"],
+        ["hostname",    "your-laptop"],
+    ];
+
+    function init() {
+        const root = document.getElementById("perch-bindings");
+        if (!root) return;
+        root.classList.add("pbind");
+        root.innerHTML = `
+            <div class="pbind-chrome">
+                <span class="pbind-dot"></span>
+                <span class="pbind-title">auto-bound variables — no declaration, always available</span>
+            </div>
+            <div class="pbind-body" id="pbind-body"></div>`;
+        const body = root.querySelector("#pbind-body");
+
+        ROWS.forEach((r, idx) => {
+            const row = document.createElement("div");
+            row.className = "pbind-row";
+            row.innerHTML = `
+                <span class="pbind-name">\${${r[0]}}</span>
+                <span class="pbind-arrow">→</span>
+                <span class="pbind-val">${r[1]}</span>`;
+            body.appendChild(row);
+        });
+
+        // Stagger-reveal on scroll into view.
+        const obs = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    body.querySelectorAll(".pbind-row").forEach((row, idx) => {
+                        setTimeout(() => row.classList.add("is-shown"), idx * 70);
+                    });
+                    obs.disconnect();
+                }
+            });
+        }, { threshold: 0.25 });
+        obs.observe(root);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
+// ─── "One file, five outputs" flow diagram ─────────────────────────
+//
+// CSS-only branching tree, but we light up each branch on a stagger
+// when the diagram scrolls into view so it feels alive.
+(function () {
+    function init() {
+        const root = document.getElementById("perch-fanout");
+        if (!root) return;
+        root.classList.add("pfan");
+        root.innerHTML = `
+            <div class="pfan-source">
+                <div class="pfan-file">commands.perch</div>
+            </div>
+            <div class="pfan-arrows">
+                <div class="pfan-arrow"></div>
+                <div class="pfan-arrow"></div>
+                <div class="pfan-arrow"></div>
+                <div class="pfan-arrow"></div>
+                <div class="pfan-arrow"></div>
+            </div>
+            <div class="pfan-targets">
+                <div class="pfan-target" data-d="0">
+                    <div class="pfan-icon">⌨</div>
+                    <div class="pfan-label">CLI</div>
+                    <div class="pfan-sub">perch &lt;cmd&gt;</div>
+                </div>
+                <div class="pfan-target" data-d="1">
+                    <div class="pfan-icon">🌐</div>
+                    <div class="pfan-label">Web UI</div>
+                    <div class="pfan-sub">perch --server</div>
+                </div>
+                <div class="pfan-target" data-d="2">
+                    <div class="pfan-icon">›_</div>
+                    <div class="pfan-label">REPL</div>
+                    <div class="pfan-sub">perch --shell</div>
+                </div>
+                <div class="pfan-target" data-d="3">
+                    <div class="pfan-icon">🤖</div>
+                    <div class="pfan-label">MCP</div>
+                    <div class="pfan-sub">perch-mcp</div>
+                </div>
+                <div class="pfan-target" data-d="4">
+                    <div class="pfan-icon">📦</div>
+                    <div class="pfan-label">Binary</div>
+                    <div class="pfan-sub">perch --build</div>
+                </div>
+            </div>`;
+        const obs = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    root.querySelectorAll(".pfan-arrow").forEach((a, idx) => {
+                        setTimeout(() => a.classList.add("is-lit"), 150 + idx * 120);
+                    });
+                    root.querySelectorAll(".pfan-target").forEach((t, idx) => {
+                        setTimeout(() => t.classList.add("is-lit"), 250 + idx * 120);
+                    });
+                    obs.disconnect();
+                }
+            });
+        }, { threshold: 0.3 });
+        obs.observe(root);
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
