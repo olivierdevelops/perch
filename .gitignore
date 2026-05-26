@@ -11,6 +11,9 @@ editors/vscode-perch/out/
 editors/vscode-perch/node_modules/
 editors/vscode-perch/*.vsix
 
+# stray Go archive sometimes left by older perch build commands
+/ignore
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
