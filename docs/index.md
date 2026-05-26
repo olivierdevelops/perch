@@ -424,7 +424,7 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 ## How it compares
 
-<div class="perch-compare-wrap">
+<div class="perch-compare-wrap" markdown="1">
 
 | | perch | Make | Just | Task | bash scripts | Cobra/Click |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -477,6 +477,23 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 **Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
+
+<div class="pterm" id="t-audit" data-title="--audit FILE.ndjson — structured trace"></div>
+<script type="application/json" data-pterm="t-audit">
+[
+  {"k":"in",  "t":"perch --no-shell --audit /var/log/agent.ndjson -f ops.perch deploy"},
+  {"k":"dim", "t":"🔒 security: --no-shell  --audit /var/log/agent.ndjson"},
+  {"k":"ok",  "t":"Deploying…"},
+  {"k":"err", "t":"op \"shell\" is disabled by --no-shell"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"tail -3 /var/log/agent.ndjson"},
+  {"k":"dim", "t":"{\"event\":\"op\",\"kind\":\"print\",\"args\":{\"msg\":\"Deploying…\"},\"dur_ms\":0,\"ok\":true}"},
+  {"k":"dim", "t":"{\"event\":\"op\",\"kind\":\"shell\",\"args\":{\"cmd\":\"kubectl …\"},\"dur_ms\":0,\"ok\":false,"},
+  {"k":"dim", "t":"  \"error\":\"op \\\"shell\\\" is disabled by --no-shell\"}"},
+  {"k":"dim", "t":"{\"event\":\"session_end\",\"dur_ms\":42,\"ok\":false,\"error\":\"…\"}"},
+  {"k":"accent","t":"→ blocked calls are recorded too — exactly what audit wants."}
+]
+</script>
 
 <div class="pterm" id="t-restrict" data-title="composable security flags"></div>
 <script type="application/json" data-pterm="t-restrict">

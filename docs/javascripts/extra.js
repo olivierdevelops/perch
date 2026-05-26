@@ -719,23 +719,47 @@ redis    <span class="info">100%</span>   12MB`,
         requestAnimationFrame(step);
     }
 
+    function isInView(el) {
+        const r = el.getBoundingClientRect();
+        return r.top < (window.innerHeight || document.documentElement.clientHeight) && r.bottom > 0;
+    }
+
     function init() {
         const root = document.querySelector(".pstats");
         if (!root) return;
+        // Guard against double-init (we listen to multiple ready signals
+        // to survive both vanilla loads and mkdocs-material's instant nav).
+        if (root.dataset.pstatsInited) return;
+        root.dataset.pstatsInited = "1";
+
+        const fire = () => root.querySelectorAll(".pstats-num").forEach(animateCounter);
+
+        // If the stats bar is already on-screen at init (the common case
+        // — it's near the top of the page), fire immediately. No need to
+        // wait for an intersection event that may never come.
+        if (isInView(root)) {
+            fire();
+            return;
+        }
+        // Otherwise, wait for any intersection. Threshold 0 fires the
+        // moment any pixel of the bar enters the viewport.
         const obs = new IntersectionObserver((entries) => {
             entries.forEach(e => {
                 if (e.isIntersecting) {
-                    root.querySelectorAll(".pstats-num").forEach(animateCounter);
+                    fire();
                     obs.disconnect();
                 }
             });
-        }, { threshold: 0.4 });
+        }, { threshold: 0 });
         obs.observe(root);
     }
 
+    // Run on DOMContentLoaded and again after window.load — covers both
+    // first-paint and any late-arriving DOM.
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init);
     } else {
         init();
     }
+    window.addEventListener("load", init);
 })();

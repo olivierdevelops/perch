@@ -16,7 +16,7 @@ Pick any operating system. Strip away the hardware story and what's left is a sm
 | 2 | **Process model** (fork/exec, lifecycle) | `shell`, `shell_detached`, `run TARGET`, `on_signal HANDLER`, `kill_by_name` | shipped |
 | 3 | **Capability system** (which calls a process may make) | `--no-shell`, `--no-subprocess`, `--no-network`, `--no-write`, `--allow-bin`, `--no-shell-metachars` | shipped |
 | 4 | **Identity / environment** (whose env vars can be read) | `--env A,B,C` (with automatic subprocess scrubbing) | shipped |
-| 5 | **Resource limits** (CPU, memory, wall clock) | `--max-runtime SECS` (more designed in [sandbox §3](sandbox.md#3-the-sandbox-block--grammar)) | **shipped (wall clock)**, rest designed |
+| 5 | **Resource limits** (CPU, memory, wall clock) | `--max-runtime SECS` (more designed in [sandbox §3](sandbox.md#3-the-sandbox-block-grammar)) | **shipped (wall clock)**, rest designed |
 | 6 | **Audit log** (what did the process do?) | `--audit FILE.ndjson` — one line per op, with args, duration, error | **shipped** |
 | 7 | **Standard library** (CLI tools you can call) | the ~140 ops cover string / hashing / encoding / HTTP / archive / fs / regex / time / network / system | shipped |
 | 8 | **Package manager** (install other software) | `pkg_install` + `detect_pkg_mgr` (brew / apt / dnf / pacman / apk / zypper / winget / choco / scoop) | shipped |
@@ -35,7 +35,7 @@ In perch, the **op handlers** are the contract: ~140 Go functions registered int
 
 This matters because:
 
-- **The op set is *exactly* what a `.perch` file can do.** No FFI, no `eval`, no plugin escape. To extend the ABI you add a handler in Go and recompile. (User-defined ops via WASM modules are on the roadmap; see [sandbox §9](sandbox.md#9-wasm--why-not-the-primary-lever).)
+- **The op set is *exactly* what a `.perch` file can do.** No FFI, no `eval`, no plugin escape. To extend the ABI you add a handler in Go and recompile. (User-defined ops via WASM modules are on the roadmap; see [sandbox §9](sandbox.md#9-wasm-why-not-the-primary-lever).)
 - **Restricting the ABI is one map mutation.** `ops.ApplyRestrictions(handlers, r)` replaces blocked ops with deny-handlers. That's the whole capability mechanism.
 - **The ABI is stable across surfaces.** A command run from the CLI, from the web UI, from the REPL, from MCP — all go through the same dispatch path. Audit one path, audit all of them.
 
@@ -210,7 +210,7 @@ All five share the same command set, the same arg parsing, the same op dispatch,
 
 To be honest about the limits:
 
-- **It is not a kernel.** It can't enforce filesystem or network restrictions on a subprocess that legitimately reads a file or opens a socket. For that you need real OS sandboxing — Linux mount/network namespaces (firejail, bubblewrap), macOS sandbox-exec, Windows AppContainer. perch documents how to layer with those (see [sandbox §0c](sandbox.md#0c-the-subprocess-escape-hatch--and-the-layered-defense)) but doesn't reimplement them.
+- **It is not a kernel.** It can't enforce filesystem or network restrictions on a subprocess that legitimately reads a file or opens a socket. For that you need real OS sandboxing — Linux mount/network namespaces (firejail, bubblewrap), macOS sandbox-exec, Windows AppContainer. perch documents how to layer with those (see [sandbox §0c](sandbox.md#0c-the-subprocess-escape-hatch-and-the-layered-defense)) but doesn't reimplement them.
 - **It is not multi-user.** No login, no per-user identity beyond what the host already provides. Identity is "whoever invoked perch."
 - **It is not an init system.** There's no `systemd`-style service supervision yet. Long-running processes go to `shell_detached`; cleanup is via `on_signal`. Real supervision (restart policy, health checks, dependency graph) is a future direction, not a current feature.
 - **It is not a hypervisor.** It does not provide hardware isolation. Two `perch` instances on the same machine share the same OS view.
@@ -221,7 +221,7 @@ To be honest about the limits:
 
 Concrete next steps that move further toward the OS analogy:
 
-1. **Author-side `sandbox` block** ([sandbox.md §3](sandbox.md#3-the-sandbox-block--grammar)) — the file declares its own intended permissions; the runtime enforces the intersection with the user's CLI flags.
+1. **Author-side `sandbox` block** ([sandbox.md §3](sandbox.md#3-the-sandbox-block-grammar)) — the file declares its own intended permissions; the runtime enforces the intersection with the user's CLI flags.
 2. **Filesystem and network *scope* allowlists** (not just on/off) — `read "./src" "${cache_dir}"`, `net "*.github.com"`. Designed in §4.3 / §4.4.
 3. **`--max-download`, `--max-file-size`, `--max-processes`** — the remaining resource ceilings.
 4. **`perch --untrusted`** — refuses files without a sandbox block, prints a permission preview, applies safe defaults. Designed in §7.

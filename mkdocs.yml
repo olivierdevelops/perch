@@ -8,10 +8,14 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   features:
-    - navigation.instant
+    # Intentionally NOT enabled:
+    #   - navigation.instant  — its SPA-style nav breaks our DOMContentLoaded-based JS
+    #     (stats counter, pterm, fanout) on subsequent page visits.
+    #   - navigation.tabs     — the secondary tab strip doubles header height and
+    #     forces our 11 nav items into a cramped horizontal row.
     - navigation.tracking
-    - navigation.tabs
     - navigation.top
+    - navigation.sections
     - content.code.copy
     - content.code.annotate
   palette:
@@ -38,6 +42,10 @@ extra_javascript:
 
 markdown_extensions:
   - admonition
+  # Lets markdown — tables, lists, emphasis — render *inside* HTML blocks.
+  # Without this, the `<div class="perch-compare-wrap"> | table | …`
+  # comparison table on docs/index.md rendered as raw pipes.
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.highlight:
