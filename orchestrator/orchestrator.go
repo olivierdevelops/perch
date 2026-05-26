@@ -1,6 +1,11 @@
-// Package main is the orchestrator: the one place that imports
-// concrete types from every other module and wires them together.
-package main
+// Package orchestrator is the wiring layer — the only place that
+// imports concrete types from every other VHCO module and composes
+// them. Every *Impl, every `make…` factory, every closure that bridges
+// one module to another lives here.
+//
+// The package exports a single entry point — Run — that the top-level
+// main.go calls. main.go itself stays a one-liner.
+package orchestrator
 
 import (
 	"fmt"
@@ -26,6 +31,31 @@ import (
 	"github.com/luowensheng/perch/usecases/validate"
 )
 
+// Version is the perch version string. Bumped on each release tag.
+const Version = "0.1.0"
+
+// DefaultCommandsFile is the default config the CLI looks for when no
+// -f flag is given.
+const DefaultCommandsFile = "commands.perch"
+
+// Run is the perch entry point. It:
+//
+//   1. Detects whether the running binary has an embedded program
+//      (created by `perch --build`) and runs that if so.
+//   2. Otherwise wires the regular CLI against the host filesystem.
+//   3. Calls os.Exit with the CLI's exit code.
+//
+// Top-level main.go is a one-liner that calls this function.
+func Run() {
+	if embedded, ok, err := embed.Load(); err != nil {
+		fmt.Fprintln(os.Stderr, "embedded program:", err)
+		os.Exit(1)
+	} else if ok {
+		os.Exit(buildEmbeddedCLI(embedded).Run())
+	}
+	os.Exit(buildCLI().Run())
+}
+
 // knownOps returns the set of op kinds the interpreter knows how to
 // dispatch. Used by the validator to flag misspelt op kinds.
 func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{} {
@@ -36,21 +66,6 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 		}
 		return out
 	}
-}
-
-const Version = "0.1.0"
-const DefaultCommandsFile = "commands.perch"
-
-func main() {
-	// If the binary has an embedded program (built via `perch --build`),
-	// that program wins — the CLI ignores any -f flag.
-	if embedded, ok, err := embed.Load(); err != nil {
-		fmt.Fprintln(os.Stderr, "embedded program:", err)
-		os.Exit(1)
-	} else if ok {
-		os.Exit(buildEmbeddedCLI(embedded).Run())
-	}
-	os.Exit(buildCLI().Run())
 }
 
 func buildCLI() *cli.CLI {

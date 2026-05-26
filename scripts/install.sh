@@ -35,7 +35,7 @@ done
 case "$(uname -s)" in
     Darwin) OS=darwin ;;
     Linux)  OS=linux ;;
-    *) echo "Unsupported OS: $(uname -s). Build from source: go install github.com/$REPO/cmd/perch@latest" >&2; exit 1 ;;
+    *) echo "Unsupported OS: $(uname -s). Build from source: go install github.com/$REPO@latest" >&2; exit 1 ;;
 esac
 
 case "$(uname -m)" in

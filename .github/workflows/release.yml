@@ -36,7 +36,7 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           OUT="perch-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
-          go build -ldflags='-s -w' -trimpath -o "$OUT" ./cmd/perch
+          go build -ldflags='-s -w' -trimpath -o "$OUT" .
           shasum -a 256 "$OUT" > "$OUT.sha256"
           OUT_LSP="perch-lsp-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
           go build -ldflags='-s -w' -trimpath -o "$OUT_LSP" ./cmd/perch-lsp

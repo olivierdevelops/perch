@@ -7,7 +7,7 @@ A five-minute tour. By the end you'll have a working `commands.perch`, run it th
 === "Go"
 
     ```sh
-    go install github.com/luowensheng/perch/cmd/perch@latest
+    go install github.com/luowensheng/perch@latest
     ```
 
 === "macOS / Linux (binary)"

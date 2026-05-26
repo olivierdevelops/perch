@@ -71,7 +71,7 @@ perch --build -o myapp         # → same file, portable binary
 
 ```sh
 # Go users — CLI
-go install github.com/luowensheng/perch/cmd/perch@latest
+go install github.com/luowensheng/perch@latest
 
 # macOS / Linux (binary, no Go required)
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
@@ -127,7 +127,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 ## A 30-second tour
 
-After `go install …/cmd/perch@latest`:
+After `go install github.com/luowensheng/perch@latest`:
 
 ```sh
 mkdir hello-perch && cd hello-perch
