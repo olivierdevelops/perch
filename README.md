@@ -95,14 +95,15 @@ See [docs/mcp.md](docs/mcp.md) for client setup. There's also a [Claude Code ski
 
 ### Editor support (LSP + syntax)
 
-`perch-lsp` provides diagnostics (parse + static `--check`), context-aware completion, hover, and document outline.
+`perch-lsp` provides diagnostics (parse + static `--check`), context-aware completion, hover, and document outline. **`perch` itself installs both**:
 
 ```sh
-go install github.com/luowensheng/perch/cmd/perch-lsp@latest
+perch --install-lsp        # installs perch-lsp via `go install`
+perch --install-vscode     # installs perch-lsp + the VS Code extension (auto-spawns the LSP)
 ```
 
-- **VS Code:** one command — `./scripts/install-vscode.sh` (installs `perch-lsp`, packages the extension, runs `code --install-extension`).
-- **Neovim / Helix / Zed:** see [docs/lsp.md](docs/lsp.md) for one-screen setup snippets.
+- **VS Code:** `perch --install-vscode` does the whole flow (extracts the embedded extension, packages, installs). Requires `node`/`npm` and the VS Code `code` CLI on `$PATH`.
+- **Neovim / Helix / Zed:** see [docs/lsp.md](docs/lsp.md) for one-screen setup snippets after `perch --install-lsp`.
 - **Tree-sitter** grammar (for syntax highlighting beyond what the LSP gives you): [`editors/tree-sitter-perch`](editors/tree-sitter-perch).
 
 ### Shell completions

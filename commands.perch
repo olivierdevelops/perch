@@ -3,7 +3,7 @@ about   "perch — a cross-platform command runner driven by capy"
 version "0.1.0"
 
 globals
-    BUILD_OUT = "./perch"
+    BUILD_OUT = "./ignore"
 end
 
 command build

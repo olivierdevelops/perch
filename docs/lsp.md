@@ -9,28 +9,31 @@
 
 ## Install
 
+The fastest path — let perch do it:
+
+```sh
+perch --install-lsp        # invokes `go install` for cmd/perch-lsp
+```
+
+After installing, ensure `$(go env GOBIN)` (or `$(go env GOPATH)/bin`) is on your `$PATH`. The installer prints the exact path it landed at.
+
+Or do it yourself:
+
 ```sh
 go install github.com/luowensheng/perch/cmd/perch-lsp@latest
 ```
 
-Then make sure `perch-lsp` is on your `$PATH` (Go puts it in `$(go env GOBIN)` or `$(go env GOPATH)/bin`).
-
 ## VS Code (one command)
 
-From a perch repo checkout:
-
 ```sh
-./scripts/install-vscode.sh
+perch --install-vscode
 ```
 
-The script:
+`perch` itself extracts the embedded extension files, runs `npm install` + `vsce package`, and `code --install-extension`s the resulting `.vsix`. No repo checkout needed; `perch` is the only binary you need.
 
-1. installs `perch-lsp` via `go install`
-2. installs node deps inside `editors/vscode-perch/`
-3. packages the extension into a `.vsix`
-4. runs `code --install-extension perch.vsix`
+Requirements: `node` + `npm` and VS Code's `code` CLI on `$PATH`. If `code` isn't on `$PATH`: open VS Code → Command Palette → "Shell Command: Install code command in PATH".
 
-Open any `.perch` file — the LSP boots automatically. The extension is plain JS, so **no TypeScript build step**.
+If you'd rather drive it from a perch checkout, the same logic is in [`scripts/install-vscode.sh`](https://github.com/luowensheng/perch/blob/main/scripts/install-vscode.sh).
 
 Configurable via VS Code settings (the only setting):
 

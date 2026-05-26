@@ -19,7 +19,11 @@ type UseCase interface {
 
 type Impl struct{}
 
-const modulePath = "github.com/luowensheng/perch/cmd/perch-lsp@latest"
+// The `@main` ref tracks the bleeding-edge branch. Once releases catch
+// up (perch-lsp landed after v0.1.0), this should switch back to
+// `@latest`. The release workflow also publishes pre-built perch-lsp
+// binaries on each tag.
+const modulePath = "github.com/luowensheng/perch/cmd/perch-lsp@main"
 
 func (i *Impl) Execute() error {
 	goBin, err := exec.LookPath("go")
