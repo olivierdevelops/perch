@@ -69,7 +69,24 @@ type Interpreter struct {
 	// with AllowedShellBins this neutralizes most shell-injection
 	// vectors even inside an otherwise-allowed shell call.
 	NoShellMetachars bool
+	// AfterOp, when set, is called AFTER each op's handler returns —
+	// with the op, its interpolated args, the result value, the error
+	// (or nil), and the duration. Used by `--audit FILE.ndjson` to
+	// produce a structured trace of every op call. Zero-overhead when nil.
+	AfterOp AfterOp
+	// Deadline, when non-zero, caps the wall-clock budget for the
+	// invocation. Checked before each op dispatch — a long-running shell
+	// can't be interrupted mid-call, but the NEXT op after it returns
+	// ErrTimeout. Set by `--max-runtime SECS`.
+	Deadline time.Time
 }
+
+// AfterOp receives each op's outcome after its handler returns. Used by
+// the audit log (infra/audit) to record a structured trace.
+type AfterOp func(op domain.Op, args map[string]any, b *Bindings, result any, err error, dur time.Duration)
+
+// ErrTimeout is returned when the interpreter exceeds its Deadline.
+var ErrTimeout = fmt.Errorf("interpreter: --max-runtime exceeded")
 
 // New constructs an Interpreter with stdout/stderr/stdin defaulted to os.*.
 func New(handlers map[string]Handler, p *domain.Program) *Interpreter {
@@ -137,6 +154,9 @@ func (i *Interpreter) Run(commandName string, cliArgs []string) error {
 		fmt.Fprintln(i.Stdout, "↪ stopped by user")
 		return nil
 	}
+	if err == ErrTimeout {
+		fmt.Fprintln(i.Stderr, "↪ stopped: --max-runtime exceeded")
+	}
 	return err
 }
 
@@ -152,6 +172,13 @@ func (i *Interpreter) RunOps(ops []domain.Op, b *Bindings) error {
 
 // RunOp interpolates args and dispatches one op.
 func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
+	// Wall-clock budget: refuse to start a new op if we're past the
+	// deadline. We can't interrupt a long-running op mid-call (Go's
+	// exec.Cmd needs context-aware wiring for that), but we can prevent
+	// the next one from firing.
+	if !i.Deadline.IsZero() && time.Now().After(i.Deadline) {
+		return ErrTimeout
+	}
 	args, err := InterpolateArgs(op.Args, b)
 	if err != nil {
 		return fmt.Errorf("op %s: %w", op.Kind, err)
@@ -190,7 +217,11 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 		argsWithBody["_body"] = op.Body
 		args = argsWithBody
 	}
+	start := time.Now()
 	val, err := h(i, b, args)
+	if i.AfterOp != nil {
+		i.AfterOp(op, args, b, val, err, time.Since(start))
+	}
 	if err != nil {
 		return err
 	}

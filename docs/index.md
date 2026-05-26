@@ -5,8 +5,9 @@ hide:
 
 # perch
 
-> **One `.perch` file becomes a CLI, a web UI, a REPL, an MCP tool surface for AI agents, and a portable single-file binary.**
-> Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
+> **The operating system you can `scp`.** One Go binary, ~140 cross-platform ops, capability-style restrictions, structured audit log, and five frontends (CLI / web / REPL / MCP / portable binary) over the same op catalog.
+> One `.perch` file becomes all of them. Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
+> **→ [Read the OS analogy](os-in-a-program.md)** for the full mapping of OS concepts to perch features.
 
 <div id="perch-demo" class="perch-demo"></div>
 

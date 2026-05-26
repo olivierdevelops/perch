@@ -10,9 +10,12 @@ package orchestrator
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/luowensheng/perch/domain"
+	"github.com/luowensheng/perch/infra/audit"
 	"github.com/luowensheng/perch/infra/capyloader"
 	"github.com/luowensheng/perch/infra/embed"
 	"github.com/luowensheng/perch/infra/httpserver"
@@ -55,6 +58,8 @@ func Run() {
 	restrictions := extractRestrictionFlags()
 	envAllow := extractEnvFlag()
 	allowBins, noMeta := extractShellGuards()
+	auditPath := extractAuditFlag()
+	maxRuntime := extractMaxRuntimeFlag()
 	previewMode := extractPreviewFlags()
 
 	if showRestrictionsAndExit() {
@@ -65,9 +70,75 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, previewMode).Run())
+		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode).Run())
 	}
-	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, previewMode).Run())
+	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode).Run())
+}
+
+// extractAuditFlag peels off `--audit PATH` / `--audit=PATH`. Returns ""
+// when not given. PATH "-" means stdout.
+func extractAuditFlag() string {
+	out := os.Args[:1]
+	path := ""
+	i := 1
+	for i < len(os.Args) {
+		a := os.Args[i]
+		switch {
+		case a == "--audit":
+			if i+1 < len(os.Args) {
+				path = os.Args[i+1]
+				i += 2
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "--audit requires a path (use - for stdout)")
+			os.Exit(2)
+		case strings.HasPrefix(a, "--audit="):
+			path = a[len("--audit="):]
+			i++
+		default:
+			out = append(out, a)
+			i++
+		}
+	}
+	os.Args = out
+	return path
+}
+
+// extractMaxRuntimeFlag peels off `--max-runtime SECS` / `--max-runtime=SECS`.
+// Returns 0 (no limit) when not given.
+func extractMaxRuntimeFlag() time.Duration {
+	out := os.Args[:1]
+	var d time.Duration
+	parse := func(s string) {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 0 {
+			fmt.Fprintf(os.Stderr, "--max-runtime: bad value %q (want a non-negative integer of seconds)\n", s)
+			os.Exit(2)
+		}
+		d = time.Duration(n) * time.Second
+	}
+	i := 1
+	for i < len(os.Args) {
+		a := os.Args[i]
+		switch {
+		case a == "--max-runtime":
+			if i+1 < len(os.Args) {
+				parse(os.Args[i+1])
+				i += 2
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "--max-runtime requires a value in seconds")
+			os.Exit(2)
+		case strings.HasPrefix(a, "--max-runtime="):
+			parse(a[len("--max-runtime="):])
+			i++
+		default:
+			out = append(out, a)
+			i++
+		}
+	}
+	os.Args = out
+	return d
 }
 
 // extractShellGuards peels off `--allow-bin NAME[,NAME…]` (additive,
@@ -237,7 +308,7 @@ func extractPreviewFlags() string {
 // announceSecurityPosture prints a one-line banner naming the active
 // restrictions (if any) so users / reviewers see the posture without
 // having to dig. Silent when nothing's restricted.
-func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool) {
+func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration) {
 	parts := []string{}
 	if r.Active() {
 		parts = append(parts, strings.Join(r.AsFlags(), " "))
@@ -262,6 +333,12 @@ func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]
 	}
 	if noMeta {
 		parts = append(parts, "--no-shell-metachars")
+	}
+	if auditPath != "" {
+		parts = append(parts, fmt.Sprintf("--audit %s", auditPath))
+	}
+	if maxRuntime > 0 {
+		parts = append(parts, fmt.Sprintf("--max-runtime %ds", int(maxRuntime.Seconds())))
 	}
 	if len(parts) > 0 {
 		fmt.Fprintf(os.Stderr, "🔒 security: %s\n", strings.Join(parts, "  "))
@@ -296,10 +373,10 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, previewMode string) *cli.CLI {
+func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string) *cli.CLI {
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow, allowBins, noMeta)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime)
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
@@ -307,7 +384,22 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		i.EnvAllowlist = envAllow
 		i.AllowedShellBins = allowBins
 		i.NoShellMetachars = noMeta
-		return i.Run(name, args)
+		if maxRuntime > 0 {
+			i.Deadline = time.Now().Add(maxRuntime)
+		}
+		var auditDone func(error)
+		if auditPath != "" {
+			sink, _, err := audit.Open(auditPath)
+			if err != nil {
+				return err
+			}
+			auditDone = sink.WireInto(i, name, args)
+		}
+		err := i.Run(name, args)
+		if auditDone != nil {
+			auditDone(err)
+		}
+		return err
 	}
 	srv := &httpserver.Server{Handlers: handlers}
 
@@ -356,11 +448,11 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, previewMode string) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow, allowBins, noMeta)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime)
 	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.
@@ -372,7 +464,22 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		i.EnvAllowlist = envAllow
 		i.AllowedShellBins = allowBins
 		i.NoShellMetachars = noMeta
-		return i.Run(name, args)
+		if maxRuntime > 0 {
+			i.Deadline = time.Now().Add(maxRuntime)
+		}
+		var auditDone func(error)
+		if auditPath != "" {
+			sink, _, err := audit.Open(auditPath)
+			if err != nil {
+				return err
+			}
+			auditDone = sink.WireInto(i, name, args)
+		}
+		err := i.Run(name, args)
+		if auditDone != nil {
+			auditDone(err)
+		}
+		return err
 	}
 	srv := &httpserver.Server{Handlers: handlers}
 
