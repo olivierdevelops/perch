@@ -101,6 +101,85 @@ So: yes, perch is a cross-platform shell. The sandbox lets you *prove* it is, fo
 
 ---
 
+## 2.5 Who writes the sandbox? (The trust model)
+
+**Both the author and the user contribute. The runtime enforces the intersection — whichever side is tighter wins.** This is the canonical capability-security pattern; pre-existing systems readers may recognize it from:
+
+| System | Author side | User side | Effective |
+|---|---|---|---|
+| Android / iOS | manifest declares needed perms | grants per-permission at install / runtime | intersection |
+| Chrome extensions | manifest.json `permissions` | install-time consent dialog | intersection |
+| Deno | (none — author has no say) | `--allow-net=…` etc. on CLI | user-only |
+| systemd | (none) | unit file `RestrictAddressFamilies=`, `ProtectSystem=` | admin-only |
+| Capability languages (Pony, ocaps) | requests capabilities | passes them as args | author-by-construction |
+| **perch** | **`sandbox` block in `.perch`** | **`--mode` / `--allow-*` / `--untrusted` on CLI** | **intersection** |
+
+perch is closest to Android: a *manifest* the author writes, plus a *grant layer* the user controls at run time. The CLI can only tighten what the file declared — never loosen.
+
+### 2.5.1 The author's role
+
+When you write a `.perch` file, the `sandbox` block is your **manifest of intent** — "this is what I need to do my job." You write it because:
+
+- **Reviewers can audit it in one screen.** A 6-line sandbox block tells a reviewer the upper bound on what the script can touch. Without it, a 400-line script is opaque.
+- **`perch --check` enforces it statically.** Calls to undeclared ops, paths outside declared roots, env vars you didn't declare — all rejected at validation time. Pre-commit catches accidental scope creep before it ships.
+- **Recipients of your binary can verify it locally.** `perch --check ./mybinary` re-validates the embedded program against its own sandbox after `--build`.
+- **You document your script for its future readers.** Six months from now, the sandbox block is the fastest way to remember what the script is supposed to do.
+
+You're not writing the sandbox to *protect yourself from yourself.* You're writing it to make your script auditable.
+
+### 2.5.2 The user's role
+
+When you *run* a `.perch` file, you decide what trust to extend on top of whatever the file declared. You layer further restrictions via:
+
+- **`perch --mode safe|offline|read-only|pure`** — preset tightenings (shipping today; see §0).
+- **`perch --allow-env=A,B`** etc. — per-axis overrides (future; see §8).
+- **`perch --untrusted`** — strictest preset; refuses files without a sandbox; shows permission preview; caps timeouts (future; see §7).
+
+The user can never *grant* more than the file declared. If the file's sandbox says `read "./src"`, no `--allow-read="/"` flag can unlock `/etc`. If the user wants the script to touch `/etc`, they have to edit the script — which means seeing the change in code review.
+
+The user *can* be more restrictive than the file. If the file declares `shell_bins git docker`, the user can still `--mode safe` to forbid shell entirely. The script might fail (some commands unreachable) — that's the user's call. Same as denying Android Contacts permission and accepting that the contact-syncing feature breaks.
+
+### 2.5.3 The admin's role (optional third layer)
+
+In enterprise settings, an org admin can set a `PERCH_DEFAULT_MODE=safe` env var or write a system policy file (future) that forces a floor — *every* invocation on this machine runs at least at this strictness, regardless of what the author or user requests. The admin layer is also tightening-only.
+
+### 2.5.4 Effective policy = intersection
+
+For each restriction class:
+
+```
+effective.ops          = author.ops          ∩ user.ops          ∩ admin.ops
+effective.env          = author.env          ∩ user.env          ∩ admin.env
+effective.read_roots   = author.read_roots   ∩ user.read_roots   ∩ admin.read_roots
+effective.net_allowed  = author.net          ∩ user.net          ∩ admin.net
+effective.max_runtime  = MIN(author, user, admin)
+```
+
+Where any side omits a clause, it's treated as "unrestricted on this axis" (which has no effect on the intersection — the other sides decide). Where the file omits the `sandbox` block entirely, the author side is "unrestricted everywhere" and the user/admin sides become the only fence.
+
+### 2.5.5 Concrete walk-throughs
+
+**Scenario A — trustworthy author, trusting user.** You wrote `dev.perch` for your team. You include a tight sandbox declaring shell, github access, write to `~/.cache/dev-cli`. Your colleague runs `perch -f dev.perch up` — no `--mode`, no CLI restrictions. Effective policy = the author's declaration. Reviewers can audit. Fine.
+
+**Scenario B — trustworthy author, paranoid user.** Same `dev.perch`. Your colleague is in an audit environment and runs `perch --mode read-only -f dev.perch status`. The file declares it might write to `~/.cache/dev-cli`; the user's `--mode read-only` overrides that to no writes. The `status` command doesn't write so it works. If they ran `up` it'd fail at the first write op — correctly, because the user asked for no writes.
+
+**Scenario C — malicious author.** You receive `cool.perch` from a stranger. Its sandbox block declares `read "/" write "/" net "*"` — basically asking for everything. `perch --check cool.perch` shows you the declaration; you see it's asking for the moon and refuse to run it. Or you run `perch --untrusted cool.perch` which prints a permission preview and asks for confirmation before doing anything. Or you run `perch --mode pure cool.perch` and the malicious ops simply can't fire. The author's declaration is the worst case; the user's policy decides the actual case.
+
+**Scenario D — script with no sandbox at all.** Backward-compatible. The author hasn't opted in, so the file behaves as today — full ops, full env, full FS, full network. The user can still apply `--mode` / `--untrusted` / `--allow-*` to fence it from the outside.
+
+**Scenario E — AI-agent surface.** You run `perch-mcp --require-sandbox -f ops.perch`. If `ops.perch` has no sandbox block, the MCP server refuses to start. With a sandbox, the agent gets exactly what the author declared and nothing more — even if the agent crafts a malicious arg, the sandbox's FS/net/shell scopes neutralize it. This is the most important case for the design.
+
+### 2.5.6 So who writes it?
+
+- **Author writes it** because they're the one who knows what the script needs and the one being reviewed.
+- **User layers on top** because they're the one being protected.
+- **Admin caps it** because they're the one setting org-wide invariants.
+- **Runtime enforces the intersection** because no individual side is trusted enough alone.
+
+The example in the user's question at the top of this section is **the author's** declaration — written by the dev who's shipping `dev.perch` to their team. A reviewer can read those 6 lines and know everything the binary is allowed to touch. That's the value.
+
+---
+
 ## 3. The `sandbox` block — grammar
 
 We add one new top-level block, parallel to `globals`. Sample:

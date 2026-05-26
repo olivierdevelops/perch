@@ -447,6 +447,8 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 **Can I lock down what a `.perch` file is allowed to do?** Yes — `perch --mode safe` disables shell + subprocess, `--mode offline` disables network ops, `--mode read-only` disables filesystem mutation, `--mode pure` does all three. Run `perch --modes` to see what each blocks. The fuller capability sandbox (env scopes, FS roots, network allowlists, `--untrusted` with permission previews) is designed in [sandbox.md](sandbox.md).
 
+**Who writes the sandbox — the author or the user?** Both. The **author** writes a `sandbox` block in the `.perch` file as a *manifest of intent* — "this is what I need to do my job." Reviewers audit it; `perch --check` enforces it statically. The **user** layers further restrictions at run time (`--mode`, `--allow-*`, `--untrusted`). The runtime enforces the *intersection* — neither side can grant more than the other allows. Same model as Android permissions: app declares, user grants, OS enforces the overlap. Details in [sandbox.md §2.5](sandbox.md#25-who-writes-the-sandbox-the-trust-model).
+
 **Do recipients need to install perch?** No. `perch --build` produces a standalone binary. They run that.
 
 **Does it work on Windows?** Yes. The ~70 built-in ops are Go implementations, identical on macOS / Linux / Windows. Only `shell` invocations are inherently OS-specific.
