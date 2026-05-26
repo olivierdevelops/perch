@@ -221,6 +221,27 @@ end
 
 With that catch in place, `./mywrapper status` calls `git status`, `./mywrapper log --oneline -10` calls `git log --oneline -10`, and any custom commands you declare above the catch still take precedence over the underlying tool.
 
+## String literals
+
+Three interchangeable delimiters: **`"..."`**, **`'...'`**, **`` `...` ``**. All three are *raw* — no backslash escapes are interpreted — and `${name}` interpolation is active in all three. Pick whichever delimiter doesn't appear in your content.
+
+This matters for JSON, SQL, and shell-with-quotes — content that would otherwise require painful `\"` escape sequences:
+
+```capy
+# JSON — content has " but no '. Use single quotes.
+let body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
+
+# SQL with quoted literals — content has both " and '. Use backticks.
+shell_output `psql -h db -c "SELECT * FROM users WHERE name='${name}'"`
+
+# Plain text with no quotes. Any delimiter works; "..." is the convention.
+print "hello ${user}"
+```
+
+What this is NOT: there are no `\n` / `\t` / `\"` escape sequences. A backslash before any character (including the delimiter) is just a literal backslash followed by that character. If you need a literal newline in a string, write a multi-line string in your source (a real newline byte). If you need to embed a quote, switch to a delimiter that doesn't appear in your content.
+
+The one substitution `${name}` *is* processed — that's the only special syntax inside strings.
+
 ## Interpolation
 
 `${NAME}` inside any string-valued op argument is resolved at runtime. Resolution order:

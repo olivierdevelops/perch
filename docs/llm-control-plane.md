@@ -179,7 +179,7 @@ command refund_order
         if amount > 500.0
             fail "amount > $500 needs a human"
         end
-        let body = format "{\"order_id\":\"${order_id}\",\"amount\":${amount},\"reason\":\"${reason}\"}"
+        let body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
         let resp = http_post "https://billing.internal/refund" body
         print "${resp}"
     end
@@ -209,7 +209,7 @@ command sales_for_region
         if not regex_match "${region}" "^[a-z]+-[a-z]+$"
             fail "invalid region"
         end
-        shell_output "psql -h db -U readonly -c \"SELECT sum(amount) FROM sales WHERE region='${region}' AND created_at > now() - interval '30 days'\""
+        shell_output `psql -h db -U readonly -c "SELECT sum(amount) FROM sales WHERE region='${region}' AND created_at > now() - interval '30 days'"`
     end
 end
 ```

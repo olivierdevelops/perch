@@ -54,7 +54,20 @@ end
 ## Hard rules — do not break these
 
 1. **Config statements must appear before `do`. Ops must appear inside `do … end`.** They never mix. Putting `arg foo ... end` inside a `do` block is a hard syntax error.
-2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.perch` for op arguments — they're a library-internal token.
+2. **Three string delimiters: `"..."`, `'...'`, `` `...` `` — all interchangeable, all raw, all interpolate `${name}`. Pick whichever delimiter doesn't appear in your content; no backslash escapes are interpreted.** This is the key insight for JSON / SQL / shell-with-quotes: use a delimiter that doesn't clash. Examples:
+
+```capy
+# JSON — use single quotes (content has " but no ')
+let body = format '{"order_id":"${order_id}","amount":${amount}}'
+
+# SQL with quoted literals — use backticks (content has both " and ')
+shell `psql -c "SELECT * FROM t WHERE name='${name}'"`
+
+# Plain text — double quotes are fine
+print "hello ${user}"
+```
+
+There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline in a string, write a multi-line string (a real `\n` byte in the source — see `write_file` examples). If you need to embed a quote that matches your delimiter, switch delimiters.
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
 4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
 5. **One op per line. Block ops — the unified `if EXPR ... end` form (comparisons, predicates, truthy/falsy) — wrap a nested body terminated by `end`. See the dedicated section below.**

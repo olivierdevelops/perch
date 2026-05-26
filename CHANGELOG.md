@@ -23,6 +23,20 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **Three string delimiters documented** — `"..."`, `'...'`, `` `...` ``. All three are equivalent (raw, interpolation-active), so authors pick whichever doesn't appear in their content. Massive readability win for JSON / SQL / shell-with-quotes:
+
+  ```capy
+  # Painful before — escape every quote:
+  let body = format "{\"order_id\":\"${order_id}\",\"amount\":${amount}}"
+
+  # Now (single quotes, no escapes needed):
+  let body = format '{"order_id":"${order_id}","amount":${amount}}'
+
+  # SQL or shell with both " and ' — use backticks:
+  shell `psql -c "SELECT * FROM t WHERE name='${name}'"`
+  ```
+
+  No code change — the three delimiters always worked but were undocumented. Removed an incorrect SKILL.md note claiming `\n` escapes are supported (they're not — capy strings are pure raw strings, no backslash escapes). Updated language.md / SKILL.md / applications.md / llm-control-plane.md to use the cleaner delimiters consistently.
 - **`perch --dry-run <cmd>`** and **`perch --ask <cmd>`** — preview a command's ops before they execute.
   - `--dry-run` walks every op, prints its kind + interpolated args, and skips the handler. Capture variables get set to `""` so subsequent `${x}` interpolation still works.
   - `--ask` is the same plan, interactively. For each op the user chooses: `y` (run), `n` (skip), `a` (run this op then everything else without further asking), or `q` (stop immediately).

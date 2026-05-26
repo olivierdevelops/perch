@@ -605,7 +605,10 @@ command install
             shell ".venv/bin/pip install --quiet -r requirements.txt"
             write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
             mkdir "${HOME}/.local/bin"
-            write_file "${LAUNCHER}" "#!/usr/bin/env bash\nexec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py \"\$@\"\n"
+            # Compose the launcher line-by-line — capy strings are
+            # single-line; for multi-line files we use append_line.
+            write_file  "${LAUNCHER}" "#!/usr/bin/env bash"
+            append_line "${LAUNCHER}" 'exec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py "$@"'
             shell "chmod +x ${LAUNCHER}"
             print "✓ Installed.  Run: stt example.wav"
         end
@@ -740,7 +743,7 @@ command rotate_key
     end
     do
         let new_key = sha256_file "/dev/urandom"
-        shell "psql -c \"UPDATE customers SET api_key='${new_key}' WHERE id='${customer_id}'\""
+        shell `psql -c "UPDATE customers SET api_key='${new_key}' WHERE id='${customer_id}'"`
         print "New key: ${new_key}"
     end
 end
