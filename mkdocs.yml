@@ -30,6 +30,12 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
 markdown_extensions:
   - admonition
   - pymdownx.details

@@ -1,0 +1,202 @@
+/* ─── Animated demo on docs/index.md ───────────────────────────────── */
+
+.perch-demo {
+    --bg:       #0f1320;
+    --fg:       #e2e8f5;
+    --muted:    #7a8aa8;
+    --accent:   #fcd34d;
+    --green:    #6cf2a4;
+    --blue:     #93c5fd;
+    --magenta:  #f0a0ff;
+    --border:   #1e2540;
+
+    margin: 1.5rem 0 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+    overflow: hidden;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+}
+
+.perch-demo__chrome {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #161b2e;
+    border-bottom: 1px solid var(--border);
+}
+
+.perch-demo__chrome .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #4a5a76;
+}
+.perch-demo__chrome .dot.red    { background: #ff5f57; }
+.perch-demo__chrome .dot.yellow { background: #febc2e; }
+.perch-demo__chrome .dot.green  { background: #28c840; }
+
+.perch-demo__title {
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.perch-demo__stage {
+    position: relative;
+    min-height: 380px;
+    padding: 18px 20px 18px;
+}
+
+.perch-demo__slide {
+    position: absolute;
+    inset: 18px 20px 18px;
+    opacity: 0;
+    transition: opacity 280ms ease;
+    pointer-events: none;
+}
+
+.perch-demo__slide.is-active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.perch-demo__caption {
+    color: var(--accent);
+    font-size: 13px;
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+}
+
+.perch-demo__body {
+    white-space: pre-wrap;
+    font-size: 13.5px;
+    line-height: 1.55;
+    min-height: 260px;
+}
+
+.perch-demo__cursor::after {
+    content: "▌";
+    color: var(--accent);
+    margin-left: 1px;
+    animation: perchBlink 1.05s steps(2) infinite;
+}
+
+@keyframes perchBlink {
+    50% { opacity: 0; }
+}
+
+.perch-demo__body .kw      { color: var(--magenta); }
+.perch-demo__body .str     { color: var(--green); }
+.perch-demo__body .num     { color: var(--blue); }
+.perch-demo__body .prompt  { color: var(--muted); }
+.perch-demo__body .out     { color: var(--fg); }
+.perch-demo__body .ok      { color: var(--green); }
+.perch-demo__body .info    { color: var(--blue); }
+.perch-demo__body .heading { color: var(--accent); }
+.perch-demo__body .dim     { color: var(--muted); }
+.perch-demo__body .url     { color: var(--blue); text-decoration: underline; }
+
+.perch-demo__dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 8px 0 12px;
+    background: var(--bg);
+}
+
+.perch-demo__dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2a3556;
+    transition: background 200ms ease, transform 200ms ease;
+    cursor: pointer;
+}
+
+.perch-demo__dots span.is-active {
+    background: var(--accent);
+    transform: scale(1.25);
+}
+
+/* Browser mock frame for the --server slide */
+.perch-demo__browser {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #1a2138;
+    margin: 6px 0;
+    font-size: 12.5px;
+}
+.perch-demo__browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+}
+.perch-demo__browser-bar .b-dot { width: 8px; height: 8px; border-radius: 50%; background: #4a5a76; }
+.perch-demo__browser-body {
+    padding: 14px 16px;
+    line-height: 1.7;
+}
+.perch-demo__browser-body .h1 {
+    font-size: 16px;
+    color: var(--fg);
+    margin-bottom: 6px;
+}
+.perch-demo__browser-body .row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed #243056;
+}
+.perch-demo__browser-body .row:last-child { border-bottom: none; }
+.perch-demo__browser-body .btn {
+    color: var(--bg);
+    background: var(--accent);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+.perch-demo__browser-body .label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* ─── Feature grid on docs/index.md ────────────────────────────────── */
+
+.perch-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 1.5rem 0;
+}
+
+.perch-features .card {
+    border: 1px solid rgba(120, 130, 180, 0.18);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+}
+[data-md-color-scheme="slate"] .perch-features .card {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.perch-features .card h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    color: var(--md-primary-fg-color);
+}
+
+.perch-features .card p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--md-default-fg-color--light);
+}
