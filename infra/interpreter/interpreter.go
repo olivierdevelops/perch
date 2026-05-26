@@ -21,6 +21,27 @@ import (
 // The interpreter passes itself so block ops can recurse.
 type Handler func(i *Interpreter, b *Bindings, args map[string]any) (any, error)
 
+// OpAction is the verdict from a BeforeOp hook — run the op, skip it,
+// run this op + everything else without further asking, or stop the
+// whole walk. Powers --ask / --dry-run / --step previews.
+type OpAction int
+
+const (
+	ActRun     OpAction = iota // execute as normal
+	ActSkip                    // don't execute; if `let X = …` set X to ""
+	ActRunAll                  // execute this op, then clear BeforeOp
+	ActQuit                    // stop the whole command immediately
+)
+
+// ErrQuit is returned by Run / RunOps when the BeforeOp hook returns
+// ActQuit. Callers treat it as a clean stop rather than a failure.
+var ErrQuit = fmt.Errorf("interpreter: quit requested")
+
+// BeforeOp is an optional pre-dispatch hook. When non-nil, the
+// interpreter calls it before each op (with already-interpolated args)
+// and respects the returned action. nil = no hook = normal execution.
+type BeforeOp func(op domain.Op, args map[string]any, b *Bindings) OpAction
+
 // Interpreter walks a Program's ops, holding the handler registry and
 // the IO sinks.
 type Interpreter struct {
@@ -29,6 +50,10 @@ type Interpreter struct {
 	Stdout   io.Writer
 	Stderr   io.Writer
 	Stdin    io.Reader
+	// BeforeOp, when set, is consulted before each op dispatch. Used by
+	// --ask (step-through confirmation) and --dry-run (skip everything,
+	// just print). nil means "run normally."
+	BeforeOp BeforeOp
 }
 
 // New constructs an Interpreter with stdout/stderr/stdin defaulted to os.*.
@@ -91,7 +116,12 @@ func (i *Interpreter) Run(commandName string, cliArgs []string) error {
 		b.Cwd = d
 	}
 
-	return i.RunOps(cmd.Ops, b)
+	err = i.RunOps(cmd.Ops, b)
+	if err == ErrQuit {
+		fmt.Fprintln(i.Stdout, "↪ stopped by user")
+		return nil
+	}
+	return err
 }
 
 // RunOps walks a slice of ops in order.
@@ -109,6 +139,23 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 	args, err := InterpolateArgs(op.Args, b)
 	if err != nil {
 		return fmt.Errorf("op %s: %w", op.Kind, err)
+	}
+	// Consult the optional preview hook BEFORE dispatch so previews see
+	// the same interpolated args the handler would.
+	if i.BeforeOp != nil {
+		switch i.BeforeOp(op, args, b) {
+		case ActSkip:
+			// Skipped: capture an empty value so downstream ${X} still
+			// resolves (to ""), keeping interpolation alive in dry-run.
+			if op.CaptureInto != "" {
+				b.Set(op.CaptureInto, "")
+			}
+			return nil
+		case ActQuit:
+			return ErrQuit
+		case ActRunAll:
+			i.BeforeOp = nil // disable hook for the rest of the walk
+		}
 	}
 	// Block ops receive their Body via the op itself, not args; the
 	// handler reads i and recurses with RunOps.

@@ -170,6 +170,11 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
+  <h4>Preview before running</h4>
+  <p><code>perch --dry-run cmd</code> prints every op (with interpolated args) and skips execution. <code>perch --ask cmd</code> prompts y/n/a/q per op — accept, skip, run-all, or quit. The args you see are what the handler receives; no surprises.</p>
+</div>
+
+<div class="card">
   <h4>Security modes</h4>
   <p><code>perch --mode safe</code> disables shell + subprocess. <code>--mode offline</code> kills network. <code>--mode read-only</code> kills filesystem mutation. <code>--mode pure</code> = all three. The strictest preset for files from strangers and AI-agent surfaces — full sandbox spec in <a href="sandbox/">sandbox.md</a>.</p>
 </div>
@@ -444,6 +449,25 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
 **Is it a cross-platform shell?** Yes — and that's the point. With ~110 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
+
+**Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
+
+<div class="pterm" id="t-ask" data-title="perch --ask deploy"></div>
+<script type="application/json" data-pterm="t-ask">
+[
+  {"k":"in",  "t":"perch --ask deploy -target=staging"},
+  {"k":"dim", "t":"──── Step-through preview — y=run, n=skip, a=all, q=quit ────"},
+  {"k":"out", "t":"  [1] print msg=\"Starting deploy to staging\""},
+  {"k":"accent","t":"       run? [y/n/a/q] > y"},
+  {"k":"ok",  "t":"Starting deploy to staging"},
+  {"k":"out", "t":"  [2] http_status \"https://api.example.com/healthz\"   → ${s}"},
+  {"k":"accent","t":"       run? [y/n/a/q] > y"},
+  {"k":"out", "t":"  [3] shell cmd=\"kubectl apply -f manifest.yaml\""},
+  {"k":"accent","t":"       run? [y/n/a/q] > a"},
+  {"k":"dim", "t":"       (running all remaining)"},
+  {"k":"ok",  "t":"✓ deploy complete"}
+]
+</script>
 
 **Can I lock down what a `.perch` file is allowed to do?** Yes — `perch --mode safe` disables shell + subprocess, `--mode offline` disables network ops, `--mode read-only` disables filesystem mutation, `--mode pure` does all three. Run `perch --modes` to see what each blocks. The fuller capability sandbox (env scopes, FS roots, network allowlists, `--untrusted` with permission previews) is designed in [sandbox.md](sandbox.md).
 

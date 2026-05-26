@@ -8,7 +8,61 @@ It also addresses the meta-question: **is perch a cross-platform shell?** Short 
 
 ---
 
-## 0. What ships today: `--mode`
+## 0a. What ships today: `--dry-run` / `--ask` (preview before running)
+
+The simplest "view command and decide" feature, available now:
+
+```sh
+perch --dry-run <cmd>     # print every op (with interpolated args), don't execute
+perch --ask <cmd>         # interactive step-through: y/n/a/q per op
+```
+
+**`--dry-run`** walks the command's ops, prints each one with its interpolated args, and skips the handler entirely. Capture variables get bound to `""` so `${x}` still resolves in subsequent ops. Use it to audit what a script *would* do before letting it touch anything.
+
+```
+$ perch --dry-run deploy -target=prod
+──── Dry-run — printing plan; no ops execute ────
+  [1] print msg="Starting deploy to prod"
+  [2] http_status "https://api.example.com/healthz"   → ${s}
+  [3] shell cmd="kubectl apply -f manifest.yaml"
+  [4] write_file content="deployed to prod (health=)" path="/tmp/deploy.log"
+  [5] if_call "/tmp/deploy.log" func="exists"   {1 body op}
+```
+
+**`--ask`** is the same plan, interactively. For each op you see what it'll do and pick:
+
+| Key | Action |
+|---|---|
+| `y` (or Enter) | run this op, ask again next |
+| `n` | skip this op (capture, if any, becomes `""`) |
+| `a` | run this op **and** everything else without further asking |
+| `q` | stop the whole command immediately |
+
+```
+$ perch --ask deploy -target=staging
+──── Step-through preview — y=run, n=skip, a=all, q=quit ────
+  [1] print msg="Starting deploy to staging"
+       run? [y/n/a/q] > y
+Starting deploy to staging
+  [2] http_status "https://api.example.com/healthz"   → ${s}
+       run? [y/n/a/q] > a
+       (running all remaining)
+✓ deploy complete
+```
+
+The interpolated args you see are exactly what the handler receives — no surprises. Block ops (`if`, `for_each`) show a `{N body ops}` summary; saying yes to the block runs the predicate + body, where each body op then goes through the hook too. Saying no to an `if` block skips the whole thing.
+
+**When to reach for which:**
+
+- `--dry-run` is a **pre-flight check.** Read the plan, decide, then re-run without the flag.
+- `--ask` is **per-op consent.** Best for scripts you're partially trusting — confirm the destructive ops, accept the rest in bulk with `a`.
+- Combine with `--mode safe` to belt-and-braces: shell ops can't fire even if you accidentally hit `y`.
+
+This is the lightweight cousin of the `--untrusted` permission-preview mode described in §7 — that one is non-interactive (preview, prompt once, run), this one is op-by-op.
+
+---
+
+## 0b. What ships today: `--mode`
 
 Before the full sandbox lands, perch ships **named modes** — opinionated subsets of the op catalog. One flag, no per-op declarations needed, no .perch-file changes. This is the Phase-0 mechanism.
 

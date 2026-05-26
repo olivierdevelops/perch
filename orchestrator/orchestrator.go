@@ -17,6 +17,7 @@ import (
 	"github.com/luowensheng/perch/infra/httpserver"
 	"github.com/luowensheng/perch/infra/interpreter"
 	"github.com/luowensheng/perch/infra/ops"
+	"github.com/luowensheng/perch/infra/preview"
 
 	"github.com/luowensheng/perch/io/cli"
 	"github.com/luowensheng/perch/usecases/commandhelp"
@@ -52,6 +53,7 @@ func Run() {
 	// are how a caller picks a Phase-0 security posture — see
 	// docs/sandbox.md and the modes package for the full list.
 	mode := extractModeFlag()
+	previewMode := extractPreviewFlags()
 	if mode == "list" {
 		fmt.Println("Available --mode values:")
 		for _, m := range ops.Modes() {
@@ -68,9 +70,46 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, mode).Run())
+		os.Exit(buildEmbeddedCLI(bundle, mode, previewMode).Run())
 	}
-	os.Exit(buildCLI(mode).Run())
+	os.Exit(buildCLI(mode, previewMode).Run())
+}
+
+// extractPreviewFlags strips `--ask` / `--dry-run` from os.Args and
+// returns one of "", "ask", "dry-run". Both flags are mutually exclusive
+// with each other; `--ask` wins if both are given.
+func extractPreviewFlags() string {
+	out := os.Args[:1]
+	mode := ""
+	for _, a := range os.Args[1:] {
+		switch a {
+		case "--ask":
+			mode = "ask"
+		case "--dry-run":
+			if mode == "" {
+				mode = "dry-run"
+			}
+		default:
+			out = append(out, a)
+		}
+	}
+	os.Args = out
+	return mode
+}
+
+// buildInterpreterHook returns the BeforeOp matching previewMode, or
+// nil for normal execution. Centralized so buildCLI and
+// buildEmbeddedCLI share the wiring.
+func buildInterpreterHook(previewMode string) interpreter.BeforeOp {
+	switch previewMode {
+	case "ask":
+		fmt.Println("──── Step-through preview — y=run, n=skip, a=all, q=quit ────")
+		return preview.AskHook(os.Stdin, os.Stdout)
+	case "dry-run":
+		fmt.Println("──── Dry-run — printing plan; no ops execute ────")
+		return preview.DryRunHook(os.Stdout)
+	}
+	return nil
 }
 
 // extractModeFlag removes any `--mode NAME` / `--mode=NAME` pair from
@@ -134,14 +173,17 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(mode string) *cli.CLI {
+func buildCLI(mode, previewMode string) *cli.CLI {
 	handlers := ops.AllHandlers()
 	if err := ops.ApplyMode(handlers, mode); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
-		return interpreter.New(handlers, p).Run(name, args)
+		i := interpreter.New(handlers, p)
+		i.BeforeOp = hook
+		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}
 
@@ -190,19 +232,22 @@ func buildCLI(mode string) *cli.CLI {
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, mode string) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, mode, previewMode string) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
 	if err := ops.ApplyMode(handlers, mode); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.
 	ops.SetBundle(bundle.Archive, bundle.ArchiveHash)
 	loadEmbedded := func(_ string) (*domain.Program, error) { return p, nil }
 	runFn := func(_ *domain.Program, name string, args []string) error {
-		return interpreter.New(handlers, p).Run(name, args)
+		i := interpreter.New(handlers, p)
+		i.BeforeOp = hook
+		return i.Run(name, args)
 	}
 	srv := &httpserver.Server{Handlers: handlers}
 

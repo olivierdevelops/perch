@@ -378,6 +378,13 @@ catch unknown
 end
 ```
 
+## Preview before running
+
+- **`perch --dry-run <cmd>`** — walks every op, prints kind + interpolated args, skips the handler. Capture vars become `""` so `${x}` still resolves downstream.
+- **`perch --ask <cmd>`** — interactive step-through. For each op: `y` runs it, `n` skips, `a` runs this op then everything else without further asking, `q` quits the command.
+
+Both work for any command and stack with `--mode`: `perch --mode safe --ask deploy` lets you preview ops AND have the runtime refuse shell calls.
+
 ## Security modes
 
 `perch --mode NAME` disables groups of ops globally. Useful when serving a `.perch` to an AI agent, a non-engineer (via `--server`), or running one from a stranger.
