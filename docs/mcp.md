@@ -1,5 +1,7 @@
 # MCP server
 
+> **Looking for the "why"?** Read **[LLM control plane](llm-control-plane.md)** first — it's the case for using perch as the *entire backend* for an LLM's tool surface. This page is the reference for the `perch-mcp` binary itself.
+
 `perch-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server. Point Claude Desktop / Claude Code / Cursor / Zed at it, and an AI agent can:
 
 - **`perch_list`** — discover the commands in a project's `commands.perch`, including arg names/types/defaults.

@@ -43,7 +43,7 @@ The animated demo above cycles through the same `redis.perch` file driving five 
 
 <div class="persona">
 <h4>Teams building with AI agents</h4>
-<p>Expose only the verbs an agent should call. Typed args. No shell escape. <code>perch-mcp</code> serves your <code>.perch</code> file as a Model Context Protocol tool surface — the schema is the security boundary.</p>
+<p>Replace your LLM-tool backend with a <code>.perch</code> file. Typed args, declared verbs, composable restrictions — <code>perch-mcp --no-shell --no-network --env KUBECONFIG -f ops.perch</code> is the whole backend. <a href="llm-control-plane/">See how →</a></p>
 </div>
 
 </div>
@@ -140,8 +140,13 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
+  <h4>LLM control plane — no backend needed</h4>
+  <p>One <code>.perch</code> file + <code>perch-mcp</code> replaces the FastAPI service you'd otherwise build to give an agent a fixed set of typed actions. The grammar is the security boundary; <code>--no-shell --no-network --env A,B</code> is the policy. <a href="llm-control-plane/">Deep dive →</a></p>
+</div>
+
+<div class="card">
   <h4>MCP server (<code>perch-mcp</code>)</h4>
-  <p>JSON-RPC over stdio. AI agents call <code>perch_list</code> / <code>perch_run</code> with typed args. The schema is the security boundary — no shell escape, ever.</p>
+  <p>JSON-RPC over stdio. Agents call <code>perch_list</code> / <code>perch_run</code> with typed args. Schema auto-derived from your file. Reference: <a href="mcp/">mcp.md</a>.</p>
 </div>
 
 <div class="card">
@@ -288,7 +293,10 @@ The recipient needs **only** what your install command requires (here: `python3`
 
 </div>
 
-### 3. Give AI agents a safe operations surface
+### 3. Give AI agents a safe operations surface — without standing up a backend
+
+> **Deep dive: [LLM control plane](llm-control-plane.md) — why a `.perch` file + `perch-mcp` + a few CLI flags replaces 2,000 lines of FastAPI scaffolding.**
+
 
 <div class="perch-usecase">
 
@@ -296,21 +304,30 @@ The recipient needs **only** what your install command requires (here: `python3`
 
 **After:** the agent gets `perch-mcp` pointed at `ops.perch`. It can call exactly the verbs you declared, with exactly the arg types you declared. Anything else returns a typed error. No shell escape ever.
 
-<div class="pterm" id="t-mcp" data-title="perch-mcp — the agent's view"></div>
+<div class="pterm" id="t-mcp" data-title="perch-mcp — the entire backend"></div>
 <script type="application/json" data-pterm="t-mcp">
 [
-  {"k":"dim", "t":"# agent invokes the MCP tool"},
-  {"k":"in",  "t":"perch_run name=\"restart_service\" host=\"api-3\" service=\"worker\""},
-  {"k":"ok",  "t":"✓ restarted worker on api-3"},
+  {"k":"dim", "t":"# 1. Start the MCP server with restrictions"},
+  {"k":"in",  "t":"perch-mcp --no-network --env KUBECONFIG,HOME -f ops.perch"},
+  {"k":"dim", "t":"🔒 security: --no-network  --env KUBECONFIG,HOME"},
+  {"k":"ok",  "t":"perch-mcp listening on stdio (3 commands declared)"},
   {"k":"blank","t":""},
-  {"k":"dim", "t":"# agent tries an undeclared verb"},
+  {"k":"dim", "t":"# 2. Agent calls a declared verb — works"},
+  {"k":"in",  "t":"perch_run name=\"restart_pod\" ns=\"prod\" pod=\"api-3\""},
+  {"k":"ok",  "t":"✓ pod \"api-3\" deleted"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# 3. Agent tries an undeclared verb — rejected"},
   {"k":"in",  "t":"perch_run name=\"drop_database\" db=\"prod\""},
   {"k":"err", "t":"error: command \"drop_database\" not declared in ops.perch"},
   {"k":"blank","t":""},
-  {"k":"dim", "t":"# agent tries a bad arg value"},
-  {"k":"in",  "t":"perch_run name=\"restart_service\" host=\"; rm -rf /\""},
-  {"k":"err", "t":"error: host failed regex ^[a-z0-9.-]+$"},
-  {"k":"accent","t":"→ the schema is the security boundary."}
+  {"k":"dim", "t":"# 4. Agent crafts a shell-injection arg — caught by your regex"},
+  {"k":"in",  "t":"perch_run name=\"restart_pod\" ns=\"; rm -rf /\" pod=\"x\""},
+  {"k":"err", "t":"error: invalid namespace"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# 5. Agent tries to read a secret env var"},
+  {"k":"in",  "t":"perch_run name=\"leak_envs\""},
+  {"k":"err", "t":"env var ${AWS_SECRET_KEY} is not in --env allowlist"},
+  {"k":"accent","t":"→ one .perch file. zero backend code."}
 ]
 </script>
 
@@ -565,7 +582,8 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 | [language.md](language.md) | Every keyword, modifier, and operator |
 | [op-reference.md](op-reference.md) | The built-in op catalog (~70 ops) |
 | [embedding.md](embedding.md) | Fat-binary format spec |
-| [mcp.md](mcp.md) | AI agent integration |
+| [mcp.md](mcp.md) | AI agent integration (reference) |
+| [llm-control-plane.md](llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
 | [sandbox.md](sandbox.md) | **Sandboxing design — env / FS / net / shell scopes, `--untrusted`** |
 | [lsp.md](lsp.md) | Editor integration |
 | [applications.md](applications.md) | **What perch is for — 22 real applications** |

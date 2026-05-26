@@ -91,7 +91,7 @@ irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1
 go install github.com/luowensheng/perch/cmd/perch-mcp@latest
 ```
 
-See [docs/mcp.md](docs/mcp.md) for client setup. There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
+See [docs/mcp.md](docs/mcp.md) for client setup. **The "why" lives in [docs/llm-control-plane.md](docs/llm-control-plane.md) — why a `.perch` file + `perch-mcp` + a few `--no-*` flags replaces the FastAPI service you'd otherwise stand up to give an agent typed, restricted actions.** There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
 
 ### Editor support (LSP + syntax)
 
@@ -157,7 +157,8 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 | [docs/language.md](docs/language.md) | Every keyword and modifier |
 | [docs/op-reference.md](docs/op-reference.md) | The built-in op catalog (the "stdlib") |
 | [docs/embedding.md](docs/embedding.md) | The `--build` fat-binary format |
-| [docs/mcp.md](docs/mcp.md) | MCP server for AI agents |
+| [docs/mcp.md](docs/mcp.md) | MCP server for AI agents (reference) |
+| [docs/llm-control-plane.md](docs/llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
 | [docs/applications.md](docs/applications.md) | **What perch is *for* — 23 real applications with worked examples** |
 | [docs/faq.md](docs/faq.md) | vs Make / Just / Task / etc. |
 
