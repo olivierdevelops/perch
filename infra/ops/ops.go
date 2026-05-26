@@ -21,5 +21,6 @@ func AllHandlers() map[string]interpreter.Handler {
 	registerRegex(m)
 	registerNetwork(m)
 	registerArchive(m)
+	registerBundle(m)
 	return m
 }

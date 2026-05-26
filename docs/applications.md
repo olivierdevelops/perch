@@ -564,7 +564,118 @@ Add `--server` and your laptop-provisioning team gets a web UI. Add MCP and the 
 
 ---
 
-### 7. Cross-platform machine setup / new-hire onboarding
+### 7. Distribute a Python / JS / non-native project as one binary
+
+This is genuinely a **new packaging model**. The user pays no Python/Node/Ruby tax: they download one file, run one command, and your project is installed.
+
+`perch --build --include <path>` embeds an arbitrary file tree inside the produced binary as a gzipped tarball. At runtime, three ops give your install command access to the archive:
+
+| Op | Returns | Use |
+|---|---|---|
+| `bundle_hash`              | string | SHA-256 of the embedded archive — the canonical "version" id |
+| `bundle_extract DST`       | string | Extract to `DST` (idempotent) |
+| `bundle_dir`               | string | Lazy-extract to an OS temp dir; cached for the process lifetime |
+
+The pattern: extract the project to `$HOME/.cache/perch/<tool>/<hash>/`, run its native install (venv + pip, npm, gem, build), drop a launcher into `$HOME/.local/bin/<tool>`. New hash → new install dir, old versions coexist, pruning is `rm -rf`.
+
+Worked example — `stt_bin`, a single binary that installs a Python project:
+
+```capy
+name    "stt_bin"
+about   "Ship a Python project as one self-installing binary"
+version "0.1.0"
+
+globals
+    INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
+    LAUNCHER     = "${HOME}/.local/bin/stt"
+end
+
+command install
+    do
+        let h         = bundle_hash
+        let installed = exists "${INSTALL_BASE}/${h}/.installed"
+        if installed
+            print "✓ Already installed at ${INSTALL_BASE}/${h}"
+        end
+        if not installed
+            print "→ Extracting"
+            bundle_extract "${INSTALL_BASE}/${h}"
+            cd "${INSTALL_BASE}/${h}"
+            shell "python3 -m venv .venv"
+            shell ".venv/bin/pip install --quiet -r requirements.txt"
+            write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
+            mkdir "${HOME}/.local/bin"
+            write_file "${LAUNCHER}" "#!/usr/bin/env bash\nexec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py \"\$@\"\n"
+            shell "chmod +x ${LAUNCHER}"
+            print "✓ Installed.  Run: stt example.wav"
+        end
+    end
+end
+
+command run
+    description "Run the embedded program directly (skips the launcher)"
+    proxy_args
+    do
+        let dir = bundle_dir
+        shell "python3 ${dir}/main.py ${proxy_args}"
+    end
+end
+
+command uninstall
+    do
+        rm "${INSTALL_BASE}"
+        rm "${LAUNCHER}"
+    end
+end
+```
+
+Build + use:
+
+```sh
+perch --build -f commands.perch --include ./src -o stt_bin
+./stt_bin install                # → ~/.local/bin/stt now exists
+stt example.wav                  # use it like a native binary
+./stt_bin run example.wav        # bypass the launcher (no install needed)
+./stt_bin uninstall              # rm the install + the launcher
+```
+
+**The ~12 MB `stt_bin`** carries: the perch runtime + your parsed `commands.perch` + a tarball of `./src/`. The recipient needs only `python3` (or whatever your install command requires). No `pipx`, no virtualenv setup, no `pip --user` permission drama, no internet access at install time.
+
+**Same pattern, other ecosystems:**
+
+| Language / kind | What `--include` ships | What `install` does |
+|---|---|---|
+| **Python** (the example above) | `main.py` + `requirements.txt` + data files | `python3 -m venv` + `pip install` + write launcher |
+| **Node / TypeScript** | `package.json` + compiled `dist/` | `npm install --omit=dev` (or skip if pre-bundled) + launcher |
+| **Ruby** | sources + `Gemfile` | `bundle install` + launcher |
+| **Pre-compiled native binary** | the binary itself | just `cp` into PATH; no install step needed |
+| **Static assets** (HTML/CSS/JS site) | the whole `site/` tree | extract to `~/.local/share/<tool>/`; `--server` exposes it as a local web app |
+| **Configuration / dotfiles** | your dotfiles repo | extract to `$HOME`; run `stow` or symlink-write |
+| **A whole monorepo** | `src/` containing Go + Python + JS | per-language sub-install commands chained from `install` |
+
+**Why this pattern is unusually good:**
+
+1. **No package registry, no broken dependencies.** What you `--include` is what the user gets — hash-addressed, byte-identical.
+2. **Reproducible.** Same `--build` → same hash → same install → byte-identical files on disk. Compare with `pip install x==1.2.3`, where the resolved dependency set depends on the day of the week.
+3. **Multiple versions coexist.** Different `bundle_hash` → different install dir. Switching is just rewriting the launcher.
+4. **Offline-friendly.** No `pip install` from PyPI at install time (you can pre-vendor wheels into the bundle and `pip install --no-index --find-links`).
+5. **Cross-platform `if os ==`** in the install command — one bundle, OS-correct install steps.
+6. **Re-use the same `--server` / MCP frontends.** Non-engineers click "install" in a browser; an AI agent calls `stt_bin_install` over MCP.
+
+**Other applications that fall out of the same primitive:**
+
+- **Self-updating bundles.** Your binary has an `update` command that `download`s a newer version of itself, verifies sha256, atomically replaces `$0`.
+- **Plugin / extension installers.** Each plugin ships as a perch binary. The host app shells out to it for install/uninstall.
+- **Internal package registry replacement.** Skip npm/PyPI for internal tools: serve perch-built binaries at `https://internal/tools/`. Each is one self-contained installer.
+- **Lambda / serverless deployers.** The Lambda's code is `--include`-d. `mytool deploy` zips it and uploads.
+- **Game mods.** The mod's files travel inside a perch binary that knows the host game's directory layout per OS.
+- **Reproducible dev environment.** `--include` your `.tool-versions` + a curated set of tarballs. `mydev install` lays them out at exact versions, no asdf/nix install required.
+
+→ Worked demo: [demos/05-python-installer](https://github.com/luowensheng/perch/tree/main/demos/05-python-installer).
+
+---
+
+### 8. Cross-platform machine setup / new-hire onboarding
 
 A new engineer joins. They need to install ~10 packages, clone two private repos, set five env vars, and run `make init`. Today that's a README with instructions that drift, or a `setup.sh` that doesn't work on Windows.
 
@@ -602,7 +713,7 @@ curl -fsSL https://internal/team-bootstrap -o bootstrap && chmod +x bootstrap &&
 
 ---
 
-### 8. Safe operational surface for non-engineers
+### 9. Safe operational surface for non-engineers
 
 Your support team needs to flush a customer's cache, regenerate an invoice, or rotate an API key. Today they Slack you and you do it from your laptop. Or worse, you give them shell access.
 
@@ -645,7 +756,7 @@ The support team gets a form for each command, with arg validation. Output strea
 
 ---
 
-### 9. CI pipeline as code (one source for local + remote)
+### 10. CI pipeline as code (one source for local + remote)
 
 The classic problem: your `.github/workflows/ci.yml` and your local `make test` slowly diverge. Six months in, "it passes locally but fails in CI" is the team's most-said phrase.
 
@@ -694,7 +805,7 @@ The whole CI definition shrinks:
 
 ---
 
-### 10. Data pipeline / ETL orchestration
+### 11. Data pipeline / ETL orchestration
 
 You have 10 shell scripts that run nightly via cron. They download, decompress, transform, upload. Half of them broke once when curl's flag syntax changed; the other half broke when someone renamed a JSON field.
 
@@ -726,7 +837,7 @@ Not a full Airflow replacement, but for the "I have 10 shell scripts and 5 of th
 
 ---
 
-### 11. AI-agent tooling (curated MCP surface)
+### 12. AI-agent tooling (curated MCP surface)
 
 Give an AI agent (Claude Desktop, Claude Code, Cursor, Zed) the ability to *do things* in your environment — restart services, query metrics, fetch logs — without giving it shell access.
 
@@ -753,7 +864,7 @@ This is a sweet spot: **curated, safe, structured execution for AI agents.** A s
 
 ---
 
-### 12. Self-service runbooks
+### 13. Self-service runbooks
 
 Every on-call engineer has a folder of runbooks. They're markdown files with shell snippets. Half the snippets stop working when the cluster gets upgraded.
 
@@ -787,7 +898,7 @@ end
 
 ---
 
-### 13. Configuration management (Ansible-lite)
+### 14. Configuration management (Ansible-lite)
 
 For small jobs that don't justify Ansible/Chef/Puppet:
 
@@ -820,7 +931,7 @@ Run it locally for the first time, then `perch --build -o provision` and SCP to 
 
 ---
 
-### 14. Multi-target build orchestration for game / native development
+### 15. Multi-target build orchestration for game / native development
 
 Game studios + native-app teams have weird per-platform build dances: Xcode for iOS, Gradle for Android, MSBuild for Windows, plus signing + notarization + uploads to four stores.
 
@@ -853,7 +964,7 @@ end
 
 ---
 
-### 15. Personal "me" CLI (dotfiles, side projects)
+### 16. Personal "me" CLI (dotfiles, side projects)
 
 Personal automation. The kind of thing where you'd otherwise have `~/bin/blog-deploy`, `~/bin/backup`, `~/bin/cleanup`:
 
@@ -890,7 +1001,7 @@ Build it once (`perch --build -o ~/bin/me`) and now `me deploy_blog` is your too
 
 ---
 
-### 16. Scaffold / template generator
+### 17. Scaffold / template generator
 
 You have a "create a new microservice" recipe that does ~20 things: clone a template, rename files, set up CI, register with service discovery, …
 
@@ -918,7 +1029,7 @@ end
 
 ---
 
-### 17. Documentation site / blog tooling
+### 18. Documentation site / blog tooling
 
 The kind of thing that should be Make but ends up being five separate scripts:
 
@@ -948,7 +1059,7 @@ end
 
 ---
 
-### 18. Quick API smoke tests / health probes
+### 19. Quick API smoke tests / health probes
 
 You want a "is the system OK?" command that pings five services and reports.
 
@@ -975,7 +1086,7 @@ Pair with a cron, or expose via `--server` for a real-time dashboard.
 
 ---
 
-### 19. AI-assisted refactor / migration tools
+### 20. AI-assisted refactor / migration tools
 
 Internal tools that combine human-driven and AI-driven operations:
 
@@ -999,7 +1110,7 @@ Expose via `perch-mcp` and Claude can drive the migration command-by-command, ch
 
 ---
 
-### 20. Embedded scripting for your own Go program
+### 21. Embedded scripting for your own Go program
 
 Less obvious but real: you can import perch's capy loader + interpreter as a Go library to give *your* program a scriptable interface. Think: vim's vimscript, or Emacs's elisp, but for a Go application.
 
@@ -1024,7 +1135,7 @@ Your users can write `.perch` files that drive your program. You control which o
 
 ---
 
-### 21. Workshops, tutorials, demos
+### 22. Workshops, tutorials, demos
 
 If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful classroom tool. The DSL is small enough that students learn it in 20 minutes. The op catalog gives them real capability without "first install jq, brew install …". A `commands.perch` is a small, complete, runnable artifact you can hand them.
 
@@ -1032,7 +1143,7 @@ If you teach DevOps / CI / cross-platform tooling, perch is genuinely a useful c
 
 ---
 
-### 22. Internal-tools framework for low-engineering teams
+### 23. Internal-tools framework for low-engineering teams
 
 Marketing / design / ops / product orgs sometimes want a "button" that triggers something:
 

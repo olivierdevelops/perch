@@ -139,6 +139,7 @@ perch --install-vscode                # installs perch-lsp + VS Code extension
 
 These are explored in depth in **[applications.md](applications.md)** — 22 real categories of work perch is good at.
 
+- **Distribute a Python / JS / non-native project as one binary** — `--build --include` embeds the source; the binary installs into a hash-addressed cache, sets up venv/npm/whatever, drops a launcher in `$PATH`
 - **Wrap a clunky CLI** — give Docker / kubectl / ffmpeg / openssl / rsync a sane verb-driven UX
 - **Extend an existing tool** — `catch passthrough` so unknown commands fall through to the real binary
 - **LLM-safe operations surface** — declared ops + typed args + confirmation tokens; no shell escape for agents

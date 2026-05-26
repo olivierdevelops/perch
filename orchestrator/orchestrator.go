@@ -47,11 +47,11 @@ const DefaultCommandsFile = "commands.perch"
 //
 // Top-level main.go is a one-liner that calls this function.
 func Run() {
-	if embedded, ok, err := embed.Load(); err != nil {
+	if bundle, ok, err := embed.Load(); err != nil {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(embedded).Run())
+		os.Exit(buildEmbeddedCLI(bundle).Run())
 	}
 	os.Exit(buildCLI().Run())
 }
@@ -120,8 +120,12 @@ func buildCLI() *cli.CLI {
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(p *domain.Program) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle) *cli.CLI {
+	p := bundle.Program
 	handlers := ops.AllHandlers()
+	// Wire the bundle archive into the ops registry so bundle_dir /
+	// bundle_hash / bundle_extract have something to read.
+	ops.SetBundle(bundle.Archive, bundle.ArchiveHash)
 	loadEmbedded := func(_ string) (*domain.Program, error) { return p, nil }
 	runFn := func(_ *domain.Program, name string, args []string) error {
 		return interpreter.New(handlers, p).Run(name, args)

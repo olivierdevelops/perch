@@ -1,0 +1,90 @@
+name    "stt_bin"
+about   "Ship a Python project as one self-installing binary"
+version "0.1.0"
+
+globals
+    INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
+    LAUNCHER     = "${HOME}/.local/bin/stt"
+end
+
+command install
+    description "Install the embedded Python project into a hash-addressed dir"
+    do
+        let h         = bundle_hash
+        let installed = exists "${INSTALL_BASE}/${h}/.installed"
+
+        if installed
+            print "✓ Already installed at ${INSTALL_BASE}/${h}"
+        end
+
+        if not installed
+            print "→ Extracting embedded project to ${INSTALL_BASE}/${h}"
+            bundle_extract "${INSTALL_BASE}/${h}"
+            cd "${INSTALL_BASE}/${h}"
+            print "→ Creating venv"
+            shell "python3 -m venv .venv"
+            print "→ Installing requirements"
+            shell ".venv/bin/pip install --quiet -r requirements.txt"
+            write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
+
+            # Write a launcher script into ~/.local/bin/stt
+            mkdir "${HOME}/.local/bin"
+            write_file "${LAUNCHER}" "#!/usr/bin/env bash\nexec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py \"\$@\"\n"
+            shell "chmod +x ${LAUNCHER}"
+
+            print "✓ Installed."
+            print "  Launcher:  ${LAUNCHER}"
+            print "  Run:       stt some_audio.wav"
+        end
+    end
+end
+
+command status
+    description "Where things are"
+    do
+        let h     = bundle_hash
+        let there = exists "${INSTALL_BASE}/${h}/.installed"
+        let launch = exists "${LAUNCHER}"
+        print "bundle hash:  ${h}"
+        print "install dir:  ${INSTALL_BASE}/${h}"
+        if there
+            print "install:      ✓ present"
+        end
+        if not there
+            print "install:      ✗ missing (run `stt_bin install`)"
+        end
+        if launch
+            print "launcher:     ✓ ${LAUNCHER}"
+        end
+        if not launch
+            print "launcher:     ✗ ${LAUNCHER} not written yet"
+        end
+    end
+end
+
+command run
+    description "Run the embedded program directly (skips the launcher)"
+    proxy_args
+    do
+        let dir = bundle_dir
+        shell "python3 ${dir}/main.py ${proxy_args}"
+    end
+end
+
+command uninstall
+    description "Remove the install and the launcher"
+    do
+        rm "${INSTALL_BASE}"
+        rm "${LAUNCHER}"
+        print "✓ Uninstalled."
+    end
+end
+
+catch unknown
+    description "stt_bin doesn't know that subcommand"
+    do
+        print "stt_bin doesn't know '${unknown}'."
+        print "Try: stt_bin install | stt_bin status | stt_bin run | stt_bin uninstall"
+        exit 1
+    end
+end

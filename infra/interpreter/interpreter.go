@@ -140,7 +140,17 @@ func (i *Interpreter) seedGlobalsAndEnv(b *Bindings) {
 	// globals so a user-declared global of the same name takes priority.
 	b.Set("os", runtime.GOOS)
 	b.Set("arch", runtime.GOARCH)
+	// Globals are seeded in declared order. String values are
+	// interpolated against the bindings built so far, so globals can
+	// reference earlier globals and host env (e.g. ${HOME}) at seed
+	// time — no recursive substitution at op-run time.
 	for _, g := range i.Program.Globals.Bindings {
+		if s, ok := g.Value.(string); ok {
+			if rv, err := Interpolate(s, b); err == nil {
+				b.Set(g.Name, rv)
+				continue
+			}
+		}
 		b.Set(g.Name, g.Value)
 	}
 }

@@ -1,0 +1,2 @@
+# In a real project: torch, openai-whisper, etc.
+# Empty here because the demo's main.py uses only stdlib.

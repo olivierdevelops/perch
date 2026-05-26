@@ -372,6 +372,15 @@ function download
 `
 end
 
+# --- Embedded bundle (set by `perch --build --include <path>`) -----------
+
+function bundle_extract
+    arg literal "bundle_extract"
+    arg capture dst string
+    write `{"event":"op","kind":"bundle_extract","args":{"dst":${dst}}}
+`
+end
+
 # ────────────────────────────────────────────────────────────────────────────
 # Conditionals — unified `if EXPR ... end`.
 #
