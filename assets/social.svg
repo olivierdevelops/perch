@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <title>perch — a cross-platform command runner</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7e6"/>
+      <stop offset="1" stop-color="#fae6c1"/>
+    </linearGradient>
+    <linearGradient id="capy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a47148"/>
+      <stop offset="1" stop-color="#7d5a36"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Capybara (left side, large) -->
+  <g transform="translate(0,160) scale(2.2)">
+    <ellipse cx="128" cy="170" rx="78" ry="34" fill="url(#capy)"/>
+    <rect x="76"  y="190" width="14" height="28" rx="6" fill="#5e4126"/>
+    <rect x="100" y="194" width="14" height="24" rx="6" fill="#5e4126"/>
+    <rect x="146" y="194" width="14" height="24" rx="6" fill="#5e4126"/>
+    <rect x="170" y="190" width="14" height="28" rx="6" fill="#5e4126"/>
+    <ellipse cx="60" cy="148" rx="30" ry="24" fill="url(#capy)"/>
+    <circle cx="46" cy="130" r="6" fill="#5e4126"/>
+    <circle cx="68" cy="128" r="6" fill="#5e4126"/>
+    <circle cx="50" cy="146" r="3" fill="#1a1208"/>
+    <ellipse cx="34" cy="152" rx="6" ry="4" fill="#3c2812"/>
+    <g transform="translate(98,108)">
+      <ellipse cx="0" cy="0" rx="14" ry="9" fill="#5b8def"/>
+      <circle cx="10" cy="-4" r="6" fill="#5b8def"/>
+      <circle cx="12" cy="-5" r="1.4" fill="#fff"/>
+      <polygon points="16,-4 21,-5 16,-2" fill="#f7b500"/>
+    </g>
+    <g transform="translate(150,112)">
+      <rect x="-16" y="-10" width="32" height="22" rx="3" fill="#e8a35a" stroke="#a06b22" stroke-width="2"/>
+      <path d="M-16,-10 L16,-10 M0,-10 L0,12" stroke="#a06b22" stroke-width="2"/>
+    </g>
+  </g>
+
+  <!-- Word mark + tagline (right side) -->
+  <text x="640" y="270" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="96" font-weight="800" fill="#3c2812">perch</text>
+  <text x="640" y="320" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="28" font-weight="500" fill="#5e4126">A cross-platform command runner</text>
+  <text x="640" y="360" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="22" font-weight="400" fill="#7d5a36">One `.capy` file → CLI, web UI, REPL,</text>
+  <text x="640" y="390" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="22" font-weight="400" fill="#7d5a36">or a single portable binary you can ship.</text>
+  <text x="640" y="490" font-family="ui-monospace, monospace"
+        font-size="20" fill="#3c2812">$ perch --build -o myapp</text>
+  <text x="640" y="520" font-family="ui-monospace, monospace"
+        font-size="20" fill="#a06b22">→ ./myapp works anywhere</text>
+
+  <text x="640" y="585" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="18" fill="#a06b22">github.com/luowensheng/perch</text>
+</svg>

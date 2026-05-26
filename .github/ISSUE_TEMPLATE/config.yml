@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/luowensheng/perch/discussions
+    about: Questions, ideas, show-and-tell.
+  - name: 📚 Docs
+    url: https://luowensheng.github.io/perch/
+    about: Read the docs site before opening an issue.

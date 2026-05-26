@@ -1,0 +1,29 @@
+{
+  "name": "perch",
+  "displayName": "perch",
+  "description": "Syntax highlighting for perch (.capy) command files",
+  "version": "0.1.0",
+  "publisher": "luowensheng",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luowensheng/perch.git",
+    "directory": "editors/vscode-perch"
+  },
+  "license": "Apache-2.0",
+  "icon": "icon.png",
+  "contributes": {
+    "languages": [{
+      "id": "perch",
+      "aliases": ["perch", "capy (perch)"],
+      "extensions": [".capy"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "perch",
+      "scopeName": "source.perch",
+      "path": "./syntaxes/perch.tmLanguage.json"
+    }]
+  }
+}

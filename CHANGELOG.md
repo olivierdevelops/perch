@@ -24,6 +24,15 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 - Five-page docs site published via GitHub Pages.
 - Four runnable demos under `demos/`.
 - Claude Code skill at `skills/perch/SKILL.md`.
+- Three tutorials under `docs/tutorials/` (Makefile conversion, ship a tool, cross-platform installer).
+- Install scripts (`scripts/install.sh`, `scripts/install.ps1`).
+- Homebrew formula at `Formula/perch.rb` (release-workflow fills in sha256s).
+- SVG brand assets (`assets/logo.svg`, `assets/social.svg`).
+- GitHub issue + PR templates.
+- VS Code extension scaffold at `editors/vscode-perch/`.
+- Tree-sitter grammar at `editors/tree-sitter-perch/`.
+- Shell completions for bash/zsh/fish, emittable via `perch --completions SHELL`.
+- `perch-mcp` MCP server at `cmd/perch-mcp/` for AI-agent integration.
 
 [Unreleased]: https://github.com/luowensheng/perch/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/luowensheng/perch/releases/tag/v0.1.0

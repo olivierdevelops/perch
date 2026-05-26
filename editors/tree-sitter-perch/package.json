@@ -1,0 +1,25 @@
+{
+  "name": "tree-sitter-perch",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the perch DSL (.capy files)",
+  "main": "bindings/node",
+  "keywords": ["parsing", "incremental", "perch", "capy"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luowensheng/perch.git",
+    "directory": "editors/tree-sitter-perch"
+  },
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "tree-sitter generate && tree-sitter build",
+    "test": "tree-sitter test"
+  },
+  "tree-sitter": [{
+    "scope": "source.perch",
+    "file-types": ["capy"],
+    "injection-regex": "^perch$"
+  }],
+  "devDependencies": {
+    "tree-sitter-cli": "^0.22.0"
+  }
+}

@@ -1,0 +1,67 @@
+name: 🔧 New op request
+description: Propose a new built-in op for the perch catalog.
+title: "op: "
+labels: ["op", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most ops are a single Go function + a one-liner in `lib.capy` + a docs row. If you want to send the PR yourself, see [CONTRIBUTING.md](../../CONTRIBUTING.md#adding-an-op).
+
+  - type: input
+    id: name
+    attributes:
+      label: Op name
+      description: lowercase_with_underscores. Avoid clashes with existing op kinds.
+      placeholder: "list_dir"
+    validations:
+      required: true
+
+  - type: input
+    id: signature
+    attributes:
+      label: Signature
+      description: Args + return type. Use the catalog's shorthand.
+      placeholder: "(string) → []string"
+    validations:
+      required: true
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: When would you use it?
+      description: A snippet of commands.capy that needs this op.
+      render: capy
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Process / I/O
+        - File system
+        - Strings
+        - Hashing
+        - Encoding
+        - HTTP
+        - Compression / archives
+        - Time
+        - Regex
+        - Network
+        - System
+        - Control flow (block op)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: capturable
+    attributes:
+      label: Is the return value meaningful?
+      description: "If yes, the op is usable via `let X = OP ARGS`."
+      options:
+        - "Yes — returns a value worth capturing"
+        - "No — pure side effect"
+    validations:
+      required: true

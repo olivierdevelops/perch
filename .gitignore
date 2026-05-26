@@ -1,6 +1,7 @@
 # build artifacts
 /perch
 /perch-*
+/perch-mcp
 *.exe
 
 # OS / editor cruft

@@ -1,0 +1,48 @@
+name: ✨ Feature request
+description: A change to perch's behavior, surface DSL, or distribution.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests that touch the DSL surface (new keywords, new modifiers) should be opened as a discussion first — DSL changes ripple through docs, demos, and the Claude skill.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case, not the solution. "I want to do X, today I have to Y" is great.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What new surface / behavior do you imagine? A short code sample is ideal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What did you think about and reject? What does this look like in Make / Just / Task?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - New op
+        - New config modifier
+        - New CLI flag
+        - New top-level keyword
+        - Distribution / packaging
+        - Docs / examples
+        - Other
+    validations:
+      required: true

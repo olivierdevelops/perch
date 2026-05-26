@@ -45,7 +45,12 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Tutorials:
+      - Replace your Makefile: tutorials/01-replace-your-makefile.md
+      - Ship a tool: tutorials/02-ship-a-tool.md
+      - Cross-platform installer: tutorials/03-cross-platform-installer.md
   - Language reference: language.md
   - Op catalog: op-reference.md
   - Embedding (`--build`): embedding.md
+  - MCP server (AI agents): mcp.md
   - FAQ: faq.md

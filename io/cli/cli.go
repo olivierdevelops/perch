@@ -2,9 +2,19 @@
 package cli
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 )
+
+//go:embed completions/perch.bash
+var completionBash string
+
+//go:embed completions/perch.zsh
+var completionZsh string
+
+//go:embed completions/perch.fish
+var completionFish string
 
 type RunCommandUseCase interface {
 	Execute(configPath, commandName string, args []string) error
@@ -90,6 +100,8 @@ func (c *CLI) Run() int {
 	case "--shell":
 		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Shell.Execute(path))
+	case "--completions":
+		return printCompletions(remaining)
 	}
 
 	path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
@@ -99,6 +111,25 @@ func (c *CLI) Run() int {
 func errExit(err error) int {
 	if err != nil {
 		fmt.Println(err.Error())
+		return 1
+	}
+	return 0
+}
+
+func printCompletions(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: perch --completions <bash|zsh|fish>")
+		return 1
+	}
+	switch args[0] {
+	case "bash":
+		fmt.Print(completionBash)
+	case "zsh":
+		fmt.Print(completionZsh)
+	case "fish":
+		fmt.Print(completionFish)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown shell: %q (use bash|zsh|fish)\n", args[0])
 		return 1
 	}
 	return 0
@@ -136,6 +167,7 @@ func (c *CLI) printHelp() {
 	fmt.Println("  --build -o X  Bundle commands.capy into a portable binary at X")
 	fmt.Println("  --server      Serve commands.capy as an HTTP UI")
 	fmt.Println("  --shell       REPL — type one op per line; bindings persist")
+	fmt.Println("  --completions SHELL  Print shell completions (bash|zsh|fish)")
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  -f <path>     Specify the config file (default: commands.capy)")

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>perch</title>
+  <!-- Capybara silhouette with a stack of tools perched on its back. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7e6"/>
+      <stop offset="1" stop-color="#fae6c1"/>
+    </linearGradient>
+    <linearGradient id="capy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a47148"/>
+      <stop offset="1" stop-color="#7d5a36"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="36" fill="url(#bg)"/>
+
+  <!-- Capybara body (a rounded loaf) -->
+  <ellipse cx="128" cy="170" rx="78" ry="34" fill="url(#capy)"/>
+  <!-- Legs -->
+  <rect x="76"  y="190" width="14" height="28" rx="6" fill="#5e4126"/>
+  <rect x="100" y="194" width="14" height="24" rx="6" fill="#5e4126"/>
+  <rect x="146" y="194" width="14" height="24" rx="6" fill="#5e4126"/>
+  <rect x="170" y="190" width="14" height="28" rx="6" fill="#5e4126"/>
+  <!-- Head -->
+  <ellipse cx="60" cy="148" rx="30" ry="24" fill="url(#capy)"/>
+  <!-- Ears -->
+  <circle cx="46" cy="130" r="6" fill="#5e4126"/>
+  <circle cx="68" cy="128" r="6" fill="#5e4126"/>
+  <!-- Eye -->
+  <circle cx="50" cy="146" r="3" fill="#1a1208"/>
+  <!-- Nose -->
+  <ellipse cx="34" cy="152" rx="6" ry="4" fill="#3c2812"/>
+
+  <!-- Things perched on the capybara's back (the metaphor) -->
+  <!-- A small bird -->
+  <g transform="translate(98,108)">
+    <ellipse cx="0" cy="0" rx="14" ry="9" fill="#5b8def"/>
+    <circle cx="10" cy="-4" r="6" fill="#5b8def"/>
+    <circle cx="12" cy="-5" r="1.4" fill="#fff"/>
+    <polygon points="16,-4 21,-5 16,-2" fill="#f7b500"/>
+    <path d="M-6,2 q-4,-4 -8,-1" stroke="#5b8def" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- A box (cargo / commands) -->
+  <g transform="translate(150,112)">
+    <rect x="-16" y="-10" width="32" height="22" rx="3" fill="#e8a35a" stroke="#a06b22" stroke-width="2"/>
+    <path d="M-16,-10 L16,-10 M0,-10 L0,12" stroke="#a06b22" stroke-width="2"/>
+  </g>
+  <!-- A leaf (life on the capybara) -->
+  <g transform="translate(186,118) rotate(-20)">
+    <path d="M0,-10 q12,0 12,12 q-12,0 -12,-12 z" fill="#67a45b" stroke="#3d6d35" stroke-width="1.5"/>
+  </g>
+
+  <!-- Word mark -->
+  <text x="128" y="242" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+        font-size="20" font-weight="700" text-anchor="middle" fill="#3c2812" letter-spacing="2">perch</text>
+</svg>

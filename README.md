@@ -66,8 +66,34 @@ go install github.com/luowensheng/perch/cmd/perch@latest
 # macOS / Linux (binary, no Go required)
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
 
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1 | iex
+
 # Or download a binary from the releases page:
 # https://github.com/luowensheng/perch/releases
+```
+
+### AI-agent integration
+
+`perch-mcp` is a Model Context Protocol server that lets Claude Desktop / Claude Code / Cursor / Zed call your commands as tools:
+
+```sh
+go install github.com/luowensheng/perch/cmd/perch-mcp@latest
+```
+
+See [docs/mcp.md](docs/mcp.md) for client setup. There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
+
+### Editor support
+
+- **VS Code:** install from [`editors/vscode-perch`](editors/vscode-perch) (marketplace publish pending).
+- **Neovim / Helix:** tree-sitter grammar at [`editors/tree-sitter-perch`](editors/tree-sitter-perch).
+
+### Shell completions
+
+```sh
+perch --completions bash > ~/.local/share/bash-completion/completions/perch
+perch --completions zsh  > "${fpath[1]}/_perch"
+perch --completions fish > ~/.config/fish/completions/perch.fish
 ```
 
 ---
@@ -107,12 +133,16 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 | Reading order | What it covers |
 |---|---|
 | [docs/getting-started.md](docs/getting-started.md) | Five-minute tour |
+| [docs/tutorials/01-replace-your-makefile.md](docs/tutorials/01-replace-your-makefile.md) | Convert a Makefile to perch |
+| [docs/tutorials/02-ship-a-tool.md](docs/tutorials/02-ship-a-tool.md) | Bundle a commands.capy into a portable binary |
+| [docs/tutorials/03-cross-platform-installer.md](docs/tutorials/03-cross-platform-installer.md) | One installer for macOS/Linux/Windows |
 | [docs/language.md](docs/language.md) | Every keyword and modifier |
 | [docs/op-reference.md](docs/op-reference.md) | The built-in op catalog (the "stdlib") |
 | [docs/embedding.md](docs/embedding.md) | The `--build` fat-binary format |
+| [docs/mcp.md](docs/mcp.md) | MCP server for AI agents |
 | [docs/faq.md](docs/faq.md) | vs Make / Just / Task / etc. |
 
-Six worked examples live under [demos/](demos) — each a complete `commands.capy` you can run.
+Four worked examples live under [demos/](demos) — each a complete `commands.capy` you can run.
 
 ---
 
