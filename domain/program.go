@@ -56,6 +56,12 @@ type ArgSpec struct {
 	HasDefault  bool   `json:"has_default,omitempty"`
 	Index       *int   `json:"index,omitempty"`
 	Optional    bool   `json:"optional,omitempty"`
+	// Rest, when true, makes this arg consume every remaining positional
+	// argument. The arg's value becomes a newline-joined string; a
+	// companion `${NAME_count}` int binding gives the number of values.
+	// Must be the LAST declared arg, type "string", no default. Equivalent
+	// to Go's `args ...string`.
+	Rest bool `json:"rest,omitempty"`
 }
 
 // Modifiers are the boolean / list flags declared on a command before its `do` block.

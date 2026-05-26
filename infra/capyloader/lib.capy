@@ -136,6 +136,16 @@ function optional
 `
 end
 
+# `rest` — declared on the LAST positional arg, it collects every
+# remaining argv into a newline-joined string. Also binds NAME_count
+# (int) for the number of values gathered. Equivalent to Go's
+# `args ...string`.
+function rest
+    arg literal "rest"
+    write `{"event":"arg_field","kind":"rest"}
+`
+end
+
 function index
     arg literal "index"
     arg capture i int
@@ -426,6 +436,21 @@ function cond_neq
     arg capture rhs any
     block_closer end
     write `{"event":"op","kind":"_enter","name":"if","args":{"op":"neq","lhs":${toJSON lhs},"rhs":${rhs}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# `for_each VALUE NAME ... end` — iterate over a newline-separated
+# string, binding each non-empty line to NAME for the body. Pairs with
+# the `rest` arg modifier and with ops that return newline-joined lists
+# (glob, list_dir, interfaces, dns_lookup).
+function for_each
+    priority 50
+    arg literal "for_each"
+    arg capture source any
+    arg capture loopvar ident
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"for_each","args":{"_0":${source},"_1":${toJSON loopvar}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end

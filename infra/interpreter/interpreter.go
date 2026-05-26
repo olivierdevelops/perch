@@ -391,6 +391,21 @@ func (i *Interpreter) parseArgs(cmd *domain.Command, cliArgs []string) (map[stri
 		if a.Index == nil {
 			continue
 		}
+		// Rest arg: gather every remaining positional from this index on
+		// into a newline-joined string plus a count. The validator
+		// ensures this is the last arg and type == "string".
+		if a.Rest {
+			start := *a.Index
+			values := []string{}
+			if start < fs.NArg() {
+				for k := start; k < fs.NArg(); k++ {
+					values = append(values, fs.Arg(k))
+				}
+			}
+			out[a.Name] = strings.Join(values, "\n")
+			out[a.Name+"_count"] = len(values)
+			continue
+		}
 		if *a.Index >= fs.NArg() {
 			if !a.HasDefault && !a.Optional {
 				return nil, fmt.Errorf("missing positional argument #%d (%s)", *a.Index, a.Name)

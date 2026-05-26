@@ -152,10 +152,10 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 		c.addWarn(where, "no description (won't show up nicely in --help)")
 	}
 
-	// Args: types, defaults, uniqueness, index collisions.
+	// Args: types, defaults, uniqueness, index collisions, rest position.
 	seenNames := map[string]bool{}
 	seenIdx := map[int]string{}
-	for _, a := range cmd.Args {
+	for argIdx, a := range cmd.Args {
 		argWhere := fmt.Sprintf("%s arg %q", cmd.Name, a.Name)
 		if a.Name == "" {
 			c.addErr(where, "arg with empty name")
@@ -184,6 +184,23 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 			}
 			seenIdx[*a.Index] = a.Name
 		}
+		// `rest` constraints: must be last, must be positional (have an
+		// index), must be type string, must not carry a default. Catching
+		// these statically saves a confusing runtime error.
+		if a.Rest {
+			if argIdx != len(cmd.Args)-1 {
+				c.addErr(argWhere, "`rest` arg must be the last declared arg")
+			}
+			if a.Index == nil {
+				c.addErr(argWhere, "`rest` arg must be positional (declare `index N`)")
+			}
+			if a.Type != "" && a.Type != "string" {
+				c.addErr(argWhere, fmt.Sprintf("`rest` arg must be type \"string\" (got %q)", a.Type))
+			}
+			if a.HasDefault {
+				c.addErr(argWhere, "`rest` arg cannot have a default")
+			}
+		}
 	}
 
 	if h := cmd.Modifiers.OnSignal; h != "" {
@@ -196,6 +213,10 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 	known := autoBoundNames()
 	for _, a := range cmd.Args {
 		known[a.Name] = true
+		// A rest arg also exposes ${NAME_count}.
+		if a.Rest {
+			known[a.Name+"_count"] = true
+		}
 	}
 	for _, g := range c.prog.Globals.Bindings {
 		known[g.Name] = true
@@ -255,6 +276,16 @@ func (c *checker) checkOps(ops []domain.Op, where string, known map[string]bool)
 		// Recurse into block ops.
 		if len(op.Body) > 0 {
 			inner := clone(known)
+			// for_each binds a loop variable inside its body. The
+			// variable name is the second positional arg ("_1") set by
+			// the capy `for_each VALUE NAME ... end` form.
+			if op.Kind == "for_each" {
+				if v, ok := op.Args["_1"]; ok {
+					if name, ok := v.(string); ok && name != "" {
+						inner[name] = true
+					}
+				}
+			}
 			c.checkOps(op.Body, opWhere, inner)
 		}
 	}

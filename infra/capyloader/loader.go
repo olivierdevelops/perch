@@ -229,6 +229,8 @@ func parseEventStream(stream string) (*domain.Program, error) {
 				curArg.HasDefault = true
 			case "optional":
 				curArg.Optional = true
+			case "rest":
+				curArg.Rest = true
 			case "index":
 				idx := int(asFloatish(ev.Value))
 				curArg.Index = &idx

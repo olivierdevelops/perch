@@ -112,6 +112,39 @@ end
 - **`description`** uses the same `description` keyword as the command's own description — context inside an `arg` block routes it to the arg.
 - **`optional`** marks an arg that has no default but can be omitted; ops that read it should `if_empty` guard.
 - **`index N`** binds the arg to a positional slot. Without it, the arg is a `-name=value` flag.
+- **`rest`** (variadic) — collects every remaining positional argument into a newline-joined string. Must be the **last** declared arg, type `string`, no default, must carry `index N`. A companion `${NAME_count}` int binding tells you how many values arrived. Equivalent to Go's `args ...string`. Iterate with `for_each "${NAME}" item ... end`.
+
+```capy
+command pack
+    description "Archive files into a tarball"
+    arg out
+        type string
+        index 0
+    end
+    arg files
+        type string
+        index 1
+        rest                      # captures every remaining arg
+    end
+    do
+        print "got ${files_count} files"
+        for_each "${files}" f
+            print "  → ${f}"
+        end
+        tar_create "${files}" "${out}"
+    end
+end
+```
+
+```sh
+$ perch pack out.tar.gz a.txt b.txt c.txt
+got 3 files
+  → a.txt
+  → b.txt
+  → c.txt
+```
+
+For the older "forward every arg as a single space-joined string" pattern, see the `proxy_args` command modifier instead — it bypasses arg declarations entirely.
 
 Multiple args just sit next to each other:
 

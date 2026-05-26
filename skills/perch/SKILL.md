@@ -84,6 +84,7 @@ end
 | `description "x"` | Help text shown in `--help` (uses the same `description` keyword as the command) |
 | `optional`        | Arg may be omitted even without a default |
 | `index N`         | Bind to positional index N (instead of a `-NAME` flag) |
+| `rest`            | **Variadic.** Collects every remaining positional arg into a newline-joined string. Must be the last arg, type `string`, no default, requires `index N`. Companion `${NAME_count}` int binding. Iterate with `for_each "${NAME}" item ... end`. |
 
 ## The op catalog (body region, inside `do`)
 
@@ -109,6 +110,27 @@ end
 
 ### HTTP
 - `download URL DST`
+
+### Iteration — `for_each VALUE NAME ... end`
+
+Iterates a **newline-separated** string, binding each non-empty line to `NAME` for the body. Pairs naturally with `rest` args and ops that return newline-joined lists (`glob`, `list_dir`, `interfaces`, `dns_lookup`, `read_file` piped through `split` etc.).
+
+```capy
+command install_all
+    arg packages
+        type string
+        index 0
+        rest
+    end
+    do
+        for_each "${packages}" pkg
+            pkg_install "${pkg}"
+        end
+    end
+end
+```
+
+Empty input is a no-op (body never runs). The previous binding for `NAME` (if any) is restored after the loop, so `for_each` blocks compose cleanly.
 
 ### Conditionals — the unified `if EXPR ... end`
 

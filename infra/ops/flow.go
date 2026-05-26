@@ -2,6 +2,7 @@ package ops
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/interpreter"
@@ -10,6 +11,50 @@ import (
 func registerFlow(m map[string]interpreter.Handler) {
 	m["if"] = opIf
 	m["if_call"] = opIfCall
+	m["for_each"] = opForEach
+}
+
+// opForEach iterates over a newline-separated string value, binding each
+// non-empty line to the loop variable and running the body. Used to walk
+// a `rest`-typed arg, a `glob` result, `list_dir`, `interfaces`, or any
+// op whose value is a newline-joined list.
+//
+// Form in capy:
+//
+//   for_each "${files}" file
+//       print "→ ${file}"
+//   end
+//
+// Empty input is a clean no-op (the body never runs). The previous value
+// of the loop variable (if any) is restored after the loop so for_each
+// blocks compose cleanly.
+func opForEach(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	source := argString(args, "value", "_0")
+	loopVar := argString(args, "var", "_1")
+	if loopVar == "" {
+		loopVar = "item"
+	}
+	body, _ := args["_body"].([]domain.Op)
+
+	prev, hadPrev := b.Vars[loopVar]
+	defer func() {
+		if hadPrev {
+			b.Vars[loopVar] = prev
+		} else {
+			delete(b.Vars, loopVar)
+		}
+	}()
+
+	for _, line := range strings.Split(source, "\n") {
+		if line == "" {
+			continue
+		}
+		b.Set(loopVar, line)
+		if err := i.RunOps(body, b); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 func runBody(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) error {

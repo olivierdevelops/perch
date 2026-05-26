@@ -6,6 +6,23 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **Variadic args — `rest` modifier + `for_each` block op.** Declare the last positional arg with `rest` to make it capture every remaining argv:
+
+  ```capy
+  command pack
+      arg out    type string  index 0  end
+      arg files  type string  index 1  rest  end
+      do
+          print "${files_count} files"
+          for_each "${files}" f
+              print "  → ${f}"
+          end
+      end
+  end
+  ```
+
+  `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
+
 - **`perch --dry-run <cmd>`** and **`perch --ask <cmd>`** — preview a command's ops before they execute.
   - `--dry-run` walks every op, prints its kind + interpolated args, and skips the handler. Capture variables get set to `""` so subsequent `${x}` interpolation still works.
   - `--ask` is the same plan, interactively. For each op the user chooses: `y` (run), `n` (skip), `a` (run this op then everything else without further asking), or `q` (stop immediately).
