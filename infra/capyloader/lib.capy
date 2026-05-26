@@ -92,35 +92,54 @@ function description
 `
 end
 
+# ── Argument declarations ─────────────────────────────────────────────────
+#
+# Each arg is its own block:
+#
+#   arg NAME
+#       type string             # required: string / int / float / bool
+#       default "world"         # optional: literal value
+#       description "Who…"      # optional: shown in --help
+#       optional                # optional: arg may be omitted with no default
+#       index 0                 # optional: bind to positional index
+#   end
+#
+# Field statements only emit `arg_field` events; the loader applies them
+# to the currently-open arg.
+
 function arg
     arg literal "arg"
     arg capture name ident
-    arg capture argtype string
-    arg capture desc string
-    write `{"event":"config","kind":"arg","name":${toJSON name},"argtype":${toQuoted argtype},"description":${desc}}
+    block_closer end
+    write `{"event":"arg_begin","name":${toJSON name}}
+${body}{"event":"arg_end"}
 `
 end
 
-function arg_default
-    arg literal "arg_default"
-    arg capture name ident
-    arg capture value any
-    write `{"event":"config","kind":"arg_default","name":${toJSON name},"value":${value}}
+function type
+    arg literal "type"
+    arg capture t ident
+    write `{"event":"arg_field","kind":"type","value":${toJSON t}}
 `
 end
 
-function arg_index
-    arg literal "arg_index"
-    arg capture name ident
-    arg capture idx int
-    write `{"event":"config","kind":"arg_index","name":${toJSON name},"index":${idx}}
+function default
+    arg literal "default"
+    arg capture v any
+    write `{"event":"arg_field","kind":"default","value":${v}}
 `
 end
 
-function arg_optional
-    arg literal "arg_optional"
-    arg capture name ident
-    write `{"event":"config","kind":"arg_optional","name":${toJSON name}}
+function optional
+    arg literal "optional"
+    write `{"event":"arg_field","kind":"optional"}
+`
+end
+
+function index
+    arg literal "index"
+    arg capture i int
+    write `{"event":"arg_field","kind":"index","value":${i}}
 `
 end
 

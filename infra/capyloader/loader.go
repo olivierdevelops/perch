@@ -52,9 +52,6 @@ type event struct {
 	Name        string         `json:"name,omitempty"`
 	Kind        string         `json:"kind,omitempty"`
 	Value       any            `json:"value,omitempty"`
-	Argtype     string         `json:"argtype,omitempty"`
-	Description string         `json:"description,omitempty"`
-	Index       *int           `json:"index,omitempty"`
 	Args        map[string]any `json:"args,omitempty"`
 	CaptureInto string         `json:"capture_into,omitempty"`
 }
@@ -65,8 +62,10 @@ const (
 	stTop parserState = iota
 	stGlobals
 	stCommand
+	stCommandArg
 	stCommandDo
 	stCatch
+	stCatchArg
 	stCatchDo
 )
 
@@ -79,6 +78,7 @@ func parseEventStream(stream string) (*domain.Program, error) {
 	state := stTop
 	var curCmd *domain.Command
 	var curCatch *domain.Catch
+	var curArg *domain.ArgSpec
 	// opStack[0] is the destination slice for the next op (either a
 	// command's Ops or a block op's Body). Push on _enter, pop on _leave.
 	var opStack []*[]domain.Op
@@ -178,7 +178,60 @@ func parseEventStream(stream string) (*domain.Program, error) {
 			}
 			opStack = nil
 
+		case "arg_begin":
+			switch state {
+			case stCommand:
+				curArg = &domain.ArgSpec{Name: ev.Name}
+				state = stCommandArg
+			case stCatch:
+				curArg = &domain.ArgSpec{Name: ev.Name}
+				state = stCatchArg
+			default:
+				return nil, fmt.Errorf("line %d: 'arg' outside command/catch config region", lineNum)
+			}
+
+		case "arg_end":
+			if curArg == nil {
+				return nil, fmt.Errorf("line %d: 'arg_end' without matching 'arg'", lineNum)
+			}
+			if curArg.Type == "" {
+				return nil, fmt.Errorf("line %d: arg %q has no `type` field", lineNum, curArg.Name)
+			}
+			switch state {
+			case stCommandArg:
+				curCmd.Args = append(curCmd.Args, *curArg)
+				state = stCommand
+			case stCatchArg:
+				// Catch doesn't currently track its own arg list; ignore.
+				state = stCatch
+			}
+			curArg = nil
+
+		case "arg_field":
+			if curArg == nil {
+				return nil, fmt.Errorf("line %d: '%s' field outside an `arg` block", lineNum, ev.Kind)
+			}
+			switch ev.Kind {
+			case "type":
+				curArg.Type = asString(ev.Value)
+			case "default":
+				curArg.Default = ev.Value
+				curArg.HasDefault = true
+			case "optional":
+				curArg.Optional = true
+			case "index":
+				idx := int(asFloatish(ev.Value))
+				curArg.Index = &idx
+			default:
+				return nil, fmt.Errorf("line %d: unknown arg field %q", lineNum, ev.Kind)
+			}
+
 		case "config":
+			// `description` inside an arg block sets the arg's description.
+			if curArg != nil && ev.Kind == "description" {
+				curArg.Description = asString(ev.Value)
+				break
+			}
 			if err := applyConfig(curCmd, curCatch, ev); err != nil {
 				return nil, fmt.Errorf("line %d: %w", lineNum, err)
 			}
@@ -242,29 +295,6 @@ func applyConfigToCommand(c *domain.Command, ev event) error {
 	switch ev.Kind {
 	case "description":
 		c.Description = asString(ev.Value)
-	case "arg":
-		c.Args = append(c.Args, domain.ArgSpec{
-			Name:        ev.Name,
-			Type:        ev.Argtype,
-			Description: ev.Description,
-		})
-	case "arg_default":
-		setArgField(c, ev.Name, func(a *domain.ArgSpec) {
-			a.Default = ev.Value
-			a.HasDefault = true
-		})
-	case "arg_index":
-		setArgField(c, ev.Name, func(a *domain.ArgSpec) {
-			idx := 0
-			if ev.Index != nil {
-				idx = *ev.Index
-			}
-			a.Index = &idx
-		})
-	case "arg_optional":
-		setArgField(c, ev.Name, func(a *domain.ArgSpec) {
-			a.Optional = true
-		})
 	case "private":
 		c.Modifiers.Private = true
 	case "detached":
@@ -287,13 +317,16 @@ func applyConfigToCommand(c *domain.Command, ev event) error {
 	return nil
 }
 
-func setArgField(c *domain.Command, name string, fn func(*domain.ArgSpec)) {
-	for i := range c.Args {
-		if c.Args[i].Name == name {
-			fn(&c.Args[i])
-			return
-		}
+func asFloatish(v any) float64 {
+	switch x := v.(type) {
+	case float64:
+		return x
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
 	}
+	return 0
 }
 
 func asString(v any) string {

@@ -25,8 +25,15 @@ end
 command NAME
     # config region — declarative metadata
     description "what it does"
-    arg         NAME TYPE "description"   # repeatable
-    arg_default NAME VALUE                # optional per arg
+
+    arg NAME
+        type string                # required: string / int / float / bool
+        default "value"            # optional: literal value (omit to make required)
+        description "..."          # optional: shown in --help
+        optional                   # optional: no default but may be omitted
+        index 0                    # optional: bind to positional index
+    end
+
     # other config modifiers as needed (see below)
 
     do
@@ -46,7 +53,7 @@ end
 
 ## Hard rules — do not break these
 
-1. **Config statements must appear before `do`. Ops must appear inside `do … end`.** They never mix. Putting `arg foo string "x"` inside a `do` block is a hard syntax error.
+1. **Config statements must appear before `do`. Ops must appear inside `do … end`.** They never mix. Putting `arg foo ... end` inside a `do` block is a hard syntax error.
 2. **String literals always use `"..."` (or `'...'`). Multi-line strings use backslash-n escapes: `"line one\nline two"`.** Backticks are not valid in user-written `.capy` for op arguments — they're a library-internal token.
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
 4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
@@ -58,10 +65,7 @@ end
 | Form | Effect |
 |---|---|
 | `description "x"`                 | Help text |
-| `arg NAME TYPE "desc"`            | Typed CLI flag — TYPE ∈ `string` / `int` / `float` / `bool` |
-| `arg_default NAME VALUE`          | Default value for the arg |
-| `arg_index NAME N`                | Bind arg to positional index N |
-| `arg_optional NAME`               | Mark optional (with no default) |
+| `arg NAME ... end`                | Typed CLI argument; properties are labelled inner lines (see below) |
 | `private`                         | Hide from CLI; only callable via `run` |
 | `detached`                        | Don't wait on detached spawns |
 | `proxy_args`                      | Skip arg parsing; argv → `${proxy_args}` |
@@ -70,6 +74,16 @@ end
 | `dir "./subdir"`                  | cwd for the body |
 | `on_signal HANDLER`               | Another command name; runs on SIGINT/SIGTERM |
 | `env KEY "value"`                 | Per-command env var |
+
+### `arg NAME ... end` inner fields
+
+| Form              | Effect |
+|-------------------|--------|
+| `type TYPE`       | **Required.** TYPE ∈ `string` / `int` / `float` / `bool` |
+| `default VALUE`   | Default literal; presence makes the arg optional |
+| `description "x"` | Help text shown in `--help` (uses the same `description` keyword as the command) |
+| `optional`        | Arg may be omitted even without a default |
+| `index N`         | Bind to positional index N (instead of a `-NAME` flag) |
 
 ## The op catalog (body region, inside `do`)
 
@@ -116,7 +130,7 @@ end
 ## Interpolation rules
 
 - `${name}` resolves in this order: command args → `let` captures → `globals` → per-command `env` → host process environment.
-- Unknown names produce a runtime error. Defining a default via `arg_default` is the cleanest fix.
+- Unknown names produce a runtime error. Giving the arg a `default` is the cleanest fix.
 - UPPER_SNAKE_CASE globals are also exported as environment variables to `shell` calls automatically.
 - `${HOME}`, `${USER}`, `${PATH}` work out of the box (they fall through to host env).
 
@@ -199,8 +213,13 @@ end
 
 command build
     description "Compile for one target"
-    arg         target string "darwin/linux/windows"
-    arg_default target "darwin"
+
+    arg target
+        type string
+        default "darwin"
+        description "Target OS (darwin/linux/windows)"
+    end
+
     do
         mkdir "${BIN_DIR}/${target}"
         shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN_PKG}"

@@ -52,8 +52,11 @@ func TestCommandWithArgsAndOps(t *testing.T) {
 	src := `name "x"
 command build
     description "compile"
-    arg target string "Target OS"
-    arg_default target "darwin"
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
     private
     do
         print "Building ${target}"
@@ -81,11 +84,75 @@ end
 	if !c.Args[0].HasDefault || c.Args[0].Default != "darwin" {
 		t.Errorf("default: hasDefault=%v default=%v", c.Args[0].HasDefault, c.Args[0].Default)
 	}
+	if c.Args[0].Description != "Target OS" {
+		t.Errorf("arg desc: %q", c.Args[0].Description)
+	}
 	if len(c.Ops) != 2 {
 		t.Fatalf("Ops: want 2 got %d", len(c.Ops))
 	}
 	if c.Ops[0].Kind != "print" || c.Ops[1].Kind != "shell" {
 		t.Errorf("Op kinds: %s, %s", c.Ops[0].Kind, c.Ops[1].Kind)
+	}
+}
+
+func TestArgBlockFields(t *testing.T) {
+	src := `name "x"
+command t
+    arg count
+        type int
+        default 3
+        description "Iterations"
+    end
+    arg path
+        type string
+        index 0
+        description "Input file"
+    end
+    arg port
+        type int
+        optional
+        description "Override default port"
+    end
+    do
+        print ""
+    end
+end
+`
+	p, err := LoadFromString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := p.Commands["t"].Args
+	if len(args) != 3 {
+		t.Fatalf("want 3 args, got %d", len(args))
+	}
+	if args[0].Name != "count" || args[0].Type != "int" {
+		t.Errorf("count arg: %+v", args[0])
+	}
+	if !args[0].HasDefault {
+		t.Errorf("count: missing default flag")
+	}
+	if args[1].Index == nil || *args[1].Index != 0 {
+		t.Errorf("path: want index=0 got %v", args[1].Index)
+	}
+	if !args[2].Optional {
+		t.Errorf("port: not optional")
+	}
+}
+
+func TestArgMissingTypeIsError(t *testing.T) {
+	src := `name "x"
+command t
+    arg foo
+        default "bar"
+    end
+    do
+        print ""
+    end
+end
+`
+	if _, err := LoadFromString(src); err == nil {
+		t.Error("expected error for arg without type")
 	}
 }
 

@@ -4,6 +4,22 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **Arg declarations are now blocks.** The old `arg NAME TYPE "desc"` + `arg_default NAME VALUE` + `arg_index NAME N` + `arg_optional NAME` flat statements are gone. Each arg is now a `arg NAME ... end` block with labelled inner fields:
+
+  ```capy
+  arg target
+      type string
+      default "darwin"
+      description "Target OS"
+  end
+  ```
+
+  Inner fields: `type` (required), `default`, `description`, `optional`, `index`. See [docs/language.md](docs/language.md#arg-blocks).
+
+- **Runtime interpolation marker switched from `{{name}}` to `${name}`.** Capy-native; consistent with shell-style. Escape literal shell variables with `\${VAR}`.
+
 ## [0.1.0] — 2026-05-26
 
 ### Added

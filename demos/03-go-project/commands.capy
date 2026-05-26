@@ -10,8 +10,13 @@ end
 
 command build
     description "Compile myapp for one target OS"
-    arg         target string "Target OS (darwin/linux/windows)"
-    arg_default target "darwin"
+
+    arg target
+        type string
+        default "darwin"
+        description "Target OS (darwin/linux/windows)"
+    end
+
     do
         print "Building ${APP_NAME} for ${target}…"
         mkdir "${BIN_DIR}/${target}"

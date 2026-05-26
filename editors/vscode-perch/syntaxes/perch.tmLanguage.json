@@ -72,7 +72,7 @@
     "config-modifiers": {
       "patterns": [{
         "name": "storage.modifier.perch",
-        "match": "\\b(description|arg|arg_default|arg_index|arg_optional|private|detached|proxy_args|require_os|require_arch|dir|on_signal|env)\\b"
+        "match": "\\b(description|arg|type|default|optional|index|private|detached|proxy_args|require_os|require_arch|dir|on_signal|env)\\b"
       }]
     },
     "block-ops": {

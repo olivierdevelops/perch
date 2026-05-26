@@ -20,8 +20,13 @@ end
 
 command build
     description "Compile myapp for one target"
-    arg         target string "Target OS"
-    arg_default target "darwin"
+
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
+
     do
         print "Building for ${target}…"
         mkdir "${BUILD_DIR}/${target}"

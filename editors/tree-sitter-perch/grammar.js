@@ -70,10 +70,7 @@ module.exports = grammar({
 
     _config_stmt: $ => choice(
       $.description_stmt,
-      $.arg_stmt,
-      $.arg_default_stmt,
-      $.arg_index_stmt,
-      $.arg_optional_stmt,
+      $.arg_block,
       $.private_stmt,
       $.detached_stmt,
       $.proxy_args_stmt,
@@ -85,10 +82,27 @@ module.exports = grammar({
     ),
 
     description_stmt:  $ => seq('description', $.string),
-    arg_stmt:          $ => seq('arg', $.identifier, $.identifier, $.string),
-    arg_default_stmt:  $ => seq('arg_default', $.identifier, $._literal),
-    arg_index_stmt:    $ => seq('arg_index', $.identifier, $.integer),
-    arg_optional_stmt: $ => seq('arg_optional', $.identifier),
+
+    // `arg NAME ... end` — each property is a labelled inner line.
+    arg_block: $ => seq(
+      'arg',
+      field('name', $.identifier),
+      repeat($._arg_field),
+      'end',
+    ),
+    _arg_field: $ => choice(
+      $.arg_type,
+      $.arg_default,
+      $.arg_description,
+      $.arg_optional,
+      $.arg_index,
+    ),
+    arg_type:        $ => seq('type', field('value', $.identifier)),
+    arg_default:     $ => seq('default', field('value', $._literal)),
+    arg_description: $ => seq('description', field('value', $.string)),
+    arg_optional:    $ => 'optional',
+    arg_index:       $ => seq('index', field('value', $.integer)),
+
     private_stmt:      $ => 'private',
     detached_stmt:     $ => 'detached',
     proxy_args_stmt:   $ => 'proxy_args',

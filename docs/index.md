@@ -6,8 +6,11 @@
 
 ```capy
 command build
-    arg         target string "Target OS"
-    arg_default target "darwin"
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
     do
         shell "GOOS=${target} go build -o ./bin/${target}/myapp ."
     end

@@ -62,8 +62,11 @@ A `command NAME ... end` declares one named, callable unit. Inside it the **conf
 command build
     # ── config ──
     description "Compile myapp"
-    arg         target string "Target OS"
-    arg_default target "darwin"
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
     require_os  "darwin" "linux"
     env         GO111MODULE "on"
 
@@ -80,10 +83,7 @@ end
 | Surface | Effect |
 |---|---|
 | `description "x"`                 | Help text shown by `--help`. |
-| `arg NAME TYPE "desc"`            | Declares a typed CLI flag. `TYPE` is one of `string`/`int`/`float`/`bool`. |
-| `arg_default NAME VALUE`          | Default value for an arg (makes it optional). |
-| `arg_index NAME N`                | Bind an arg to positional index `N`. |
-| `arg_optional NAME`               | Mark arg optional even without a default. |
+| `arg NAME ... end`                | Declares a typed CLI argument. Each property is its own labelled inner line (see below). |
 | `private`                         | Hide from CLI; only callable via `run` from another command. |
 | `detached`                        | Don't wait on processes spawned by `shell_detached`. |
 | `proxy_args`                      | Skip arg parsing; argv comes through as `${proxy_args}`. |
@@ -92,6 +92,49 @@ end
 | `dir "./subdir"`                  | Set the cwd for the body. |
 | `on_signal HANDLER`               | Run `HANDLER` (another command) on SIGINT/SIGTERM. |
 | `env KEY "value"`                 | Set an env var for the body's `shell` calls. |
+
+### Arg blocks
+
+Each argument is its own `arg NAME ... end` block inside the config region. The body holds labelled fields; nothing is positional.
+
+```capy
+arg target
+    type string                # required: string / int / float / bool
+    default "darwin"           # optional: literal value (string/int/float/bool)
+    description "Target OS"    # optional: shown in --help
+    optional                   # optional: arg may be omitted even with no default
+    index 0                    # optional: bind to positional index N
+end
+```
+
+- **`type`** is the only required field.
+- **`default`** must match `type`. Presence of `default` makes the arg optional.
+- **`description`** uses the same `description` keyword as the command's own description — context inside an `arg` block routes it to the arg.
+- **`optional`** marks an arg that has no default but can be omitted; ops that read it should `if_empty` guard.
+- **`index N`** binds the arg to a positional slot. Without it, the arg is a `-name=value` flag.
+
+Multiple args just sit next to each other:
+
+```capy
+command release
+    description "Cross-compile and publish"
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
+    arg version
+        type string
+        description "Release tag (required)"
+    end
+    arg dry_run
+        type bool
+        default false
+        description "Skip the actual upload"
+    end
+    do ...
+end
+```
 
 ### Body
 

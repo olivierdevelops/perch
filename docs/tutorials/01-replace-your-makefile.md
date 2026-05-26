@@ -128,8 +128,13 @@ In Make this was three near-identical lines. In perch it's one parameterised com
 ```capy
 command build_for
     description "Compile for one specific target OS"
-    arg         target string "Target OS"
-    arg_default target "darwin"
+
+    arg target
+        type string
+        default "darwin"
+        description "Target OS"
+    end
+
     do
         mkdir "${BIN_DIR}/${target}"
         shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN}"

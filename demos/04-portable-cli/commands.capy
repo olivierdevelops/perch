@@ -4,10 +4,19 @@ version "1.0.0"
 
 command hello
     description "Greet someone with a configurable greeting"
-    arg         name      string "Person to greet"
-    arg_default name      "world"
-    arg         greeting  string "Greeting word"
-    arg_default greeting  "Hello"
+
+    arg name
+        type string
+        default "world"
+        description "Person to greet"
+    end
+
+    arg greeting
+        type string
+        default "Hello"
+        description "Greeting word"
+    end
+
     do
         print "${greeting}, ${name}!"
     end
@@ -15,8 +24,13 @@ end
 
 command upper
     description "Shout someone's name"
-    arg         name string "Person to shout at"
-    arg_default name "world"
+
+    arg name
+        type string
+        default "world"
+        description "Person to shout at"
+    end
+
     do
         let n = upper "${name}"
         print "OI, ${n}!"

@@ -68,8 +68,13 @@ Edit `commands.capy`:
 ```capy
 command greet
     description "Greet someone by name"
-    arg         name string "Person to greet"
-    arg_default name "world"
+
+    arg name
+        type string
+        default "world"
+        description "Person to greet"
+    end
+
     do
         let upper_name = upper "${name}"
         print "Hello, ${upper_name}!"
@@ -84,8 +89,8 @@ perch greet -name=Alice   # → Hello, ALICE!
 
 Three new ideas just appeared:
 
-- **`arg NAME TYPE "desc"`** declares a typed CLI flag.
-- **`arg_default NAME VALUE`** gives it a fallback so the flag is optional.
+- **`arg NAME ... end`** declares a typed CLI argument as a block. Each property — `type`, `default`, `description`, `optional`, `index` — is its own labelled line. Only `type` is required.
+- **The `default` value makes the arg optional.** Without `default`, the arg is required and perch errors if you omit it.
 - **`let X = OP ARGS`** runs an op and stores the result; later strings interpolate `${X}`.
 
 ## Ship it as a binary
