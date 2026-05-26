@@ -23,6 +23,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **`perch --scan FILE`** — static security audit. Walks the program (no execution), produces:
+  - **Capabilities needed** — shell? subprocess? network? writes? — broken out with the actual binaries called, the hosts contacted, and the path roots written. Each row that's NOT used carries an "add `--no-X` for free" hint.
+  - **Env vars referenced** — every `${UPPERCASE_NAME}` interpolated in any string arg, so the `--env A,B,C` allowlist becomes a copy-paste.
+  - **Risk findings** — HIGH / MED / LOW / INFO, each with a concrete `→` fix. Today's heuristics: `sudo` in shell (HIGH, escalation), `catch` forwarding `${proxy_args}` to shell (MED, open passthrough), unvalidated `${var}` interpolation inside shell args (LOW, possible injection), `make_executable` without `verify_sha256` pairing (MED, supply-chain).
+  - **Recommended invocation** — assembled automatically. The tightest set of `--no-*` / `--allow-bin` / `--env` / `--max-runtime` / `--audit` flags that should still let the script work, followed by a "compared to bare perch" diff so the reviewer sees what each flag bought.
+  - Pure Go, no new dependencies. ~400 LOC in `usecases/scan/`. Distinct from `--check` (which validates syntax) and `--audit FILE.ndjson` (which records runtime activity).
 - **`perch --import script.sh`** — best-effort bash → `.perch` translator. Produces a scaffold the user can immediately run (`--check` passes, `--help` works, every command callable) while preserving original semantics by routing most lines through `shell` ops. Recognised patterns:
   - `#!/bin/bash` and `# comments` → file-level / inline comments
   - `NAME=value` at top level → `globals` entry, with `$VAR → ${VAR}` rewrite

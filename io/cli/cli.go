@@ -60,6 +60,10 @@ type ImportShUseCase interface {
 	Execute(srcPath, outPath string) error
 }
 
+type ScanUseCase interface {
+	Execute(configPath string) error
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -72,6 +76,7 @@ type UseCases struct {
 	InstallLSP    InstallLSPUseCase
 	InstallVSCode InstallVSCodeUseCase
 	ImportSh      ImportShUseCase
+	Scan          ScanUseCase
 }
 
 type Config struct {
@@ -130,6 +135,12 @@ func (c *CLI) Run() int {
 	case "--check", "--validate":
 		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Validate.Execute(path))
+	case "--scan":
+		// `perch --scan FILE` — static security audit. Prints what
+		// capabilities the script needs, risk findings, and the
+		// recommended-tightest CLI invocation. No execution.
+		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+		return errExit(c.UseCases.Scan.Execute(path))
 	case "--install-lsp":
 		return errExit(c.UseCases.InstallLSP.Execute())
 	case "--install-vscode":

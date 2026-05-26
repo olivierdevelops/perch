@@ -472,6 +472,15 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 ## Common questions
 
+**How do I audit a `.perch` file I didn't write?** `perch --scan FILE` walks the program statically — no execution — and reports:
+
+- **Capabilities needed.** Does it need shell? Which binaries? Network? Which hosts? Writes? Which paths?
+- **Env vars referenced.** Every `${UPPERCASE_NAME}` it touches.
+- **Risk findings.** Sudo use, catch-passthrough to shell, unvalidated `${var}` in shell args, downloads followed by `make_executable`, etc. Each rated `HIGH` / `MED` / `LOW` with a concrete fix suggestion.
+- **Recommended invocation.** The tightest CLI flag combination that should still let the script run — assembled automatically. Hands you the safe command to copy-paste.
+
+Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
+
 **I already have bash scripts — what's the migration story?** Three options, ranked by effort: **(1) Wrap** — write a thin `.perch` that calls your existing `.sh` files via the `shell` op; gain typed args + `--help` + MCP + web UI + audit log in minutes. **(2) Translate** — `perch --import deploy.sh` produces a `.perch` scaffold preserving semantics line-for-line (mostly `shell` ops to start), reviewable + statically checkable. **(3) Rewrite** — promote each `shell` op to native ops over time; once nothing needs `shell`, `--no-shell` becomes a real fence. Full guide: **[migrating-from-shell.md](migrating-from-shell.md)**.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
@@ -479,6 +488,35 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 **Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
+
+<div class="pterm" id="t-scan" data-title="perch --scan — static security audit"></div>
+<script type="application/json" data-pterm="t-scan">
+[
+  {"k":"in",  "t":"perch --scan -f deploy.perch"},
+  {"k":"dim", "t":"── deploy.perch ─────────────────────────────────"},
+  {"k":"out", "t":"3 commands, 1 catch, 2 globals"},
+  {"k":"blank","t":""},
+  {"k":"out", "t":"CAPABILITIES NEEDED"},
+  {"k":"out", "t":"  ✓ shell       (5 calls: docker, kubectl, rm, sudo)  ⚠ uses sudo"},
+  {"k":"out", "t":"  ✗ subprocess  — add --no-subprocess for free"},
+  {"k":"out", "t":"  ✓ network     (1 host: api.github.com)"},
+  {"k":"out", "t":"  ✓ writes      (roots: ${APP_DIR}/last-deploy.txt)"},
+  {"k":"blank","t":""},
+  {"k":"out", "t":"ENV VARS REFERENCED"},
+  {"k":"out", "t":"  APP_DIR, HOME"},
+  {"k":"blank","t":""},
+  {"k":"out", "t":"RISK FINDINGS"},
+  {"k":"err", "t":"  [HIGH] admin op #1: shell uses `sudo` — privilege escalation"},
+  {"k":"err", "t":"  [MED]  catch forwards ${proxy_args} to shell — any input → shell"},
+  {"k":"err", "t":"  [LOW]  remove op #1: shell interpolates ${path} with no validation"},
+  {"k":"blank","t":""},
+  {"k":"accent","t":"RECOMMENDED INVOCATION"},
+  {"k":"ok",  "t":"  perch --no-subprocess --allow-bin docker,kubectl,rm,sudo \\"},
+  {"k":"ok",  "t":"        --no-shell-metachars --env APP_DIR,HOME \\"},
+  {"k":"ok",  "t":"        --max-runtime 600 --audit /var/log/perch-deploy.ndjson \\"},
+  {"k":"ok",  "t":"        -f deploy.perch"}
+]
+</script>
 
 <div class="pterm" id="t-audit" data-title="--audit FILE.ndjson — structured trace"></div>
 <script type="application/json" data-pterm="t-audit">
