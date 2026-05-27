@@ -1,13 +1,13 @@
 # perch
 
-> A cross-platform command runner. One `.perch` file → CLI, web UI, REPL, **or a single portable binary you can ship**.
+> **perch is a cross-platform task runner.** Declare your project's commands in one small file; run them on macOS / Linux / Windows; or `perch --build` once to ship them as a single portable binary.
 
 [![CI](https://github.com/luowensheng/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/luowensheng/perch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/luowensheng/perch?include_prereleases)](https://github.com/luowensheng/perch/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://luowensheng.github.io/capy)
 
-`perch` is what happens when a Makefile, a CI workflow file, a `bin/` of bash scripts, and the helper CLI you keep meaning to write all collapse into **one declarative file** — and that file works on macOS, Linux, and Windows from day one.
+That's the one-sentence answer. The longer one: `perch` collapses what would otherwise be a Makefile *and* a `bin/` of bash scripts *and* the helper CLI you keep meaning to write into **one declarative file** — and the same file *also* serves as a web UI (`--server`), a REPL (`--shell`), an MCP tool surface for AI agents (`perch-mcp`), and a `#!/usr/bin/env perch` script. Those extra frontends are downstream consequences of having a typed-CLI representation in one file, not separate systems. **The primary abstraction is the file; everything else is rendering.**
 
 ```capy
 name    "myapp"
@@ -53,7 +53,6 @@ end
 ```
 
 > `os` and `arch` are auto-bound at command start; reference them anywhere with `${os}` / `${arch}`. The unified `if EXPR ... end` form supersedes the old `if_os` / `if_eq` / `if_gt` keywords — see [docs/language.md](docs/language.md#conditionals).
-```
 
 ```sh
 perch build                    # → run from CLI
