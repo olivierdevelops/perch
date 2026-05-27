@@ -121,9 +121,11 @@ The right column is one file plus a process. The left column is a quarter of a s
 
 ---
 
-## The schema IS the security boundary
+## The schema IS the controlled-execution boundary
 
-When the agent tries something you didn't declare, there's no defensible-by-default code path it can reach. The chain of rejections:
+> **Honest scope:** perch is **controlled scripting**, not a kernel-level sandbox. With `--no-shell` the boundary is airtight (no subprocess ever fires). With `shell` allowed, the spawned process can still talk to the kernel — perch only fences its *own* op dispatch. For genuinely adversarial input, layer perch under `firejail` / `sandbox-exec` / `AppContainer`. The rejections below describe the perch-level boundary; the OS-level boundary is your responsibility.
+
+When the agent tries something you didn't declare, there's no defensible-by-default code path it can reach. The chain of rejections at the perch level:
 
 1. **Verb not declared** →
 

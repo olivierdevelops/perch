@@ -120,10 +120,20 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Five frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), steppable in a REPL (`--shell`), exposed to AI agents via MCP (`perch-mcp`), and runnable as an executable script (`#!/usr/bin/env perch` shebang).
-4. **One `--build` away from shippable.** `perch --build -o myapp` produces a single executable for the *current OS/arch* (cross-compile is roadmap), typically 10–15 MB. The format is the perch binary itself with your program JSON appended in a fat-binary footer; on startup the binary detects the footer and loads the embedded program instead of looking for a `.perch` file. `--include <path>` additionally embeds a gzipped tarball — useful for shipping a Python/Node project alongside the CLI. Full spec: [docs/embedding.md](docs/embedding.md).
+4. **One `--build` away from shippable.** `perch --build -o myapp` produces a single executable for the *current OS/arch* — typically 10–15 MB. Format: the perch binary itself with your program JSON appended in a fat-binary footer; on startup, perch detects the footer and loads the embedded program instead of reading a `.perch` file. `--include <path>` additionally embeds a gzipped tarball — useful for shipping a Python / Node / monorepo project alongside the CLI.
+
+    What this is, honestly:
+    - **Cross-compile:** not yet — to ship a Linux binary, run `perch --build` on a Linux host (or under `docker run --rm -v $PWD:/src golang:alpine`). Native cross-compile is on the roadmap.
+    - **Reproducibility:** not byte-identical across builds (Go's default link includes a build ID). The embedded program JSON IS deterministic — `sha256` of the appended footer is reproducible from the `.perch` source.
+    - **Verification:** the built binary doesn't carry a signed manifest. If you need build provenance, run `perch --build` inside a reproducible-builds pipeline and sign the output with your existing tooling.
+    - **Limits:** ~50 MB for the embedded archive (`--include`) before performance noticeably degrades; the binary loads everything into memory at startup.
+
+    Full spec: [docs/embedding.md](docs/embedding.md).
 5. **Controlled scripting** — not sandboxing. perch lets you declare what an invocation may do: `--no-shell`, `--no-network`, `--no-write`, `--no-subprocess`, `--env A,B,C`, `--allow-bin git,docker`, `--allow-host api.github.com`, `--max-runtime 300`, `--audit FILE.ndjson`. With `--no-shell` the boundary is airtight (perch never spawns a subprocess). With `shell` allowed, perch enforces *its own* op dispatch — the subprocess can still talk to the kernel, so adversarial input still needs an OS-level sandbox (`firejail` / `sandbox-exec` / `AppContainer`) layered underneath. HTTP ops have additional default-on protections: no private-IP destinations, no https→http downgrade, max 5 redirect hops, DNS-rebinding defense via multi-A validation.
 
-> **Sweet spot:** replacing the Makefile + `bin/`-of-scripts + helper-CLI sprawl in a single project, *especially* when you want to ship it as a portable binary or expose it to an AI agent. Outside that range (a 200-command monorepo task system, a CI orchestrator, a public multi-tenant service) you'll outgrow perch's composability primitives — see "Where it breaks down" below.
+> **Sweet spot.** A structured task runner for small-to-medium projects, plus an MCP tool surface for AI agents over the same file. Outside that range — a 200-command monorepo task system, a CI orchestrator, a public multi-tenant service, anything needing functions/modules — you'll outgrow perch's composability primitives. See "Where it breaks down" below.
+>
+> Honest framing of the agent side: perch gives an agent a **controlled execution surface** with declared restrictions, an audit log, and op-level dispatch. It is *not* a kernel-level sandbox — if the agent's input could be genuinely adversarial, layer perch under `firejail` / `sandbox-exec` / `AppContainer`.
 
 ---
 
