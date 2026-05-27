@@ -37,6 +37,16 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 ---
 
+## What's new
+
+- 🧪 **`perch simulate` v2 — stateful + oracled + multi-scenario.** Threads file/cwd/var state through the op walk (write-then-exists works), accepts a JSON fixture (`--sim-file fixture.json`) declaring **oracles** (`shell_output`, `http`, `file_exists`, `has_bin`) and **named scenarios** that run as independent walks with their own report. Answers: *"what if the file exists after the previous step?", "what if HTTP returns 500?", "what if upstream redirects to evil.com?"* [Details →](simulate.md#stateful-simulation-oracles-and-scenarios) · [example fixture](https://github.com/luowensheng/perch/blob/main/docs/simulate-example.json)
+- 📡 **`perch-mcp` now streams stdout/stderr live** via [MCP progress notifications](mcp.md#streaming-progress). When the client sends `_meta.progressToken`, every line of output emits a `notifications/progress` event as it's produced — no more silent waits for long-running verbs. Closes the asymmetry with the web UI's NDJSON streaming.
+- 🔒 **`wasm-plugin-host` demo — the architectural killer demo.** A pluggable runtime where every plugin is a WASM module. Ships 4 legitimate plugins + 1 **deliberately malicious** plugin that tries 5 escape attempts; every one fails because the WASI runtime doesn't provide those operations. [Browse the demo →](https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host)
+- 🧪 **3 runnable `wasm_run` demos:** schema validator, K8s policy check, agent-safe git-diff summarizer. Each ships Go source + pre-built `.wasm` + walkthroughs. [`wasm-walkthroughs.md`](wasm-walkthroughs.md)
+- 📦 **22 ready-made recipes.** Redis, Postgres, devstack, aistack, observe, kafka, modern-unix, gh-flow, docker-mgr, mkcert-local, backup, scan-secrets … one curl, audit with `--scan`, run. [Browse →](recipes.md)
+
+---
+
 ## What perch replaces
 
 | Today | Tomorrow with perch |
@@ -109,7 +119,7 @@ ops/security (mkcert-local, backup, scan-secrets).
 
 <div class="card">
   <h4>🤖 Agent-native, no backend</h4>
-  <p>Replace your LLM-tool backend with a <code>.perch</code> file. <code>perch-mcp --no-shell --no-network -f ops.perch</code> is the whole stack. Typed verbs, declared schemas, capability gates, audit log — what you'd otherwise build from scratch.</p>
+  <p>Replace your LLM-tool backend with a <code>.perch</code> file. <code>perch-mcp --no-shell --no-network -f ops.perch</code> is the whole stack. Typed verbs, declared schemas, capability gates, audit log. <strong>Live streaming over MCP progress notifications</strong> — long-running verbs emit per-line stdout/stderr events as they run instead of returning a silent blob. <a href="mcp/#streaming-progress">Streaming →</a></p>
 </div>
 
 <div class="card">
@@ -191,6 +201,7 @@ perch <cmd> --help    # per-command help (args, defaults, examples)
 perch --check         # static validation
 perch test            # run every command marked `test` (sandboxed)
 perch simulate cmd --sim-os=linux --sim-have-bin=kubectl  # what would happen on THAT host?
+perch simulate cmd --sim-file fixture.json   # multi-scenario: happy / github-down / kubectl-missing
 perch --report cmd    # execute + render the span tree
 ```
 
@@ -219,8 +230,8 @@ The technical details that don't fit on the marketing panel above:
 </div>
 
 <div class="card">
-  <h4>🧪 <code>perch simulate</code> — what-if analyzer</h4>
-  <p>Walks the program against a HYPOTHETICAL environment (sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots) and reports per-op outcomes: <strong>WILL_RUN ✓</strong> / <strong>WILL_FAIL ✗</strong> (with the specific capability that's missing) / <strong>MIGHT_FAIL ?</strong> (with the scenario that branches the outcome). No execution. Drop into CI to refuse PRs that wouldn't work on the target host. <a href="simulate/">Details →</a></p>
+  <h4>🧪 <code>perch simulate</code> — stateful what-if analyzer <span style="background:#eef;padding:1px 5px;border-radius:3px;font-size:.75em">v2</span></h4>
+  <p>Walks the program against a HYPOTHETICAL environment (sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots) and reports per-op outcomes: <strong>WILL_RUN ✓</strong> / <strong>WILL_FAIL ✗</strong> / <strong>MIGHT_FAIL ?</strong>. <strong>v2 adds:</strong> state threading (write-then-exists works), <strong>oracles</strong> for `shell_output` / `http` / `file_exists` / `has_bin` (pin simulated outputs), and <strong>named scenarios</strong> in a JSON fixture (<code>--sim-file fixture.json</code>) so one run reports "happy path" vs "github-down" vs "kubectl-missing" side by side. <a href="simulate/">Details →</a></p>
 </div>
 
 <div class="card">

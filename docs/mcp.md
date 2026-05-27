@@ -77,7 +77,9 @@ After `tools/list`, the agent has two tools available:
 }
 ```
 
-## Streaming progress (live output during long-running commands)
+## Streaming progress
+
+*Live output during long-running commands.*
 
 By default, `perch_run` returns the command's full output as a single
 `tools/call` response when the run finishes. For commands that take

@@ -949,7 +949,7 @@ cargo build --target wasm32-wasi --release
 tinygo build -target=wasi -o tool.wasm .
 ```
 
-`wasm32-wasip2` builds will not work in v1 — see the [roadmap](wasm.md#status--whats-in-the-v1--whats-coming).
+`wasm32-wasip2` builds will not work in v1 — see the [roadmap](wasm.md#status-whats-in-the-v1-whats-coming).
 
 ### Module hangs or runs forever
 
@@ -973,7 +973,7 @@ The first `wasm_run` in a session pays the wazero compilation cost (~200-500ms f
 
 ## What's NOT in v1 (workarounds)
 
-The full roadmap lives in [`wasm.md`](wasm.md#status--whats-in-the-v1--whats-coming). Quick workarounds:
+The full roadmap lives in [`wasm.md`](wasm.md#status-whats-in-the-v1-whats-coming). Quick workarounds:
 
 | Want | Today's workaround |
 |---|---|
