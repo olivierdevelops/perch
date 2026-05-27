@@ -1,330 +1,283 @@
-# AI-assisted authoring in the web UI
+# AI-assisted authoring — via MCP, not via perch
 
-> **Goal:** let a non-engineer using `perch --server` describe what they want in plain English and get back a reviewable `.perch` snippet — without ever sending data to perch's servers and without ever auto-executing code.
+> **The architecture:** perch ships zero LLM client code. AI-assisted authoring happens in the agent's host (Claude Desktop, Cursor, Zed, custom MCP client) using perch-mcp as the workspace. The agent brings its own AI access; perch provides the file operations, validation, and analysis.
 
-This is the design report. It covers the user-facing flows, the architecture, the safety/privacy posture, and a phased implementation plan. Companion to [user-experience.md](user-experience.md) (where AI-assisted authoring is item B.2 in the broader UX roadmap) and reusing the [SKILL.md](https://github.com/luowensheng/perch/blob/main/skills/perch/SKILL.md) authoring guide as the LLM's system prompt.
-
----
-
-## 1. Why through the UI specifically
-
-CLI users can already pipe to whatever AI tool they like. They have shell history, editors, and habits. The UI audience is different:
-
-- They opened `perch --server` because they're not a CLI native.
-- They see a button labeled "deploy" but want one labeled "back up postgres weekly to S3" — which doesn't exist yet.
-- Asking them to learn capy syntax to add it is the wrong answer.
-- Asking them to file a ticket with the team to add it is also the wrong answer.
-
-The right answer: **a "Compose" panel in the web UI** that takes plain English, returns a reviewable snippet, and lets them save it with one click — after a human-readable explanation and a diff.
+This is the design report for AI-assisted `.perch` authoring. An earlier draft of this doc proposed baking LLM client adapters into perch itself; that was the wrong shape. The right one is **agent → MCP → perch**. perch never holds an API key, never makes an outbound LLM call, never embeds a provider SDK. The agent already has all of those; the agent's user already trusts it; perch's role is the workspace, not the AI.
 
 ---
 
-## 2. The user-facing flows
+## 1. Why MCP and not a baked-in AI client
 
-Four distinct interactions, in priority order. Build #1 first; the rest layer on cleanly.
+Four reasons:
 
-### 2.1 Compose — generate a new command
+1. **The trust boundary already exists.** The user installed Claude Desktop / Cursor / Zed. They already gave that app their API key. They already accepted that app sending data to a model. Adding a second trust boundary (in perch) duplicates the audit surface without adding capability.
 
-The headline flow. A new "+ Compose with AI" tab next to the existing command buttons. The user types:
+2. **The AI is the agent's responsibility, not the tool's.** This is the same logic that makes `git` better off NOT shipping an LLM client. The agent calls `git`; the agent reasons about diffs; the agent's host owns the model access. Same here.
 
-> *"Back up the production postgres database to S3 every Sunday at 03:00 UTC. Use pg_dump piped to gzip. Keep the last 12 weeks of backups."*
+3. **MCP is *exactly* the integration shape for this.** Model Context Protocol exists so an agent can call tools and read resources in a structured, sandboxable way. `perch-mcp` already exposes `perch_list` and `perch_run` for execution. Adding `perch_read_file`, `perch_write_draft`, `perch_check`, `perch_scan`, `perch_present` extends the same surface for authoring.
 
-The panel streams a response with four sections:
-
-1. **Plain-English summary** — what the AI thinks the user wants.
-2. **Generated `.perch` snippet** — syntax-highlighted, complete (args + body + description).
-3. **What this needs** — capabilities (shell access? network? specific binaries?). Pulls from the same analyzer that powers `perch --scan`.
-4. **Follow-up questions** — "Should I add a `--dry-run` arg?" "Where should the backups land — `${cache_dir}` or a fixed `/var/backups`?"
-
-Three buttons at the bottom: **Discard**, **Edit before saving**, **Save to file**. "Save" appends the generated `command … end` block to the file's `.draft`, then opens a side-by-side diff against the live file. The user clicks "Apply diff" to merge — *never auto-merged*, *never auto-run*.
-
-### 2.2 Refine — modify an existing command
-
-Each existing command card gets a small "Refine with AI" link. Clicking opens the panel pre-filled with the current command's source. The user types:
-
-> *"Add a `--target` arg that picks between staging and prod. Default to staging. Refuse prod unless the user passes `--confirm prod`."*
-
-The AI returns a diff of the original. Save flow is identical to Compose.
-
-### 2.3 Explain — plain-English description
-
-A "What does this do?" link on each command runs the AI in *read-only* mode, returns a human-readable summary. No edit, no save. Useful for non-engineers reading a file someone else wrote.
-
-This complements `perch --scan` (which is security-focused) and `perch <cmd> --help` (which is structural).
-
-### 2.4 Audit — natural-language security review
-
-Sister flow to `perch --scan`. The AI gets the file + the scan report and writes prose prioritising risks, suggesting fixes, explaining trade-offs in the user's project's terms ("you probably don't want kubectl to run unbounded in this context because…"). Helpful when the bare `--scan` table isn't enough context.
+4. **Zero LLM code in perch keeps the security story clean.** A `perch` binary that never makes outbound HTTP to an LLM provider is much easier to reason about than one with a provider adapter and a configurable system prompt. `--no-network` actually means no network.
 
 ---
 
-## 3. Architecture
-
-### 3.1 Provider abstraction
-
-```go
-// infra/aigen/aigen.go
-package aigen
-
-type Provider interface {
-    Name() string                                  // "anthropic" / "openai" / "ollama" / "lmstudio"
-    Compose(ctx context.Context, req Request) (<-chan Chunk, error)
-}
-
-type Request struct {
-    System       string   // SKILL.md, embedded at build time
-    File         string   // current commands.perch (full source)
-    UserPrompt   string   // what the user typed
-    Mode         Mode     // Compose / Refine / Explain / Audit
-    TargetBlock  string   // for Refine: the command being modified
-    MaxTokens    int
-}
-
-type Mode int
-const (
-    ModeCompose Mode = iota
-    ModeRefine
-    ModeExplain
-    ModeAudit
-)
-
-type Chunk struct {
-    Text string  // partial output
-    Done bool    // final chunk
-    Err  error
-}
-```
-
-Adapters live in `infra/aigen/anthropic.go`, `infra/aigen/openai.go`, etc. — each implements `Provider`, talks to its own SSE / streaming endpoint, normalises into the common `Chunk` channel.
-
-### 3.2 Configuration
-
-`~/.config/perch/ai.toml`:
-
-```toml
-default_provider = "anthropic"
-
-[providers.anthropic]
-api_key_env = "ANTHROPIC_API_KEY"
-model = "claude-opus-4-5"
-endpoint = "https://api.anthropic.com/v1/messages"
-
-[providers.openai]
-api_key_env = "OPENAI_API_KEY"
-model = "gpt-4"
-
-[providers.ollama]
-endpoint = "http://localhost:11434"
-model = "llama3.3:70b"
-# No API key — local model.
-```
-
-`perch ai-config` opens the file in `$EDITOR` (or shows the path on stdout). `perch ai-config --test` makes a one-token round-trip to verify the configured provider works.
-
-Keys never appear in the binary, never appear in logs, never leave the user's machine except in the LLM request body. Same security posture as the host shell using `${ANTHROPIC_API_KEY}`.
-
-### 3.3 System prompt — reuse SKILL.md
-
-The Claude Code skill at `skills/perch/SKILL.md` already encodes perch's grammar, op catalog, anti-patterns, and worked examples. It's been carefully tuned so Claude writes correct perch. Embed it via `//go:embed` and use it as the system prompt verbatim across all four modes.
-
-Per-request additions:
-- For **Compose**: append "Generate a single `command … end` block. Return JSON with fields `summary`, `perch_source`, `needs`, `follow_ups`. Match perch grammar exactly; the user runs `--check` immediately."
-- For **Refine**: append the target command's current source + "Modify only this command; do not regenerate the whole file."
-- For **Explain**: append "Read-only. Describe in plain English what this command does, in two sentences."
-- For **Audit**: append the `--scan` report verbatim + "Prioritise the findings; suggest fixes in this project's context."
-
-This reuse is the win: the same authoring rules that help Claude Code generate good perch from a CLI prompt help any LLM generate good perch from a UI prompt.
-
-### 3.4 HTTP surface
-
-Add four endpoints to the existing `infra/httpserver`:
+## 2. The architecture
 
 ```
-POST /api/ai/compose   { prompt, file_path } → SSE stream of chunks
-POST /api/ai/refine    { command, prompt, file_path } → SSE stream
-POST /api/ai/explain   { command, file_path } → text
-POST /api/ai/audit     { file_path } → SSE stream
+┌──────────────────────────┐
+│  User                    │
+│  ───                     │
+│  "Back up postgres       │
+│   weekly to S3"          │
+└────────────┬─────────────┘
+             │ types in
+             ▼
+┌──────────────────────────┐    LLM provider
+│  Claude Desktop /        │◄────────────────► (Anthropic / OpenAI / Ollama)
+│  Cursor / Zed /          │      agent's
+│  any MCP client          │      existing
+│                          │      AI access
+└────────────┬─────────────┘
+             │ MCP JSON-RPC over stdio
+             ▼
+┌──────────────────────────┐
+│  perch-mcp               │
+│  ───                     │
+│  Tools:                  │
+│   perch_list / _run      │  ← execution (already shipped)
+│   perch_read_file        │  ← authoring (new)
+│   perch_write_draft      │
+│   perch_diff             │
+│   perch_apply_draft      │
+│   perch_check            │
+│   perch_scan             │
+│   perch_present          │
+│  Resources:              │
+│   perch://skill          │  ← skills/perch/SKILL.md
+│   perch://op-catalog     │  ← docs/op-reference.md
+│   perch://file/<path>    │  ← current .perch source
+└────────────┬─────────────┘
+             │ in-process Go calls
+             ▼
+┌──────────────────────────┐
+│  perch core              │
+│  ───                     │
+│  capyloader              │
+│  interpreter             │
+│  ops registry            │
+│  scan analyzer           │
+│  validate                │
+│  (no LLM code anywhere)  │
+└──────────────────────────┘
 ```
 
-SSE so the user sees the response as it's generated (the streaming UX is a big part of "feels like a tool that's helping you"). Requests are localhost-only by default; the same `--server` binding rules apply.
-
-### 3.5 Save flow
-
-Generated text never overwrites the user's file directly. Pipeline:
-
-1. AI emits the generated block.
-2. UI shows the diff (server-side rendered with a small Go diff lib).
-3. User clicks **Apply**.
-4. Server writes `commands.perch.draft` with the proposed contents.
-5. Server runs `perch --check` against the draft. If it fails, the diff view turns red with the error inline; the user has to fix or retry.
-6. If `--check` passes, the diff turns green; the user clicks **Commit**.
-7. Server moves `.draft` → `.perch` atomically and triggers a UI reload so the new command appears.
-
-`perch --check` as the gate is critical — the AI WILL occasionally produce subtly-wrong syntax. The validator catches it before the user is exposed to a runtime error.
-
-### 3.6 Transcript history
-
-Every AI interaction is appended to `commands.perch.ai.ndjson` (one record per prompt + response). Same shape as the runtime audit log:
-
-```json
-{"ts":"...","mode":"compose","prompt":"back up postgres ...","provider":"anthropic","model":"claude-opus-4-5","response_chars":1842,"applied":true}
-```
-
-Useful for:
-- "Why does this command exist?" — grep the prompt history.
-- Reviewing what was generated vs hand-written when the team rotates.
-- A future "undo AI suggestion" feature.
-
-`--audit-ai PATH` overrides the location; default is alongside the `.perch` file.
+perch never sees a model, an API key, or an HTTP request to an LLM provider. The agent does all of that on its own. perch-mcp is the bridge — it lets the agent read, draft, validate, analyze, and commit changes to a `.perch` file, using the same Go libraries that power the CLI.
 
 ---
 
-## 4. Safety posture
+## 3. The agent's flow (concretely)
 
-Three hard rules:
+User types into Claude Desktop's chat:
 
-1. **The AI never executes code.** It only ever emits text. The text becomes a `.perch` file fragment that goes through normal `--check` validation; running it is a separate human action.
+> *"Add a command that backs up our postgres database to S3 every week."*
 
-2. **No data leaves the user's machine except to the user's configured LLM provider.** perch's own servers receive nothing. There is no telemetry, no analytics, no "phone home." The only network traffic is to the endpoint the user configured.
+The agent's host invokes its model with all of the user's chat history plus MCP tool definitions. The model decides to:
 
-3. **AI-generated commands are obvious in the file.** Every saved block gets a comment header:
+1. **Read the workspace** — calls `perch_read_file` to get the current `commands.perch`. The MCP server returns the source.
+2. **Read the authoring guide** — fetches the `perch://skill` resource. The MCP server returns `skills/perch/SKILL.md`.
+3. **Read the op catalog** — fetches `perch://op-catalog`. Now the model has SKILL.md + every op in scope.
+4. **Compose** — using its host's LLM, the model generates a `command backup_postgres … end` block.
+5. **Validate as it goes** — calls `perch_write_draft` to put the proposal into `commands.perch.draft`, then `perch_check` to verify it parses. If `perch_check` returns errors, the model iterates.
+6. **Analyse** — calls `perch_scan` on the draft. Returns the needs-{shell, network, write} report + risk findings.
+7. **Show the user** — the agent presents the generated command + the scan analysis + a diff vs. the live file, all *in the agent's chat UI*, not in perch.
+8. **Wait for approval** — the user clicks the agent's "Apply" button (whatever Claude Desktop / Cursor calls it).
+9. **Commit** — the agent calls `perch_apply_draft`. The MCP server atomically renames `.draft` → `.perch` and signals the change.
 
-   ```capy
-   # ─── ai-generated 2024-12-08 — model: claude-opus-4-5 ───
-   # prompt: "Back up postgres weekly to S3"
-   command backup_postgres
-       …
-   end
-   ```
-
-   So a reviewer pulling the file six months later knows which parts came from an LLM and what was asked. Like a git author trailer, but in-file.
-
-Soft guards on top:
-
-- **Default-off.** `perch --server` does not show the Compose panel unless `~/.config/perch/ai.toml` exists with at least one configured provider. A user who never touches the config file sees the UI exactly as it is today.
-- **Capability previewed before save.** The "what this needs" section runs the AI's draft through the `--scan` analyzer so the user sees "this will need shell access to kubectl" *before* they click Save.
-- **Soft rate limit.** ~20 AI requests per hour per session, with a clear message when hit. Stops runaway costs from a stuck typing loop. User-overridable in the config.
+perch's role across all 9 steps: read files, run analyzers, hold a `.draft` until told to commit. No LLM. No keys. No prompts. **It's a workspace, not an AI.**
 
 ---
 
-## 5. Privacy
+## 4. The new MCP tools — minimal surface
 
-Four guarantees, in plain language:
+Five new tools on top of the existing `perch_list` / `perch_run`. Each is a thin wrapper around an existing Go function:
 
-1. **The user provides their own API key.** Anthropic, OpenAI, OpenRouter, or a local Ollama / LM Studio for fully-offline use. perch never ships keys.
+| Tool | Wraps | Purpose |
+|---|---|---|
+| `perch_read_file` | `os.ReadFile` | Return the current `.perch` source so the agent has context |
+| `perch_write_draft` | `os.WriteFile` to `*.draft` | Propose a change without touching the live file |
+| `perch_check` | `usecases/validate` | Run `--check` against the live file or a draft |
+| `perch_scan` | `usecases/scan` | Run `--scan` against the live file or a draft |
+| `perch_present` | `usecases/scan` + per-command help | Plain-English summary of every command |
+| `perch_diff` | `golang.org/x/tools/internal/diff` (or stdlib) | Server-rendered diff between live and draft |
+| `perch_apply_draft` | `os.Rename` of `.draft` → `.perch` | Commit after user approval |
 
-2. **What gets sent.** Per request: the system prompt (SKILL.md), the user's current `commands.perch` file, the user's typed prompt, and (for Refine/Explain) the specific command. **Not** sent: anything outside the file, environment variables, host facts, the audit log.
+That's it. Each tool has a JSON schema; the agent's host generates the schema as it does for any MCP server. The reuse of existing Go code (validate, scan) means no logic is duplicated — the agent sees exactly what `perch --check` and `perch --scan` see at the CLI.
 
-3. **What gets received.** The model's response. Streamed token-by-token to the UI. Persisted only to `commands.perch.ai.ndjson` locally if the user clicks Apply.
+### Plus MCP resources (read-only, content addressable)
 
-4. **Local-model option.** Ollama or LM Studio in the config = nothing leaves the laptop. Whole feature works on an airgapped machine, just with a smaller model.
-
-The privacy story matches "Claude Code writes a file for me" — same shape, same trust boundaries.
-
----
-
-## 6. Implementation sketch
-
-```
-infra/aigen/
-    aigen.go               Provider interface + Request/Chunk types
-    config.go              ~/.config/perch/ai.toml loader
-    anthropic.go           Anthropic API adapter (SSE)
-    openai.go              OpenAI API adapter (SSE)
-    ollama.go              Ollama local adapter
-    prompt.go              Builds the per-mode system prompt
-    diff.go                Server-side diff renderer
-
-infra/httpserver/
-    server.go              + /api/ai/* endpoints (when aigen.Configured())
-    server.html            + Compose panel, Refine link, Explain link
-
-usecases/aiconfig/
-    aiconfig.go            `perch ai-config` and `--test` subcommands
-
-skills/perch/SKILL.md      (already exists — reused verbatim as system prompt)
-```
-
-Estimated size: ~1,500 LOC + ~400 lines of HTML/JS. Largest single piece is the provider abstraction; second-largest is the Compose panel UI.
-
----
-
-## 7. Phased implementation
-
-Each phase is shippable. Stop after Phase 1 if AI assistance is enough.
-
-### Phase 1 — Compose, one provider, one mode (~3 days)
-
-- Anthropic adapter only (Claude was the SKILL.md target; tightest fit).
-- `Compose` mode only.
-- New panel in `--server` web UI behind a feature flag (`PERCH_AI=1` env var to enable).
-- Save flow with `--check` gate, draft file, diff view, explicit commit.
-- AI-generated header comments in saved blocks.
-- Local transcript log (`commands.perch.ai.ndjson`).
-
-**Ship criterion:** a user with an Anthropic API key can type "back up postgres weekly" and get a working `command backup_postgres … end` block that `--check`s clean.
-
-### Phase 2 — Refine + Explain modes (~2 days)
-
-- `Refine` and `Explain` endpoints + UI hooks on existing command cards.
-- Diff renderer for Refine.
-- Read-only explanation rendering for Explain (no save flow).
-
-### Phase 3 — Multi-provider + local model (~2 days)
-
-- OpenAI adapter.
-- Ollama adapter (local model — biggest privacy win).
-- `perch ai-config` and `perch ai-config --test` subcommands.
-- Provider switcher in the UI.
-
-### Phase 4 — Audit mode (~2 days)
-
-- Wire the `--scan` analyzer into the AI prompt; emit a prioritised, prose security review.
-- "AI security review" button next to "Run security scan" in the UI.
-
-### Phase 5 — Soft polish (~ongoing)
-
-- Rate-limit display.
-- "Why does this command exist?" — grep the local transcript for any command's history.
-- Cost-per-request estimator (Anthropic / OpenAI token-pricing aware).
-- Undo-AI-suggestion via the transcript.
-
----
-
-## 8. What this is NOT
-
-To be honest about the boundaries:
-
-- **It's not autonomous.** The AI never runs perch commands. It only ever returns text that the user reviews and saves.
-- **It's not the only way to author perch.** Editing `commands.perch` by hand, using the LSP, or using `perch --import` all still work. The AI panel is a third option for users who'd otherwise be stuck.
-- **It's not bundled.** Default install ships without AI. The Compose panel only appears when the user opts in by writing the config file. The binary has no LLM client unless the user configures one.
-- **It's not a chatbot.** This is *structured-output* AI: every response is a JSON envelope shaped to fit perch's grammar. Not free-form conversation, not memory across sessions (transcripts are local-only and only for the user's grep).
-- **It's not a substitute for `--scan` or `--check`.** Those run statically and deterministically. AI Audit is a supplement that adds prose context; it doesn't replace the static checks. Every save still runs through `--check`.
-
----
-
-## 9. Composition with existing features
-
-This is the part that makes AI-assisted authoring actually safe:
-
-| Existing | How AI plays with it |
+| Resource URI | Returns |
 |---|---|
-| `perch --check` | Every AI save is gated by `--check`. Invalid output never lands. |
-| `perch --scan` | Audit mode hands the `--scan` report to the LLM as context. The recommended invocation appears alongside the AI's prose. |
-| `perch --ask` / `--dry-run` | A newly-generated command can be previewed before its first run. The user *should* `--ask` it the first time. |
-| `--audit FILE.ndjson` | Runtime audit log. Combined with `commands.perch.ai.ndjson`, you get "this command was AI-suggested by prompt P on date D, then ran X times with these args." Full provenance. |
-| `--no-shell` / `--allow-bin` / `--env` | The AI's "what this needs" section is generated by running the draft through the scan analyzer. The user sees the recommended-tightest flags before saving. |
-| MCP server (`perch-mcp`) | Future: a perch-mcp tool could itself be one of the LLM providers — i.e., perch hosting AI assistance for a parent LLM. Out of scope for v1. |
-| `perch present` | A reviewer reading a file written with AI assistance sees the AI header comments inline. Provenance is part of the file. |
+| `perch://skill` | `skills/perch/SKILL.md` — the authoring guide |
+| `perch://op-catalog` | `docs/op-reference.md` — every built-in op |
+| `perch://language` | `docs/language.md` — the grammar reference |
+| `perch://file/<path>` | The named `.perch` file's source |
 
-The AI layer is additive, not load-bearing. Everything still works without it.
+Resources are the MCP-native way to hand "background context" to a model. They cost the agent zero per-request bandwidth once cached and they let the agent load the right docs *as needed* rather than having SKILL.md inflated into every system prompt.
 
 ---
 
-## 10. Summary
+## 5. What changes inside perch-mcp
 
-**One paragraph:**
+The existing `cmd/perch-mcp/` binary already handles MCP framing (JSON-RPC over stdio, content-length framed). It currently registers two tools. We add the seven above + four resources. Everything else stays the same.
 
-> The web UI gets a "+ Compose with AI" panel. Users type natural language; the AI emits a `.perch` snippet that's validated by `--check`, previewed via the `--scan` analyzer, and only saved after the user clicks Apply on a side-by-side diff. The AI never runs code, never sees data outside the file, and never operates without the user's own API key. SKILL.md is the system prompt across modes (Compose / Refine / Explain / Audit). A local-model option (Ollama) makes the whole feature offline-capable. Every AI-saved block carries an in-file comment header so the provenance lives with the file forever. Default-off; opt-in via `~/.config/perch/ai.toml`. ~1,500 LOC over four 2–3-day phases. Phase 1 is one provider (Anthropic), one mode (Compose), and a working save flow gated by `--check`.
+Concrete code shape:
 
-That's the design. Open questions in the [UX report's §7](user-experience.md#7-open-questions) about i18n / accessibility / telemetry / multi-user web UI auth all apply here too. Feedback welcome on the [tracking issue](https://github.com/luowensheng/perch/issues).
+```
+cmd/perch-mcp/
+    main.go            unchanged — wiring
+    tools/
+        list.go        existing — perch_list
+        run.go         existing — perch_run
+        read_file.go   NEW
+        write_draft.go NEW
+        check.go       NEW (calls usecases/validate)
+        scan.go        NEW (calls usecases/scan)
+        present.go     NEW (renders the scan + per-command help into prose)
+        diff.go        NEW
+        apply_draft.go NEW
+    resources/
+        skill.go       NEW (returns embedded skills/perch/SKILL.md)
+        ops.go         NEW (returns embedded docs/op-reference.md)
+        language.go    NEW (returns embedded docs/language.md)
+        file.go        NEW (reads requested .perch from disk)
+```
+
+Estimated ~600 LOC. About a day-and-a-half of focused work.
+
+### Safety invariants enforced by the server
+
+The MCP layer enforces a few things the agent can't bypass even if it wants to:
+
+- **No execution from authoring tools.** `perch_write_draft` writes to `*.draft` only. `perch_apply_draft` is the only path to the live file, and it explicitly checks the draft `--check`-passes before renaming.
+- **The agent can read its workspace, not the whole disk.** `perch_read_file` and `perch://file/<path>` reject paths outside the workspace root (configurable via `perch-mcp --workspace DIR`, default = cwd).
+- **No new running of perch commands during authoring.** `perch_run` exists, but the agent should not call it on a freshly-authored command without the user explicitly asking. We can't enforce that in code, but we can document it as a sharp edge for any MCP-client author reading our docs.
+
+---
+
+## 6. What happens on the user's screen
+
+Two real workflows the design supports:
+
+### 6.1 Claude Desktop user
+
+1. User runs Claude Desktop with `perch-mcp` configured in `claude_desktop_config.json`.
+2. User opens a chat: *"Add a command to back up postgres weekly."*
+3. Claude (the assistant inside Claude Desktop) does the 9-step flow in §3.
+4. Claude shows the user the generated command + the scan analysis + the diff *in the chat*. This is the Claude Desktop UI doing its native job — perch isn't involved in rendering.
+5. User clicks "Approve" (Claude Desktop's UI element). Claude calls `perch_apply_draft`. Done.
+
+### 6.2 perch --server user, wanting AI assistance
+
+This is the case from the earlier (now-superseded) draft. The right answer here is:
+
+**Recommend Claude Desktop running alongside `perch --server`.**
+
+The user has two windows open: Claude Desktop for chat + AI, perch's web UI for clicking buttons to run commands. Both connect to perch-mcp; both see the same `.perch` file; changes Claude makes appear in perch's web UI on the next refresh. The user gets:
+
+- A polished chat UI for prompting (Claude Desktop's job)
+- A polished command-runner UI for invoking (`perch --server`'s job)
+- Synchronisation through the file (which is where state belongs)
+
+What we explicitly do NOT do: embed a chat panel inside `perch --server`. That would require perch to take on LLM client code, key management, provider adapters — exactly the design we just rejected.
+
+If a user wants a single-window AI experience in their browser, the right path is for Claude Desktop / similar to ship a web UI mode, or for someone to build a thin web-MCP-bridge that puts a chat panel in front of any MCP server. That's a separate project; not perch's concern.
+
+---
+
+## 7. What this saves us
+
+Compared to the discarded "AI in perch" design:
+
+| Concern | Earlier design | This design |
+|---|---|---|
+| LLM provider adapters in perch | 3–4 (Anthropic / OpenAI / Ollama / LM Studio) | **0** |
+| API key handling in perch | required (ai.toml + env var refs) | **none — agent owns it** |
+| System prompt embedded in perch binary | yes (SKILL.md) | exposed as an MCP resource — agent reads when needed |
+| Streaming SSE endpoint in perch's web UI | yes (`/api/ai/compose`) | **none — agent has its own chat UI** |
+| Outbound HTTP from perch to LLM provider | yes | **none — `--no-network` actually means no network** |
+| New panel UI in `server.html` | substantial | none |
+| New use case in `usecases/` | `aiconfig` + provider wiring | none |
+| Per-user opt-in mechanism | `~/.config/perch/ai.toml` | none — the agent's already-configured |
+| LOC of new code | ~1,500 | **~600 (just MCP tools + resources)** |
+| Trust-boundary additions | one (perch → LLM) | **zero** |
+
+The MCP design is strictly less code, strictly less trust surface, strictly more aligned with existing protocols.
+
+---
+
+## 8. Implementation plan
+
+### Phase 1 — Authoring tools (1.5 days)
+
+- `perch_read_file` tool
+- `perch_write_draft` tool (with workspace-root check)
+- `perch_check` tool (wraps `usecases/validate`)
+- `perch_diff` tool (server-rendered)
+- `perch_apply_draft` tool (with --check gate)
+
+**Ship criterion:** an agent connected via MCP can read the file, propose a change, validate it, diff it, and commit it.
+
+### Phase 2 — Analysis tools (0.5 day)
+
+- `perch_scan` tool (wraps `usecases/scan`)
+- `perch_present` tool (wraps `usecases/scan` + `usecases/commandhelp` into prose)
+
+**Ship criterion:** an agent can produce capability + risk reports without running the script.
+
+### Phase 3 — Resources (0.5 day)
+
+- `perch://skill` (embedded SKILL.md)
+- `perch://op-catalog` (embedded op-reference.md)
+- `perch://language` (embedded language.md)
+- `perch://file/<path>` (reads from workspace)
+
+**Ship criterion:** the agent can `read_resource("perch://skill")` and get the authoring guide as context without us inflating any prompts.
+
+### Phase 4 — Documentation + recipes (0.5 day)
+
+- Update [mcp.md](mcp.md) with the seven new tools' schemas.
+- Add a short "authoring with Claude Desktop" walkthrough to the LLM control plane doc.
+- Recipe: a Claude Desktop `mcpServers` entry that points at `perch-mcp` with the workspace flag.
+
+Total ~3 focused days. Half the previously-estimated effort, with a stronger trust story.
+
+---
+
+## 9. What this is NOT
+
+- **It is not an AI feature *in* perch.** perch core gains nothing. `perch` and `perch --server` and `perch-lsp` continue to have no LLM code. The only addition is MCP tools, which are how agents already talk to tools.
+- **It is not autonomous.** The agent still asks the user to approve every change. `perch_apply_draft` exists precisely so there's a human-clicked moment.
+- **It is not bundled.** A user who doesn't use Claude Desktop / Cursor / Zed / any MCP client gets exactly the perch they have today. The MCP server only runs when someone invokes `perch-mcp`.
+- **It is not a chatbot.** Agents make MCP tool calls and read MCP resources. There's no chat protocol inside perch. The chat lives in the agent's host.
+- **It is not a substitute for `--check` / `--scan`.** Those run on the host (via the CLI) and in the agent (via MCP). Same code, same results, same gates. The agent isn't allowed to commit a draft that doesn't pass `--check`.
+
+---
+
+## 10. Composition with existing features
+
+| Existing | Role in this design |
+|---|---|
+| `perch-mcp` | The integration point. Gains 7 tools + 4 resources. |
+| `skills/perch/SKILL.md` | Reused verbatim as the `perch://skill` MCP resource. Same content that helps Claude Code write good perch from a CLI now helps any MCP-connected agent write good perch from any chat. |
+| `usecases/validate` | Wraps to `perch_check` tool. |
+| `usecases/scan` | Wraps to `perch_scan` tool, also feeds `perch_present`. |
+| `usecases/commandhelp` | Feeds `perch_present` (per-command help). |
+| `--audit FILE.ndjson` | Unchanged. The agent's calls go through `perch_run` (existing), which already records to the audit log. |
+| `perch --server` | Unchanged. If the user wants AI alongside it, they open Claude Desktop in another window pointed at the same workspace. |
+
+The authoring-AI story is a layer the agent adds on top, not a layer perch adds inside. That's the architecture choice the earlier draft got wrong and this one gets right.
+
+---
+
+## 11. Summary in one paragraph
+
+**AI-assisted authoring happens entirely in the agent's host.** perch ships zero LLM client code, zero API-key handling, zero outbound LLM HTTP. The agent (Claude Desktop, Cursor, Zed, custom MCP client) uses its own already-configured AI access to compose `.perch` snippets, and connects to `perch-mcp` for the workspace operations — read the file, propose a draft, run `--check` and `--scan`, render a diff, commit after the user approves. SKILL.md, the op catalog, and the language reference are exposed as MCP resources the agent loads on demand. The whole new surface is ~600 LOC of MCP tools that wrap existing `usecases/validate` and `usecases/scan`. The user sees AI assistance in their agent's chat UI; perch sees only tool calls. `--no-network` continues to mean no network, because nothing in perch ever calls a model. That's the design.

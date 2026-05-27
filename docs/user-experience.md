@@ -105,17 +105,13 @@ Each template is a `.perch` file with comments explaining what to fill in. Lives
 
 Effort: small once 5 templates are written. Each template is ~50-80 lines of well-commented `.perch`.
 
-#### B.2 AI assistance — see [ai-assisted-authoring.md](ai-assisted-authoring.md)
+#### B.2 AI assistance — via MCP, see [ai-assisted-authoring.md](ai-assisted-authoring.md)
 
-Two surfaces:
+**perch ships zero LLM client code.** AI-assisted authoring happens in the agent's host (Claude Desktop / Cursor / Zed / any MCP client), which already has model access. perch-mcp gains a handful of authoring tools (`perch_read_file`, `perch_write_draft`, `perch_check`, `perch_scan`, `perch_present`, `perch_diff`, `perch_apply_draft`) and resources (`perch://skill`, `perch://op-catalog`, `perch://language`). The agent reads them, composes a draft using its own LLM, validates via `perch_check`, analyses via `perch_scan`, shows the user a diff in its chat UI, commits on approval.
 
-- **`perch ai "I want a command that backs up my postgres database to S3 weekly"`** — CLI form, shells out to Claude / OpenAI / Ollama (whichever the user configured), seeded with `skills/perch/SKILL.md` as system context, streams back a generated `.perch` snippet.
+This keeps `--no-network` honest, removes a trust boundary, and reuses SKILL.md as the authoring guide the agent loads on demand.
 
-- **"+ Compose with AI" panel inside `perch --server`** — the same engine, exposed to the UI audience. Generated drafts are validated through `--check`, previewed via the `--scan` analyzer, and only saved after the user accepts a side-by-side diff. Headlined as the bigger win because the UI audience is precisely who can't easily reach for AI today.
-
-Both are **opt-in only** (`~/.config/perch/ai.toml`), BYO API key, no telemetry, local-model option via Ollama. Full design report at [ai-assisted-authoring.md](ai-assisted-authoring.md).
-
-Effort: ~1,500 LOC over four 2–3-day phases. Phase 1 = Anthropic provider + Compose mode + save flow gated by `--check`.
+Effort: ~600 LOC total — just MCP tools + resources wrapping the existing `usecases/validate` and `usecases/scan`. Half the previously-estimated effort, much stronger trust story. Full design report at [ai-assisted-authoring.md](ai-assisted-authoring.md).
 
 #### B.3 Snippet expansion (extend the LSP)
 
