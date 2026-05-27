@@ -76,6 +76,14 @@ perch --build -o myapp         # → same file, portable binary
 
 ---
 
+## 📘 New here? → [The complete guide](https://luowensheng.github.io/perch/guide/)
+
+Single document covering everything from "I just installed perch" to "I'm shipping a production application." Install → mental model → every section of the `.perch` file → ~140 ops → block ops → templates → imports → capability model → bundles → WASM → testing → pre-flight → observability → **five end-to-end walkthroughs** (Makefile replacement, self-installing tool, web UI + MCP ops backend, plugin host, CI gate) → distribution → honest limits → quick-reference card.
+
+Read it once and you have the full picture. Bookmark it as your reference.
+
+---
+
 ## Install
 
 ```sh
