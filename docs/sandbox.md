@@ -130,7 +130,42 @@ These two flags are the **CLI side** of the trust model in §2.5. The author can
 
 ---
 
-## 0c. The subprocess escape hatch — and the layered defense
+## 0c. HTTP redirect / SSRF protection (shipped, default-on)
+
+Every URL hit by `http_get`, `http_post`, `http_put`, `http_delete`, `download`, `http_status` is validated — **on the initial request AND on every redirect destination**. Four layers, all default-on, no flag required to enable:
+
+| Default behaviour | What it stops |
+|---|---|
+| Refuse loopback / link-local / RFC 1918 private / IPv6 ULA / unspecified IPs | AWS metadata (`169.254.169.254`), localhost pivot, internal-network pivot |
+| Refuse `https → http` redirect downgrade | scheme downgrade attacks |
+| Cap at 5 redirect hops | redirect bombing |
+| Validate **every** A/AAAA record for the host | DNS rebinding (multi-A response with one private record fails the whole host) |
+
+Plus an opt-in **strict host allowlist** for tight policy:
+
+```sh
+# Only api.github.com and the docker registry are reachable.
+# Any redirect to off-list host is refused (including from a public domain
+# that 30x's to attacker.com).
+perch --allow-host api.github.com,registry.docker.io,*.docker.io deploy
+```
+
+Wildcard rule: `*.example.com` matches a *single* label prefix (`api.example.com` ✓, `a.b.example.com` ✗). Same scoping as TLS SANs and cookies. Add `host:port` for port-specific entries.
+
+**Escape-hatch flags** when you genuinely need a private service or legacy endpoint:
+
+- `--allow-private-ips` — opt out of the SSRF check (only when needed)
+- `--allow-scheme-downgrade` — permit https → http redirects
+- `--max-redirects N` — change the cap (`0` = `--no-redirects`)
+- `--no-redirects` — refuse all redirects
+
+`--allow-host` composes AND-wise with the SSRF guard: a host in the allowlist still has to pass the private-IP check unless `--allow-private-ips` is also set. Both can be relaxed independently.
+
+This is the answer to "what can an HTTP-allowed script actually reach." Combined with `--no-shell`/`--allow-bin` for shell ops, and `--env` for env-var scoping, you have full control over the side-effect surface of an HTTP-using `.perch` file. Critical for the [LLM control plane](llm-control-plane.md) use case where an agent picks the URL — perch makes sure the URL stays on the allowlist.
+
+---
+
+## 0d. The subprocess escape hatch — and the layered defense
 
 The big honest gap in the restriction model: **once you allow `shell`, the subprocess can ignore the rest of your restrictions.** `--no-network` only fences perch's own `http_*` ops; `shell "curl evil.com"` is a different process and goes straight through. Same story for env vars: a bare `shell "echo $SECRET_KEY"` would happily print whatever the host shell process inherits.
 

@@ -452,6 +452,23 @@ perch --restrictions                # discover the full lists
 
 A blocked call returns `op "X" is disabled by --no-Y`. When any restriction is active, perch prints a `🔒 security: ...` banner.
 
+## HTTP destination control (SSRF + host allowlist)
+
+Every HTTP op (`http_get`, `http_post`, `download`, `http_status`) is gated. Default-on, no flag required:
+
+- Refuses requests + redirects to loopback / link-local / RFC 1918 / IPv6 ULA / unspecified IPs (closes the AWS-metadata SSRF, localhost pivot, internal-network pivot).
+- Refuses https → http redirect downgrade.
+- Caps at 5 redirect hops.
+- Validates every A/AAAA record on multi-A responses (DNS-rebinding defense).
+
+Layer **`--allow-host HOST[,HOST...]`** for a strict allowlist. Initial URL AND every redirect destination must match. Wildcards: `*.example.com` matches single-label prefix (`api.example.com` ✓, `a.b.example.com` ✗).
+
+```sh
+perch --allow-host api.github.com,*.docker.io,registry.npmjs.org deploy
+```
+
+Opt-out flags for the genuine cases: `--allow-private-ips`, `--allow-scheme-downgrade`, `--max-redirects N`, `--no-redirects`.
+
 ## Closing the subprocess escape hatch
 
 Restrictions only fence perch's *own* op dispatch. A `shell` subprocess can ignore `--no-network`/`--env` by calling `curl` / reading `$SECRET` directly. Three layers of mitigation, compose as needed:

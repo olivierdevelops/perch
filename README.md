@@ -122,6 +122,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Five frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), steppable in a REPL (`--shell`), exposed to AI agents via MCP (`perch-mcp`), and runnable as an executable script (`#!/usr/bin/env perch` shebang).
 4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
+5. **Default-on hardening for HTTP.** `http_get` / `http_post` / `download` refuse private-IP destinations (AWS metadata, localhost pivot, RFC 1918), refuse https→http redirect downgrades, cap at 5 redirect hops, validate every A/AAAA record (DNS rebinding defense), and accept a strict `--allow-host` allowlist that re-validates each redirect target. Combined with `--no-shell` / `--no-network` / `--env` / `--audit`, perch is a defensible execution surface for scripts you'd hand to an AI agent.
 
 ---
 

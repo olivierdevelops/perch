@@ -70,6 +70,7 @@ perch's version is the same idea, scoped to the op catalog:
 | `--no-shell` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell` |
 | `--no-subprocess` | `pkg_install`, `pkg_uninstall`, `kill_by_name`, `process_running`, `bin_version`, `os_version` |
 | `--no-network` | every `http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces` |
+| `--allow-host HOST` | (when network is on) restrict HTTP to a domain allowlist — initial URL AND every redirect destination checked. Wildcard `*.x.com` matches single-label prefix. Composes AND-wise with the default-on SSRF guard (no loopback / link-local / private / IPv6 ULA, no https→http downgrade, max 5 redirect hops). |
 | `--no-write` | every FS-mutation op (write_file, append_*, cp, mv, rm, mkdir, chmod, touch, copy_dir, archive create/extract, symlink, …) |
 | `--allow-bin git,docker` | shell still works, but only with the listed binaries (basename-matched) |
 | `--no-shell-metachars` | shell still works, but no `|`, `>`, `<`, `&`, `;`, `` ` ``, `$(` |

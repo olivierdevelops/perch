@@ -157,6 +157,14 @@ When the agent tries something you didn't declare, there's no defensible-by-defa
     env var ${SECRET_AWS_KEY} is not in --env allowlist (declare with --env SECRET_AWS_KEY)
     ```
 
+6. **HTTP destination is off-allowlist** (agent crafts a URL pointing at a host you never approved) →
+
+    ```
+    host "attacker.com" is not in --allow-host allowlist (allowed: api.github.com, *.docker.io)
+    ```
+
+    Even a 30x redirect from `api.github.com` to `attacker.com` is refused — every redirect destination is re-validated. Combined with the default-on SSRF guard (no AWS metadata, no localhost pivot, no scheme downgrade, max 5 hops, DNS-rebinding multi-A check), the agent can hit only the hosts you declared. This is the critical piece for agents that pick URLs themselves.
+
 Every one of these is a uniform, structured failure. You audit them by reviewing the `.perch` file — not by reading a Go service across 14 files.
 
 ---

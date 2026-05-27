@@ -81,19 +81,30 @@ func newHTTPClient(p interpreter.HTTPPolicy) *http.Client {
 	}
 }
 
-// validateRequestURL is the SSRF gate. Called once on the initial
-// request and again in CheckRedirect for every hop. Resolves the host
-// to its A/AAAA records and rejects if ANY of them lands in a private
-// / loopback / link-local / unspecified range. That last bit
-// (unspecified) catches `http://0.0.0.0/` which routes to localhost
-// on most OSes.
+// validateRequestURL is the SSRF + host-allowlist gate. Called once on
+// the initial request and again in CheckRedirect for every hop. Two
+// independent checks compose AND-wise:
+//
+//   1. Host allowlist (when set) — every URL host (or host:port) must
+//      match an entry. Redirects to a host not on the list are refused.
+//   2. SSRF — resolve host to A/AAAA records, reject if ANY land in a
+//      private / loopback / link-local / unspecified range. Defense
+//      against DNS rebinding (multi-A responses) included.
 func validateRequestURL(u *url.URL, p interpreter.HTTPPolicy) error {
-	if p.AllowPrivateIPs {
-		return nil
-	}
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("empty host in URL %q", u)
+	}
+	// 1. Host allowlist (most restrictive — checked first).
+	if len(p.AllowedHosts) > 0 && !hostInAllowlist(u, p.AllowedHosts) {
+		return fmt.Errorf(
+			"host %q is not in --allow-host allowlist (allowed: %s)",
+			u.Host, strings.Join(p.AllowedHosts, ", "),
+		)
+	}
+	// 2. SSRF — skipped only when --allow-private-ips is explicit.
+	if p.AllowPrivateIPs {
+		return nil
 	}
 	// Literal IP — check directly without a DNS round trip.
 	if ip := net.ParseIP(host); ip != nil {
@@ -117,6 +128,66 @@ func validateRequestURL(u *url.URL, p interpreter.HTTPPolicy) error {
 		}
 	}
 	return nil
+}
+
+// hostInAllowlist reports whether the URL's host (or host:port if the
+// allowlist has port-specific entries) matches any allowlist entry.
+//
+// Match rules (each entry tried independently — first match wins):
+//
+//   - exact:           `api.github.com`     ↔ api.github.com
+//   - single-label *:  `*.example.com`      ↔ api.example.com (NOT a.b.example.com)
+//   - host:port:       `localhost:8080`     ↔ localhost on port 8080 only
+//   - IP literal:      `10.0.0.1`           ↔ that exact IP
+//
+// Comparison is case-insensitive on the host. Port comparison is exact.
+func hostInAllowlist(u *url.URL, allow []string) bool {
+	hostLower := strings.ToLower(u.Hostname())
+	port := u.Port()
+	hostPort := strings.ToLower(u.Host) // includes port if present
+	for _, pat := range allow {
+		pat = strings.ToLower(strings.TrimSpace(pat))
+		if pat == "" {
+			continue
+		}
+		// host:port entry — require exact match on both
+		if strings.Contains(pat, ":") && !strings.HasPrefix(pat, "[") {
+			// Strip [ipv6] brackets from caller for comparison
+			if pat == hostPort {
+				return true
+			}
+			continue
+		}
+		// host-only entry: match against host, ignore the URL's port
+		if hostMatchesPattern(pat, hostLower) {
+			return true
+		}
+		// If allowlist entry has no port, port part is unrestricted —
+		// already handled by hostMatchesPattern.
+		_ = port
+	}
+	return false
+}
+
+// hostMatchesPattern handles the exact + single-label-wildcard cases.
+// `*.example.com` matches `api.example.com` but NOT `a.b.example.com`
+// (cookie-style single-label scoping — the safer default).
+func hostMatchesPattern(pattern, host string) bool {
+	if pattern == host {
+		return true
+	}
+	if !strings.HasPrefix(pattern, "*.") {
+		return false
+	}
+	suffix := pattern[1:] // includes the leading "."
+	if !strings.HasSuffix(host, suffix) {
+		return false
+	}
+	prefix := host[:len(host)-len(suffix)]
+	if prefix == "" || strings.Contains(prefix, ".") {
+		return false // empty prefix or multi-label prefix
+	}
+	return true
 }
 
 // privateIPCategory returns a non-empty descriptive string when the IP

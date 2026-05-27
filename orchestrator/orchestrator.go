@@ -117,14 +117,23 @@ func Run() {
 	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, httpPolicy, previewMode, stdinUntrusted).Run())
 }
 
-// extractHTTPPolicyFlags strips `--max-redirects N`, `--no-redirects`,
-// `--allow-private-ips`, `--allow-scheme-downgrade`. Returns nil to
-// signal "use the secure defaults" (no explicit flags given) — the
-// caller / http ops handle that case.
+// extractHTTPPolicyFlags strips the HTTP-policy flags from os.Args:
+// `--max-redirects N`, `--no-redirects`, `--allow-private-ips`,
+// `--allow-scheme-downgrade`, `--allow-host HOST[,HOST...]` (additive,
+// repeatable). Returns nil to signal "use the secure defaults" when
+// none were given — the caller / http ops handle that case.
 func extractHTTPPolicyFlags() *interpreter.HTTPPolicy {
 	out := os.Args[:1]
 	pol := interpreter.HTTPPolicy{MaxRedirects: 5} // secure defaults
 	touched := false
+	addHost := func(s string) {
+		for _, h := range strings.Split(s, ",") {
+			h = strings.TrimSpace(h)
+			if h != "" {
+				pol.AllowedHosts = append(pol.AllowedHosts, h)
+			}
+		}
+	}
 	i := 1
 	for i < len(os.Args) {
 		a := os.Args[i]
@@ -139,6 +148,19 @@ func extractHTTPPolicyFlags() *interpreter.HTTPPolicy {
 			i++
 		case a == "--allow-scheme-downgrade":
 			pol.AllowSchemeDowngrade = true
+			touched = true
+			i++
+		case a == "--allow-host":
+			if i+1 < len(os.Args) {
+				addHost(os.Args[i+1])
+				touched = true
+				i += 2
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "--allow-host requires a value (HOST[,HOST...])")
+			os.Exit(2)
+		case strings.HasPrefix(a, "--allow-host="):
+			addHost(a[len("--allow-host="):])
 			touched = true
 			i++
 		case a == "--max-redirects":

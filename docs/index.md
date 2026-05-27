@@ -189,6 +189,11 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
+  <h4>SSRF / redirect protection (default-on)</h4>
+  <p><code>http_get</code>, <code>http_post</code>, <code>download</code>, <code>http_status</code> refuse to dial <strong>loopback / link-local / RFC 1918 / IPv6 ULA / unspecified</strong> addresses by default — closes the AWS-metadata SSRF (<code>169.254.169.254</code>), the localhost pivot, internal-network pivots. Also refuses <strong>https → http redirect downgrades</strong>, caps at <strong>5 hops</strong>, re-validates every redirect target (DNS-rebinding defense — multi-A responses get ALL records checked). Layer <code>--allow-host api.github.com,*.s3.amazonaws.com</code> for a strict host allowlist. <a href="sandbox/">More →</a></p>
+</div>
+
+<div class="card">
   <h4>Composable restrictions</h4>
   <p><code>perch --no-shell --no-network --no-write deploy</code> — each flag says exactly what it disables, and they compose. <code>perch --env HOME,PATH</code> restricts which host env vars resolve via <code>${…}</code>. The banner <code>🔒 security: --no-shell --env HOME,PATH</code> shows posture at a glance. See <a href="sandbox/">sandbox.md</a>.</p>
 </div>
@@ -485,7 +490,45 @@ Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
-**Are HTTP redirects and SSRF handled?** Yes, default-on. `http_get`, `http_post`, `download`, `http_status` all refuse to dial **loopback / link-local / RFC 1918 / IPv6 ULA / unspecified** addresses by default — closes the AWS-metadata SSRF (`169.254.169.254`), the localhost pivot, and the internal-network pivot. They also refuse **https → http redirect downgrades**, cap at **5 redirect hops**, and re-validate every redirect target (DNS rebinding defense — multi-A responses get ALL records checked). Opt-out flags when you actually need private services: `--allow-private-ips`, `--allow-scheme-downgrade`, `--max-redirects N`, `--no-redirects`. Run `perch help --allow-private-ips` for the full story.
+**Are HTTP redirects and SSRF handled?** Yes — four layered protections, all default-on. Plus a strict host allowlist when you want to pin which domains the script can reach.
+
+| Default | What it stops |
+|---|---|
+| Block private-IP requests + redirects | AWS metadata (`169.254.169.254`), localhost pivot, RFC 1918 pivot |
+| Block https → http redirects | scheme downgrade |
+| Cap at 5 redirect hops | redirect bombing |
+| DNS-rebinding defense | multi-A responses get ALL records checked |
+
+**`--allow-host HOST[,HOST...]`** (additive, repeatable) layers a strict allowlist on top. Every initial URL AND every redirect destination must match. Patterns: exact (`api.github.com`), single-label wildcard (`*.s3.amazonaws.com`), host:port (`localhost:8080`), IP literal. Composes AND-wise with the SSRF guard.
+
+```sh
+# Only api.github.com and the docker registry are reachable —
+# anything else returns "host not in --allow-host allowlist".
+perch --allow-host api.github.com,registry.docker.io,*.docker.io deploy
+```
+
+Opt-out flags for the genuine cases: `--allow-private-ips`, `--allow-scheme-downgrade`, `--max-redirects N`, `--no-redirects`. Run `perch help --allow-host` for the full story.
+
+<div class="pterm" id="t-ssrf" data-title="SSRF / allowlist protection"></div>
+<script type="application/json" data-pterm="t-ssrf">
+[
+  {"k":"dim", "t":"# default: refuses private IPs / metadata SSRF"},
+  {"k":"in",  "t":"perch -f script.perch fetch_metadata"},
+  {"k":"err", "t":"169.254.169.254 is a link-local address"},
+  {"k":"err", "t":"(use --allow-private-ips to permit)"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# host allowlist — only github + docker reachable"},
+  {"k":"in",  "t":"perch --allow-host api.github.com,*.docker.io -f script.perch run"},
+  {"k":"out", "t":"github status = 200"},
+  {"k":"err", "t":"host \"evil.com\" is not in --allow-host allowlist"},
+  {"k":"err", "t":"(allowed: api.github.com, *.docker.io)"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# redirect to off-list host — also refused"},
+  {"k":"in",  "t":"perch --allow-host api.github.com -f script.perch via_redirect"},
+  {"k":"err", "t":"redirect refused: host \"attacker.com\" is not in --allow-host"},
+  {"k":"accent","t":"→ EVERY redirect target is re-validated, including DNS-rebinding multi-A"}
+]
+</script>
 
 **Where do I look up what a flag or concept means?** `perch help` — auto-generated reference. Three surfaces share the same catalog:
 

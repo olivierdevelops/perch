@@ -99,6 +99,16 @@ type HTTPPolicy struct {
 	// AllowSchemeDowngrade permits https → http redirects. Off by
 	// default — a 30x downgrade is almost always an attack signal.
 	AllowSchemeDowngrade bool
+	// AllowedHosts, when non-empty, restricts EVERY request URL (and
+	// every redirect destination) to the listed hosts. Patterns:
+	//   - exact:        api.github.com
+	//   - single-label: *.s3.amazonaws.com     (matches api.x.com NOT a.b.x.com)
+	//   - IP literal:   10.0.0.1
+	//   - host:port:    localhost:8080         (port must match exactly)
+	// Composes AND-wise with the SSRF guard — a host in the allowlist
+	// still has to pass the private-IP check unless --allow-private-ips
+	// is also set.
+	AllowedHosts []string
 }
 
 // AfterOp receives each op's outcome after its handler returns. Used by

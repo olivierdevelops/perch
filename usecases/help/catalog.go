@@ -177,6 +177,23 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:    "perch --no-redirects <cmd>",
 	},
 	{
+		Name: "--allow-host", Kind: "flag", Group: "Security",
+		Synopsis: "restrict HTTP requests + redirects to specific hosts",
+		Usage:    "perch --allow-host HOST[,HOST...] <cmd>   (repeatable)",
+		Description: `When set, every URL hit by http_get / http_post / download / http_status — INITIAL request AND every redirect destination — must match an entry. Patterns:
+   - exact:           api.github.com
+   - single-label *:  *.s3.amazonaws.com   (matches api.x.com, NOT a.b.x.com)
+   - host:port:       localhost:8080       (port must match exactly)
+   - IP literal:      10.0.0.1
+Composes AND-wise with the SSRF guard — a host in the allowlist still has to pass the private-IP check unless --allow-private-ips is also set. Multiple --allow-host flags accumulate.`,
+		Examples: []string{
+			"perch --allow-host api.github.com,registry.docker.io deploy",
+			`perch --allow-host "*.example.com" run`,
+			"perch --allow-host localhost:8080 --allow-private-ips dev",
+		},
+		SeeAlso: []string{"--allow-private-ips", "--no-redirects", "--max-redirects"},
+	},
+	{
 		Name: "--allow-private-ips", Kind: "flag", Group: "Security",
 		Synopsis:    "permit HTTP requests / redirects to private IPs",
 		Description: "By default perch refuses to dial any host that resolves to a loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16 — AWS metadata service!), private (RFC 1918 / IPv6 ULA), or unspecified address. Pass this flag when the script needs to talk to a localhost service or your internal network.",
