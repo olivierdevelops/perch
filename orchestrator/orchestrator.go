@@ -9,6 +9,7 @@ package orchestrator
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/luowensheng/perch/infra/interpreter"
 	"github.com/luowensheng/perch/infra/ops"
 	"github.com/luowensheng/perch/infra/preview"
+	"github.com/luowensheng/perch/infra/report"
 
 	"github.com/luowensheng/perch/io/cli"
 	"github.com/luowensheng/perch/usecases/commandhelp"
@@ -36,6 +38,7 @@ import (
 	"github.com/luowensheng/perch/usecases/runcommand"
 	"github.com/luowensheng/perch/usecases/runserver"
 	"github.com/luowensheng/perch/usecases/runshell"
+	"github.com/luowensheng/perch/usecases/runtests"
 	"github.com/luowensheng/perch/usecases/validate"
 )
 
@@ -60,7 +63,7 @@ func Run() {
 	// Skip the global-flag stripping in that case — the help use case
 	// reads os.Args directly.
 	if len(os.Args) >= 2 && os.Args[1] == "help" {
-		os.Exit(buildCLI(ops.Restrictions{}, nil, nil, false, "", 0, nil, "", false).Run())
+		os.Exit(buildCLI(ops.Restrictions{}, nil, nil, false, "", "", false, "", false, 0, nil, "", false).Run())
 	}
 
 	// Global flags are stripped from os.Args before any sub-CLI sees
@@ -71,6 +74,8 @@ func Run() {
 	allowBins, noMeta := extractShellGuards()
 	allow := extractAllowFlags()
 	auditPath := extractAuditFlag()
+	reportPath, reportOn := extractReportFlag()
+	tracePath, traceOn := extractTraceFlag()
 	maxRuntime := extractMaxRuntimeFlag()
 	httpPolicy := extractHTTPPolicyFlags()
 	previewMode := extractPreviewFlags()
@@ -112,9 +117,9 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, httpPolicy, previewMode, stdinUntrusted).Run())
+		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, auditPath, reportPath, reportOn, tracePath, traceOn, maxRuntime, httpPolicy, previewMode, stdinUntrusted).Run())
 	}
-	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, httpPolicy, previewMode, stdinUntrusted).Run())
+	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, reportPath, reportOn, tracePath, traceOn, maxRuntime, httpPolicy, previewMode, stdinUntrusted).Run())
 }
 
 // extractHTTPPolicyFlags strips the HTTP-policy flags from os.Args:
@@ -275,6 +280,87 @@ func extractAuditFlag() string {
 	}
 	os.Args = out
 	return path
+}
+
+// openTraceSink resolves the --trace path to a writable destination.
+// Empty (bare --trace) and "-" both mean stderr. Anything else is a
+// file opened with create+truncate semantics — each run gets a fresh
+// trace, not appended like the audit log.
+func openTraceSink(path string) (io.Writer, func()) {
+	if path == "" || path == "-" {
+		return os.Stderr, func() {}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "--trace: cannot write to %s: %v (falling back to stderr)\n", path, err)
+		return os.Stderr, func() {}
+	}
+	return f, func() { _ = f.Close() }
+}
+
+// openReportSink resolves the --report path to a writable destination.
+// Empty (-report on but no path) and "-" both mean stderr. Anything else
+// is a file path opened with create+truncate semantics — each run gets a
+// fresh tree, not appended like the audit log.
+func openReportSink(path string) (io.Writer, func()) {
+	if path == "" || path == "-" {
+		return os.Stderr, func() {}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "--report: cannot write to %s: %v (falling back to stderr)\n", path, err)
+		return os.Stderr, func() {}
+	}
+	return f, func() { _ = f.Close() }
+}
+
+// extractTraceFlag peels off `--trace` / `--trace=PATH`. Bare `--trace`
+// streams the live op trace to stderr; `--trace=PATH` to a file
+// (`--trace=-` for stdout). Returns ("", false) when not present.
+//
+// The deliberate `=PATH` form (not `--trace PATH`) avoids stealing a
+// command-name argument; matches --report's parsing.
+func extractTraceFlag() (string, bool) {
+	out := os.Args[:1]
+	path := ""
+	on := false
+	for _, a := range os.Args[1:] {
+		switch {
+		case a == "--trace":
+			on = true
+		case strings.HasPrefix(a, "--trace="):
+			on = true
+			path = a[len("--trace="):]
+		default:
+			out = append(out, a)
+		}
+	}
+	os.Args = out
+	return path, on
+}
+
+// extractReportFlag peels off `--report` / `--report=PATH`. Bare
+// `--report` renders to stderr; `--report=PATH` writes to a file (use
+// `--report=-` for stdout). We deliberately don't consume the next
+// argv token as a path — that would steal command names. The `=PATH`
+// form is unambiguous.
+func extractReportFlag() (string, bool) {
+	out := os.Args[:1]
+	path := ""
+	on := false
+	for _, a := range os.Args[1:] {
+		switch {
+		case a == "--report":
+			on = true
+		case strings.HasPrefix(a, "--report="):
+			on = true
+			path = a[len("--report="):]
+		default:
+			out = append(out, a)
+		}
+	}
+	os.Args = out
+	return path, on
 }
 
 // extractMaxRuntimeFlag peels off `--max-runtime SECS` / `--max-runtime=SECS`.
@@ -550,9 +636,48 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, httpPolicy *interpreter.HTTPPolicy, previewMode string, stdinUntrusted bool) *cli.CLI {
+// runTestFnFor constructs the per-test runner closure shared by both
+// buildCLI and buildEmbeddedCLI. Each test gets its own handler map
+// (the runner can layer no_shell / no_network / no_subprocess for THIS
+// test only without leaking into the next), its own interpreter, and
+// its own deadline. Stdout/stderr are routed to the supplied writer so
+// the runner can capture per-test output for verbose + failure views.
+func runTestFnFor(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, httpPolicy *interpreter.HTTPPolicy) runtests.RunTestFn {
+	return func(p *domain.Program, name string, sb runtests.TestSandbox, out io.Writer) error {
+		testHandlers := ops.AllHandlers()
+		testRestrictions := ops.Restrictions{
+			NoShell:      r.NoShell || sb.NoShell,
+			NoSubprocess: r.NoSubprocess || sb.NoSubprocess,
+			NoNetwork:    r.NoNetwork || sb.NoNetwork,
+			NoWrite:      r.NoWrite || sb.NoWrite,
+		}
+		ops.ApplyRestrictions(testHandlers, testRestrictions)
+		ops.ApplyMaskGating(testHandlers)
+		ti := interpreter.New(testHandlers, p)
+		ti.Stdout = out
+		ti.Stderr = out
+		ti.EnvAllowlist = envAllow
+		ti.AllowedShellBins = allowBins
+		ti.NoShellMetachars = noMeta
+		ti.HTTPPolicy = httpPolicy
+		if sb.Timeout > 0 {
+			ti.Deadline = time.Now().Add(sb.Timeout)
+		}
+		prevCwd, _ := os.Getwd()
+		if sb.Cwd != "" && sb.Cwd != prevCwd {
+			if err := os.Chdir(sb.Cwd); err != nil {
+				return fmt.Errorf("test sandbox: chdir %s: %w", sb.Cwd, err)
+			}
+			defer func() { _ = os.Chdir(prevCwd) }()
+		}
+		return ti.RunPrivate(name, nil)
+	}
+}
+
+func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, reportPath string, reportOn bool, tracePath string, traceOn bool, maxRuntime time.Duration, httpPolicy *interpreter.HTTPPolicy, previewMode string, stdinUntrusted bool) *cli.CLI {
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
+	ops.ApplyMaskGating(handlers)
 	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime, stdinUntrusted)
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
@@ -573,9 +698,32 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 			}
 			auditDone = sink.WireInto(i, name, args)
 		}
+		var rec *report.Recorder
+		var traceCloser func()
+		if reportOn {
+			rec = report.NewRecorder()
+			rec.SetRoot(name)
+			i.Tracer = rec
+		} else if traceOn {
+			// --trace streams every op to a writer the moment it
+			// fires (Before) and finishes (After). Mutually exclusive
+			// with --report which builds the tree for post-run
+			// rendering — they share the Tracer slot.
+			var tw io.Writer
+			tw, traceCloser = openTraceSink(tracePath)
+			i.Tracer = report.NewLiveTracer(tw)
+		}
 		err := i.Run(name, args)
 		if auditDone != nil {
 			auditDone(err)
+		}
+		if rec != nil {
+			rec.Finish(err)
+			out, _ := openReportSink(reportPath)
+			rec.Render(out)
+		}
+		if traceCloser != nil {
+			traceCloser()
 		}
 		return err
 	}
@@ -616,6 +764,7 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
 		Help:          &help.Impl{Version: Version},
+		Test: &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
 	}
 
 	return &cli.CLI{
@@ -629,10 +778,11 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, httpPolicy *interpreter.HTTPPolicy, previewMode string, stdinUntrusted bool) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, reportPath string, reportOn bool, tracePath string, traceOn bool, maxRuntime time.Duration, httpPolicy *interpreter.HTTPPolicy, previewMode string, stdinUntrusted bool) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
+	ops.ApplyMaskGating(handlers)
 	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime, stdinUntrusted)
 	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
@@ -657,9 +807,32 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 			}
 			auditDone = sink.WireInto(i, name, args)
 		}
+		var rec *report.Recorder
+		var traceCloser func()
+		if reportOn {
+			rec = report.NewRecorder()
+			rec.SetRoot(name)
+			i.Tracer = rec
+		} else if traceOn {
+			// --trace streams every op to a writer the moment it
+			// fires (Before) and finishes (After). Mutually exclusive
+			// with --report which builds the tree for post-run
+			// rendering — they share the Tracer slot.
+			var tw io.Writer
+			tw, traceCloser = openTraceSink(tracePath)
+			i.Tracer = report.NewLiveTracer(tw)
+		}
 		err := i.Run(name, args)
 		if auditDone != nil {
 			auditDone(err)
+		}
+		if rec != nil {
+			rec.Finish(err)
+			out, _ := openReportSink(reportPath)
+			rec.Render(out)
+		}
+		if traceCloser != nil {
+			traceCloser()
 		}
 		return err
 	}
@@ -698,6 +871,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
 		Help:          &help.Impl{Version: Version},
+		Test: &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
 	}
 
 	version := p.Version

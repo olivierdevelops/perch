@@ -28,13 +28,43 @@ import (
 
 // DryRunHook returns a BeforeOp that prints every op and returns ActSkip,
 // so nothing actually executes. Use with --dry-run.
+//
+// Block ops (`if`, `parallel`, `retry`, `cache`, `sandbox`, …) have their
+// bodies expanded inline as an indented sub-tree so the user sees EVERY
+// op that could fire, not just the block headers. The displayed args are
+// the already-interpolated values for THIS op; nested ops' args are
+// shown verbatim (their interpolation hasn't run yet since the body
+// wasn't dispatched).
 func DryRunHook(out io.Writer) interpreter.BeforeOp {
 	step := 0
 	return func(op domain.Op, args map[string]any, b *interpreter.Bindings) interpreter.OpAction {
 		step++
 		fmt.Fprintf(out, "  [%d] %s\n", step, formatOp(op, args))
+		if op.IsBlock() && len(op.Body) > 0 {
+			for _, child := range op.Body {
+				printTree(out, child, "        ")
+			}
+		}
 		return interpreter.ActSkip
 	}
+}
+
+// printTree renders one op + its (possibly nested) body without
+// interpolation. Used by --dry-run to expand block bodies that the
+// interpreter would otherwise skip past.
+func printTree(out io.Writer, op domain.Op, indent string) {
+	fmt.Fprintf(out, "%s%s\n", indent, formatOpRaw(op))
+	if len(op.Body) > 0 {
+		for _, child := range op.Body {
+			printTree(out, child, indent+"   ")
+		}
+	}
+}
+
+// formatOpRaw is formatOp without the step number prefix, for nested
+// body printing where steps don't apply (the body might never fire).
+func formatOpRaw(op domain.Op) string {
+	return formatOp(op, op.Args)
 }
 
 // AskHook returns a BeforeOp that prints each op and prompts y/n/a/q.
