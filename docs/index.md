@@ -485,6 +485,8 @@ Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
+**Are HTTP redirects and SSRF handled?** Yes, default-on. `http_get`, `http_post`, `download`, `http_status` all refuse to dial **loopback / link-local / RFC 1918 / IPv6 ULA / unspecified** addresses by default — closes the AWS-metadata SSRF (`169.254.169.254`), the localhost pivot, and the internal-network pivot. They also refuse **https → http redirect downgrades**, cap at **5 redirect hops**, and re-validate every redirect target (DNS rebinding defense — multi-A responses get ALL records checked). Opt-out flags when you actually need private services: `--allow-private-ips`, `--allow-scheme-downgrade`, `--max-redirects N`, `--no-redirects`. Run `perch help --allow-private-ips` for the full story.
+
 **Where do I look up what a flag or concept means?** `perch help` — auto-generated reference. Three surfaces share the same catalog:
 
 ```sh

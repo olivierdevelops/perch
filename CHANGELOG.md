@@ -23,6 +23,18 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **SSRF / redirect protection on `http_*` / `download` — default-on.** Closed the classic redirect-following attack surface (SSRF to AWS metadata, pivot to local services, https→http downgrade).
+  - **Default behaviour, no flag needed:**
+    - Requests + redirect destinations are validated. The host (or every A/AAAA record it resolves to) must not be loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16` — the AWS / GCP / Azure metadata service), RFC 1918 private (`10/8`, `172.16/12`, `192.168/16`), IPv6 ULA (`fc00::/7`), unspecified (`0.0.0.0`, `::`), or multicast. Closes SSRF.
+    - `https://X` redirecting to `http://Y` is refused. Closes scheme downgrade.
+    - Cap of **5** redirect hops.
+  - **Escape-hatch flags** for when the script genuinely needs to reach a private service:
+    - `--allow-private-ips` — opt out of the SSRF check.
+    - `--allow-scheme-downgrade` — opt out of the https-only redirect rule.
+    - `--max-redirects N` — change the cap (`0` ≡ `--no-redirects`).
+    - `--no-redirects` — refuse all redirects.
+  - DNS-rebinding defense: a hostname with multiple A records gets ALL records checked; any private record makes the host private.
+  - Applies to `http_get`, `http_post`, `http_put`, `http_delete`, `download`, and `http_status` — all converge on a single `runHTTP` helper now.
 - **`perch help` — auto-generated CLI reference.** Single source of truth for every CLI flag, subcommand, and concept, with three surfaces:
   - **`perch help`** — top-level index grouped by Execution / Authoring / Security / Build / Agents / Concepts. Each row is a one-line synopsis with the flag/subcommand name.
   - **`perch help <TOPIC>`** — detail on one item. Topic is matched by exact name first, then substring fuzzy match. `perch help --no-shell`, `perch help shebang`, `perch help interpolation` all work. Multiple matches show a refinement list.

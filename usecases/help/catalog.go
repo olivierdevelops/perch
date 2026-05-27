@@ -164,6 +164,29 @@ When stdin is the source, perch treats the program as untrusted by default
 		Synopsis: "list every --no-* flag with the ops it blocks",
 		Usage:    "perch --restrictions",
 	},
+	{
+		Name: "--max-redirects", Kind: "flag", Group: "Security",
+		Synopsis:    "cap the redirect-follow chain for http_*/download (default 5)",
+		Usage:       "perch --max-redirects N <cmd>",
+		Description: "0 is equivalent to --no-redirects. The cap is enforced before any redirect packet is sent — perch never follows past the cap.",
+		Examples:    []string{"perch --max-redirects 0 -f script.perch run", "perch --max-redirects 2 deploy"},
+	},
+	{
+		Name: "--no-redirects", Kind: "flag", Group: "Security",
+		Synopsis: "refuse to follow any redirect for http_*/download",
+		Usage:    "perch --no-redirects <cmd>",
+	},
+	{
+		Name: "--allow-private-ips", Kind: "flag", Group: "Security",
+		Synopsis:    "permit HTTP requests / redirects to private IPs",
+		Description: "By default perch refuses to dial any host that resolves to a loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16 — AWS metadata service!), private (RFC 1918 / IPv6 ULA), or unspecified address. Pass this flag when the script needs to talk to a localhost service or your internal network.",
+		SeeAlso:     []string{"--no-network", "--allow-scheme-downgrade"},
+	},
+	{
+		Name: "--allow-scheme-downgrade", Kind: "flag", Group: "Security",
+		Synopsis:    "permit https → http redirect chains",
+		Description: "By default a 30x from https://X to http://Y is refused. Pass this flag for legacy endpoints where the downgrade is intentional.",
+	},
 
 	// ─── Security: stdin-only allow flags ─────────────────────────────
 	{

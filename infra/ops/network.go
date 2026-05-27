@@ -94,13 +94,14 @@ func registerNetwork(m map[string]interpreter.Handler) {
 		return false, nil
 	}
 	m["http_status"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		url := argString(args, "url", "_0")
-		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequestWithContext(context.Background(), "HEAD", url, nil)
+		urlStr := argString(args, "url", "_0")
+		req, err := http.NewRequestWithContext(context.Background(), "HEAD", urlStr, nil)
 		if err != nil {
 			return 0, err
 		}
-		resp, err := client.Do(req)
+		// Reuse the same policy-aware client as http_get / http_post:
+		// SSRF check, redirect cap, scheme-downgrade guard.
+		resp, err := runHTTP(i, req)
 		if err != nil {
 			return 0, nil
 		}

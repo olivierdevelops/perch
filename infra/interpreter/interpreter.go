@@ -79,6 +79,26 @@ type Interpreter struct {
 	// can't be interrupted mid-call, but the NEXT op after it returns
 	// ErrTimeout. Set by `--max-runtime SECS`.
 	Deadline time.Time
+	// HTTPPolicy governs http_get / http_post / download redirect and
+	// destination behaviour. nil = secure defaults (no private IPs, no
+	// scheme downgrade, max 5 hops). Set by `--max-redirects`,
+	// `--no-redirects`, `--allow-private-ips`, `--allow-scheme-downgrade`.
+	HTTPPolicy *HTTPPolicy
+}
+
+// HTTPPolicy gates which URLs perch's HTTP ops will dial and which
+// redirects they'll follow. See infra/ops/http.go for the enforcement.
+type HTTPPolicy struct {
+	// MaxRedirects caps the redirect chain. 0 = refuse any redirect.
+	MaxRedirects int
+	// AllowPrivateIPs disables the SSRF guard. With this off (default),
+	// perch refuses to dial any host that resolves to a private /
+	// loopback / link-local / unspecified IP — closes the AWS-metadata
+	// SSRF and the localhost-pivot.
+	AllowPrivateIPs bool
+	// AllowSchemeDowngrade permits https → http redirects. Off by
+	// default — a 30x downgrade is almost always an attack signal.
+	AllowSchemeDowngrade bool
 }
 
 // AfterOp receives each op's outcome after its handler returns. Used by
