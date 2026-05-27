@@ -144,9 +144,9 @@ end
 command release
     description "Cross-compile for all three OSes"
     do
-        run build_for target:"darwin"
-        run build_for target:"linux"
-        run build_for target:"windows"
+        run build_for "-target=darwin"
+        run build_for "-target=linux"
+        run build_for "-target=windows"
     end
 end
 ```

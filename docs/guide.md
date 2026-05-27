@@ -288,7 +288,7 @@ perch deploy us-east-1 -bake=15
 perch build --help
 
 # Cross-command call (inside a body)
-run other_command  arg1:"x"  arg2:"y"
+run other_command "-arg1=x"  arg2:"y"
 ```
 
 ---
@@ -607,7 +607,7 @@ rescue err
         case http_4xx
             print "bad request: ${err.code}"
         case http_ssrf_blocked
-            run alert msg:"security: ${err.detail}"
+            run alert "-msg=security: ${err.detail}"
         else
             throw "${err.message}"     # unknown — re-raise
     end
@@ -722,7 +722,7 @@ command release_with_cleanup
         # Set up state...
         shell "build-and-test ${tmp}"   # might fail
         # If we get here, build succeeded:
-        run _release_publish target_dir:"${tmp}"
+        run _release_publish "-target_dir=${tmp}"
         rm "${tmp}"
     end
 end
@@ -2158,9 +2158,9 @@ command run_all
     description "Apply every plugin in parallel"
     do
         parallel max=3
-            run run_plugin plugin:"tax"
-            run run_plugin plugin:"discount"
-            run run_plugin plugin:"shipping"
+            run run_plugin "-plugin=tax"
+            run run_plugin "-plugin=discount"
+            run run_plugin "-plugin=shipping"
         end
     end
 end
@@ -2322,7 +2322,7 @@ command backup
         end
 
         # Local retention: keep 14 most recent
-        run prune_local engine:"${engine}" keep:"14"
+        run prune_local "-engine=${engine}" keep:"14"
     end
 end
 
@@ -2403,10 +2403,10 @@ command test_roundtrip
     do
         let tmp = mktemp_dir
         shell "sqlite3 ${tmp}/src.db 'CREATE TABLE t(x); INSERT INTO t VALUES(42);'"
-        run backup engine:"sqlite" conn:"${tmp}/src.db" label:"test"
+        run backup "-engine=sqlite" conn:"${tmp}/src.db" label:"test"
         # Most recent backup wins:
         let latest = shell_output "ls -1t ${BACKUP_DIR}/sqlite-test-*.sql.gz* | head -1"
-        run restore engine:"sqlite" conn:"${tmp}/dst.db" path:"${latest}"
+        run restore "-engine=sqlite" conn:"${tmp}/dst.db" path:"${latest}"
         let got = shell_output "sqlite3 ${tmp}/dst.db 'SELECT x FROM t;'"
         assert_eq "${got}" "42"
         rm "${tmp}"
@@ -2452,8 +2452,8 @@ command issue
     do
         call require_bin name:"certbot"
         shell "certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}"
-        run install_to_nginx domain:"${domain}"
-        run alert msg:"issued cert for ${domain}"
+        run install_to_nginx "-domain=${domain}"
+        run alert "-msg=issued cert for ${domain}"
     end
 end
 
@@ -2465,7 +2465,7 @@ command renew
         let after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         if "${before}" != "${after}"
             shell "nginx -s reload"
-            run alert msg:"renewed cert(s); reloaded nginx"
+            run alert "-msg=renewed cert(s); reloaded nginx"
         end
         if "${before}" == "${after}"
             print "nothing to renew"
@@ -2504,7 +2504,7 @@ command check_expiry
             end
         end
         if "${found}" != ""
-            run alert msg:"certs expiring soon:\n${found}"
+            run alert "-msg=certs expiring soon:\n${found}"
         end
     end
 end
@@ -2587,7 +2587,7 @@ command deploy
         end
 
         # 4. Capability gate by env
-        run _set_kube_context env:"${env}"
+        run _set_kube_context "-env=${env}"
 
         # 5. Diff before apply
         print "── Pending changes for ${env} ──"
@@ -2595,12 +2595,12 @@ command deploy
 
         # 6. Apply
         if "${env}" == "prod"
-            run _alert msg:"deploying ${image} to PROD by ${user}"
+            run _alert "-msg=deploying ${image} to PROD by ${user}"
         end
         shell "helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait"
 
         # 7. Smoke test
-        run smoke env:"${env}"
+        run smoke "-env=${env}"
 
         # 8. Record the deploy
         let stamp = format_time "now" "2006-01-02T15:04:05Z"
@@ -2618,10 +2618,10 @@ command rollback
                 fail "prod rollbacks require -confirm=${PROD_CONFIRM_TOKEN}"
             end
         end
-        run _set_kube_context env:"${env}"
+        run _set_kube_context "-env=${env}"
         shell "helm rollback myapp -n ${env}"
-        run smoke env:"${env}"
-        run _alert msg:"rolled back ${env} (by ${user})"
+        run smoke "-env=${env}"
+        run _alert "-msg=rolled back ${env} (by ${user})"
     end
 end
 
@@ -2718,10 +2718,10 @@ command process
 
         # 2. Skip if cached output matches
         cache key:"${cache_key}" ttl:"24h"
-            run _extract  input:"${input}"
+            run _extract "-input=${input}"
             run _transform
             run _validate
-            run _load output:"${output}"
+            run _load "-output=${output}"
         end
         print "✓ pipeline done; output at ${output}"
     end
@@ -2793,7 +2793,7 @@ command serve_pipeline
                 fail "no new files"   # forces retry to wait
             end
             let out = format "./outbox/${user}-$(basename ${in} .csv).json"
-            run process input:"${in}" output:"${out}"
+            run process "-input=${in}" output:"${out}"
             mv "${in}" "./done/"
         end
     end

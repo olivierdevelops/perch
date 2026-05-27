@@ -286,7 +286,35 @@ func opRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]
 	if !ok {
 		return nil, fmt.Errorf("run: unknown command %q", target)
 	}
-	// Re-use the current bindings so ${var} stays visible across calls.
+	// Collect trailing arg tokens (a0, a1, …) emitted by the run_Nargs
+	// grammar overloads. These are CLI-style — `-name=value`,
+	// `-name value`, `--name=value` — and feed the same parseArgs
+	// used by `perch NAME -arg=value` from a shell. Up to 8 args.
+	var cliArgs []string
+	for n := 0; n < 8; n++ {
+		key := fmt.Sprintf("_%d", n)
+		v, present := args[key]
+		if !present {
+			break
+		}
+		s := interpreter.ToStringValue(v)
+		if s == "" {
+			break
+		}
+		cliArgs = append(cliArgs, s)
+	}
+	if len(cliArgs) > 0 {
+		parsed, err := i.ParseCLIArgs(cmd, cliArgs)
+		if err != nil {
+			return nil, fmt.Errorf("run %s: %w", target, err)
+		}
+		// Overlay parsed args onto current bindings — caller's `let`
+		// captures stay visible, the target's declared args get
+		// their CLI-parsed values on top.
+		for k, v := range parsed {
+			b.Set(k, v)
+		}
+	}
 	return nil, i.RunOps(cmd.Ops, b)
 }
 

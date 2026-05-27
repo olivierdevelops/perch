@@ -421,6 +421,13 @@ func (i *Interpreter) checkPlatform(cmd *domain.Command) error {
 	return nil
 }
 
+// ParseCLIArgs exposes the CLI argv → arg-name-map parsing used by Run.
+// Used by `opRun` (in infra/ops) so `run NAME -arg=value` inside a body
+// goes through the same parser as `perch NAME -arg=value` from a shell.
+func (i *Interpreter) ParseCLIArgs(cmd *domain.Command, cliArgs []string) (map[string]any, error) {
+	return i.parseArgs(cmd, cliArgs)
+}
+
 func (i *Interpreter) parseArgs(cmd *domain.Command, cliArgs []string) (map[string]any, error) {
 	out := map[string]any{}
 

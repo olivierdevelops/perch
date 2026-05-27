@@ -418,6 +418,63 @@ function run
 `
 end
 
+# Overloads for `run NAME [args...]`. Trailing tokens are captured as
+# raw strings and re-parsed by the run handler using the SAME CLI flag
+# parser that handles `perch NAME -arg=value` from a shell. Up to 8
+# args supported via priority-ordered overloads (matches the call_*
+# template-call pattern).
+#
+#   run build_for -target=darwin            # one arg (-name=value form)
+#   run deploy   -region=us-east-1 -bake=15  # multiple
+#   run promote  -env staging                # two-token form
+#                                             # (--name and -name both work)
+#
+# Each captured token must be a non-empty `any` literal (string OR an
+# identifier-shaped token). The handler joins them into a []string and
+# feeds parseArgs.
+
+function run_1arg
+    priority 50
+    arg literal "run"
+    arg capture target ident
+    arg capture a0 any
+    write `{"event":"op","kind":"run","args":{"target":${toJSON target},"_0":${a0}}}
+`
+end
+
+function run_2args
+    priority 100
+    arg literal "run"
+    arg capture target ident
+    arg capture a0 any
+    arg capture a1 any
+    write `{"event":"op","kind":"run","args":{"target":${toJSON target},"_0":${a0},"_1":${a1}}}
+`
+end
+
+function run_3args
+    priority 150
+    arg literal "run"
+    arg capture target ident
+    arg capture a0 any
+    arg capture a1 any
+    arg capture a2 any
+    write `{"event":"op","kind":"run","args":{"target":${toJSON target},"_0":${a0},"_1":${a1},"_2":${a2}}}
+`
+end
+
+function run_4args
+    priority 200
+    arg literal "run"
+    arg capture target ident
+    arg capture a0 any
+    arg capture a1 any
+    arg capture a2 any
+    arg capture a3 any
+    write `{"event":"op","kind":"run","args":{"target":${toJSON target},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3}}}
+`
+end
+
 # `run NAMESPACE.COMMAND` — call a command imported under a namespace.
 # Higher priority than the bare-ident form so the dot-separated path
 # is matched first when present.

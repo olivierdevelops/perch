@@ -29,6 +29,22 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Changed (breaking)
 
+- **`run NAME args…` now uses CLI-style flags (`"-name=value"`), not `colon:value`.** The previous docs showed `run build_for target:"darwin"` but the `colon:value` syntax was never actually implemented — `run` was a bare-target-only call and the inner ops just inherited parent bindings. Inconsistent and misleading. Now `run` accepts up to 8 trailing arg tokens that go through the SAME parser as `perch NAME -arg=value` from a shell:
+
+  ```perch
+  run build_for "-target=darwin"
+  run build_for "-target=linux" "-env=prod"
+  run build_for "-target" "windows"      # two-token form also fine
+  ```
+
+  Each arg is a quoted string in the source (capy's `any` capture wants a string literal); the runtime parser is `Interpreter.ParseCLIArgs`, the same one used for top-level CLI invocation. All standard CLI shapes work: `-name=value`, `-name value`, `--name=value`, `--name value`. The target command's declared `arg ... end` specs gate which flags are recognized; unknown flags error out the same way `perch NAME -bogus=x` would.
+
+  Bindings: parsed args overlay onto the parent's bindings (so the caller's `let` captures stay visible alongside the target's args).
+
+  Grammar: four new overloads — `run_1arg` through `run_4args` — at priorities 50/100/150/200, plus the existing bare-target `run`. New exported method `Interpreter.ParseCLIArgs` (`infra/interpreter/interpreter.go`) so the ops package can call the same parser as the CLI front-end.
+
+  Doc migration: every `run NAME arg:"value"` example in `docs/guide.md`, `docs/errors.md`, and `docs/tutorials/01-replace-your-makefile.md` rewritten to `run NAME "-arg=value"`. No demos / recipes were affected (they used bare `run NAME` only). Verified with `mkdocs build --strict` clean.
+
 - **`${proxy_args}` in a `catch` block requires an explicit `proxy_args` modifier.** Previously `${proxy_args}` was always bound inside a catch — meaning `catch unknown ... shell "git ${proxy_args}" end` silently forwarded arbitrary user input to a shell command, the #1 pattern `perch --scan` flags as HIGH risk. Now the catch must opt in:
 
   ```perch
