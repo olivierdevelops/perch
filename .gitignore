@@ -32,3 +32,6 @@ Thumbs.db
 
 # go
 vendor/
+
+# Private design notes — local-only
+ideas/
