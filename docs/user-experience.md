@@ -105,13 +105,17 @@ Each template is a `.perch` file with comments explaining what to fill in. Lives
 
 Effort: small once 5 templates are written. Each template is ~50-80 lines of well-commented `.perch`.
 
-#### B.2 AI assistance (`perch ai`) — design-only for now
+#### B.2 AI assistance — see [ai-assisted-authoring.md](ai-assisted-authoring.md)
 
-`perch ai "I want a command that backs up my postgres database to S3 weekly"` shells out to Claude / OpenAI (whichever the user configured), seeded with `skills/perch/SKILL.md` as system context. Streams back a generated `.perch` snippet, which then drops into the user's file.
+Two surfaces:
 
-This is a separate command and is **opt-in only** — requires the user's API key, never bundled with the binary. The same SKILL.md that helps Claude Code write perch is reused.
+- **`perch ai "I want a command that backs up my postgres database to S3 weekly"`** — CLI form, shells out to Claude / OpenAI / Ollama (whichever the user configured), seeded with `skills/perch/SKILL.md` as system context, streams back a generated `.perch` snippet.
 
-Effort: small if API-only. The interesting part is the prompt template, not the integration.
+- **"+ Compose with AI" panel inside `perch --server`** — the same engine, exposed to the UI audience. Generated drafts are validated through `--check`, previewed via the `--scan` analyzer, and only saved after the user accepts a side-by-side diff. Headlined as the bigger win because the UI audience is precisely who can't easily reach for AI today.
+
+Both are **opt-in only** (`~/.config/perch/ai.toml`), BYO API key, no telemetry, local-model option via Ollama. Full design report at [ai-assisted-authoring.md](ai-assisted-authoring.md).
+
+Effort: ~1,500 LOC over four 2–3-day phases. Phase 1 = Anthropic provider + Compose mode + save flow gated by `--check`.
 
 #### B.3 Snippet expansion (extend the LSP)
 

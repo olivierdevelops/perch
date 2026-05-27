@@ -66,6 +66,7 @@ nav:
   - Migrating from shell scripts: migrating-from-shell.md
   - perch as an OS-in-a-program: os-in-a-program.md
   - UX roadmap (report): user-experience.md
+  - AI-assisted authoring (design): ai-assisted-authoring.md
   - Tutorials:
       - Replace your Makefile: tutorials/01-replace-your-makefile.md
       - Ship a tool: tutorials/02-ship-a-tool.md
