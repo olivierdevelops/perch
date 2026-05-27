@@ -85,9 +85,37 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 	if rawPath == "" {
 		return nil, fmt.Errorf("wasm_run: missing module path")
 	}
-	modulePath := resolve(rawPath, b)
-	if _, err := os.Stat(modulePath); err != nil {
-		return nil, fmt.Errorf("wasm_run: module %q: %w", rawPath, err)
+
+	// Source resolution. Two schemes:
+	//   bundle:PATH  → load bytes directly from the embedded tar.gz. No
+	//                  disk write. Hash cache key is "bundle:<bundleHash>:PATH".
+	//   PATH (any)   → resolve against script_dir, os.Open the file as
+	//                  before. The traditional path.
+	//
+	// The `bundle:` scheme is what makes `perch --build --include … myapp`
+	// fully self-contained — wasm modules are bytes in the binary, never
+	// touch the disk on the target machine.
+	var (
+		modulePath string
+		moduleBytes []byte
+		cacheKey    string
+	)
+	if strings.HasPrefix(rawPath, "bundle:") {
+		entry := strings.TrimPrefix(rawPath, "bundle:")
+		buf, present, err := BundleReadFile(entry)
+		if err != nil {
+			return nil, fmt.Errorf("wasm_run: %w", err)
+		}
+		if !present {
+			return nil, fmt.Errorf("wasm_run: %q references the embedded bundle but this binary has no bundle (build with `perch --build --include <dir>`)", rawPath)
+		}
+		moduleBytes = buf
+		cacheKey = "bundle:" + BundleHash() + ":" + entry
+	} else {
+		modulePath = resolve(rawPath, b)
+		if _, err := os.Stat(modulePath); err != nil {
+			return nil, fmt.Errorf("wasm_run: module %q: %w", rawPath, err)
+		}
 	}
 
 	// Walk the body to collect capability declarations. The body ops
@@ -122,7 +150,13 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 	}
 
 	// Compile (or fetch from cache).
-	compiled, err := compileWasm(modulePath)
+	var compiled wazero.CompiledModule
+	var err error
+	if moduleBytes != nil {
+		compiled, err = compileWasmBytes(cacheKey, moduleBytes)
+	} else {
+		compiled, err = compileWasm(modulePath)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("wasm_run: compile %q: %w", rawPath, err)
 	}
@@ -202,23 +236,29 @@ func compileWasm(path string) (wazero.CompiledModule, error) {
 	if err != nil {
 		return nil, err
 	}
+	return compileWasmBytes(hash, bytes)
+}
+
+// compileWasmBytes compiles a module from an in-memory buffer, keyed by
+// the supplied cache key. The key should already incorporate enough
+// identity to make collisions impossible — `compileWasm` uses the file
+// content's sha256; the bundle path uses "bundle:<bundleHash>:<entry>".
+func compileWasmBytes(cacheKey string, moduleBytes []byte) (wazero.CompiledModule, error) {
 	wasmCacheMu.Lock()
 	defer wasmCacheMu.Unlock()
-	if cached, ok := wasmCompiled[hash]; ok {
+	if cached, ok := wasmCompiled[cacheKey]; ok {
 		return cached, nil
 	}
-	// Lazily construct the runtime so the wazero overhead doesn't hit
-	// programs that never touch wasm.
 	if wasmRuntime == nil {
 		ctx := context.Background()
 		wasmRuntime = wazero.NewRuntime(ctx)
 		wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
 	}
-	compiled, err := wasmRuntime.CompileModule(context.Background(), bytes)
+	compiled, err := wasmRuntime.CompileModule(context.Background(), moduleBytes)
 	if err != nil {
 		return nil, err
 	}
-	wasmCompiled[hash] = compiled
+	wasmCompiled[cacheKey] = compiled
 	return compiled, nil
 }
 

@@ -100,6 +100,64 @@ func registerBundle(m map[string]interpreter.Handler) {
 	}
 }
 
+// BundleReadFile streams the embedded tar.gz looking for a single entry
+// matching `path` (relative to the bundle root, no leading slash, no
+// `..` segments) and returns its bytes. Used by `wasm_run "bundle:…"`
+// to run modules directly from the embedded archive without extracting
+// to disk. Returns (nil, false, nil) if no bundle is loaded;
+// (nil, true, err) if the bundle is present but the path isn't found
+// or read failed.
+func BundleReadFile(path string) ([]byte, bool, error) {
+	bundleMu.Lock()
+	archive := bundleArchive
+	bundleMu.Unlock()
+	if archive == nil {
+		return nil, false, nil
+	}
+	// Normalize: strip leading "./" and any leading slash; reject ".." segments.
+	path = strings.TrimPrefix(path, "./")
+	path = strings.TrimPrefix(path, "/")
+	if strings.Contains(path, "..") {
+		return nil, true, fmt.Errorf("bundle: path traversal rejected: %q", path)
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return nil, true, fmt.Errorf("bundle: gzip: %w", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil, true, fmt.Errorf("bundle: entry %q not found", path)
+		}
+		if err != nil {
+			return nil, true, fmt.Errorf("bundle: tar: %w", err)
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		// Match exact (post-strip) or with a leading "./".
+		name := strings.TrimPrefix(hdr.Name, "./")
+		if name == path {
+			buf := make([]byte, hdr.Size)
+			if _, err := io.ReadFull(tr, buf); err != nil {
+				return nil, true, fmt.Errorf("bundle: read %q: %w", path, err)
+			}
+			return buf, true, nil
+		}
+	}
+}
+
+// BundleHash returns the sha256 of the embedded archive (or "" if none).
+// Used by callers that want to key a cache on the bundle's identity
+// without re-hashing each entry.
+func BundleHash() string {
+	bundleMu.Lock()
+	defer bundleMu.Unlock()
+	return bundleHash
+}
+
 func shortHash(h string) string {
 	if len(h) >= 12 {
 		return h[:12]

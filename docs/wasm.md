@@ -85,6 +85,36 @@ TinyGo, Rust (`cargo build --target wasm32-wasi`), Zig, AssemblyScript,
 and C++ via wasi-sdk all target the same ABI. perch doesn't care which
 toolchain produced the `.wasm` — it just loads and runs it under WASI.
 
+## Loading from the embedded bundle (`bundle:` URI)
+
+When you ship your perch binary with `perch --build --include modules/`, the WASM files live as bytes inside the binary — they never need to land on the target machine's disk. Prefix the module path with `bundle:` to load straight from the embedded archive:
+
+```perch
+command run_plugin
+    do
+        # Loaded from bytes already in the binary — no disk write,
+        # no extract step. Works identically on every OS.
+        wasm_run "bundle:plugins/policy.wasm"
+            wasm_arg "/ro/deploy"
+            wasm_mount_read "./deploy"
+        end
+    end
+end
+```
+
+Build + ship the result as a single executable:
+
+```sh
+perch --build -f commands.perch --include ./modules -o myapp
+./myapp run_plugin        # the .wasm bytes are inside ./myapp
+```
+
+The compiled wazero module is cached keyed by `bundle:<bundleHash>:<entry>`, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, no disk involvement.
+
+**Why this matters.** Recipients of your binary get one executable with every plugin already inside. No `tar -xzf`, no `chmod +x`, no "where did the .wasm files go." Combined with `wasm_run`'s capability gates this is the practical shape of distributing a sandboxed plugin host as one artifact.
+
+The non-`bundle:` form (`wasm_run "./foo.wasm"`) still works — useful during development before you've decided what goes in the bundle.
+
 ## The capability vocabulary
 
 Inside a `wasm_run` block, four declarations control what the module sees:
