@@ -68,16 +68,172 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 ---
 
-## 🪟 No terminal? No problem.
+## 🪟 No terminal? No problem — *especially* in the AI-agent era.
 
-For **support engineers**, **QA**, **product**, **ops**, **the new hire on day one** — anyone who'd rather click than memorise CLI flags:
+> **The honest framing.** As more teams give AI agents access to their infra ("deploy my app", "restart that pod", "check the build"), **non-devs are increasingly downstream of automated work they can't see**. The agent runs, output scrolls in some hidden log, and the human is left guessing what just happened. `perch --server` is the **"shows your work"** companion to `perch-mcp`: the same `.perch` file, but rendered as a tabbed web UI that non-devs can drive themselves, audit before an agent runs it, or open *alongside* the agent to watch each op fire in real time. Same grammar, same capability gates, same audit trail — just clickable.
+
+For **support engineers**, **QA**, **product managers**, **ops on-call**, **the new hire on day one** — anyone who'd rather click than memorise CLI flags:
 
 ```sh
 perch -f commands.perch --server --port 8080
 # → open http://127.0.0.1:8080
 ```
 
-The same `.perch` file becomes a friendly localhost web app. **Five tabs, one file, zero config:**
+### Here's what they see
+
+<style>
+.ui-mockup{font:13px/1.5 -apple-system,ui-sans-serif,system-ui,sans-serif;background:#fafafa;border:1px solid #d4d4d8;border-radius:10px;overflow:hidden;margin:18px 0;box-shadow:0 4px 14px rgba(0,0,0,.06);max-width:920px}
+.ui-mockup .chrome{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#ececef;border-bottom:1px solid #d4d4d8}
+.ui-mockup .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.ui-mockup .dot.r{background:#ff5f57}.ui-mockup .dot.y{background:#febc2e}.ui-mockup .dot.g{background:#28c840}
+.ui-mockup .url{flex:1;background:#fff;border:1px solid #d4d4d8;border-radius:5px;padding:3px 10px;font:11px/1.4 ui-monospace,monospace;color:#555;margin-left:6px}
+.ui-mockup .body{padding:16px 18px}
+.ui-mockup .hdr{display:flex;align-items:center;gap:10px;border-bottom:1px solid #e4e4e7;padding-bottom:10px;margin-bottom:14px}
+.ui-mockup .hdr h3{margin:0;font-size:17px;color:#1c1f26}
+.ui-mockup .hdr .meta{color:#666;font-size:11px}
+.ui-mockup .hdr .meta code{background:#fafafa;padding:1px 5px;border-radius:3px;font-size:10px}
+.ui-mockup .hdr .toggle{margin-left:auto;background:#fff;border:1px solid #d4d4d8;border-radius:5px;padding:3px 8px;font-size:12px}
+.ui-mockup .tabs{display:flex;gap:2px;border-bottom:1px solid #e4e4e7;margin-bottom:14px}
+.ui-mockup .tab{padding:6px 12px;color:#666;font-size:12px;border:1px solid transparent;border-bottom:none;border-radius:5px 5px 0 0}
+.ui-mockup .tab.on{color:#1c1f26;background:#fff;border-color:#e4e4e7;margin-bottom:-1px;padding-bottom:7px}
+.ui-mockup .search{display:block;width:100%;padding:6px 10px;border:1px solid #d4d4d8;background:#fff;border-radius:6px;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#666;margin-bottom:10px}
+.ui-mockup .cmd{border:1px solid #e4e4e7;background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.ui-mockup .cmd h4{margin:0 0 2px;font:13px ui-monospace,monospace;color:#1c1f26;display:flex;align-items:center;gap:6px}
+.ui-mockup .cmd .badge{font-size:9px;padding:1px 5px;border-radius:8px;background:#fafafa;border:1px solid #e4e4e7;color:#666;font-family:-apple-system,system-ui,sans-serif}
+.ui-mockup .cmd .badge.t{color:#d97706;border-color:#fcd34d}
+.ui-mockup .cmd .desc{color:#666;font-size:11px;margin-bottom:6px}
+.ui-mockup .cmd .args{display:grid;grid-template-columns:max-content 1fr max-content;gap:4px 10px;font-size:11px;align-items:center;margin:6px 0}
+.ui-mockup .cmd .args label{font-family:ui-monospace,monospace;color:#1c1f26}
+.ui-mockup .cmd .args input{padding:3px 6px;border:1px solid #d4d4d8;border-radius:4px;font:11px/1.3 ui-monospace,monospace;background:#fff;color:#333}
+.ui-mockup .cmd .args .t{color:#888;font-size:10px}
+.ui-mockup .cmd .actions{display:flex;gap:6px;margin-top:6px}
+.ui-mockup .cmd .btn{padding:3px 12px;font-size:11px;border-radius:5px;border:1px solid;cursor:default}
+.ui-mockup .cmd .btn.run{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.ui-mockup .cmd .btn.ghost{background:transparent;border-color:#d4d4d8;color:#666}
+.ui-mockup .out{background:#0d1117;color:#c9d1d9;padding:8px 10px;border-radius:6px;font:11px/1.45 ui-monospace,monospace;margin-top:8px}
+.ui-mockup .out .ok{color:#3fb950}.ui-mockup .out .er{color:#f85149}.ui-mockup .out .di{color:#8b949e}.ui-mockup .out .hi{color:#7c83f8}
+.ui-mockup .caption{text-align:center;color:#666;font-size:12px;margin-top:-10px;margin-bottom:22px;font-style:italic}
+@media (prefers-color-scheme:dark){
+.ui-mockup{background:#161b22;border-color:#21262d;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.ui-mockup .chrome{background:#0d1117;border-color:#21262d}
+.ui-mockup .url{background:#0d1117;border-color:#21262d;color:#8b949e}
+.ui-mockup .hdr{border-color:#21262d} .ui-mockup .hdr h3{color:#c9d1d9} .ui-mockup .hdr .meta{color:#8b949e}
+.ui-mockup .hdr .meta code,.ui-mockup .hdr .toggle{background:#0d1117;border-color:#21262d;color:#c9d1d9}
+.ui-mockup .tabs{border-color:#21262d} .ui-mockup .tab{color:#8b949e}
+.ui-mockup .tab.on{color:#c9d1d9;background:#161b22;border-color:#21262d}
+.ui-mockup .search{background:#0d1117;border-color:#21262d;color:#8b949e}
+.ui-mockup .cmd{background:#0d1117;border-color:#21262d}
+.ui-mockup .cmd h4{color:#c9d1d9} .ui-mockup .cmd .desc{color:#8b949e}
+.ui-mockup .cmd .badge{background:#161b22;border-color:#21262d;color:#8b949e}
+.ui-mockup .cmd .args label{color:#c9d1d9}
+.ui-mockup .cmd .args input{background:#161b22;border-color:#21262d;color:#c9d1d9}
+.ui-mockup .cmd .btn.ghost{border-color:#21262d;color:#8b949e}
+.ui-mockup .caption{color:#8b949e}
+}
+</style>
+
+<div class="ui-mockup">
+  <div class="chrome">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="url">http://127.0.0.1:8080</span>
+  </div>
+  <div class="body">
+    <div class="hdr">
+      <h3>🪶 deploy</h3>
+      <span class="meta">Production deploy + rollback workflows · v1.2.0 · <code>deploy.perch</code> · 6 commands</span>
+      <span class="toggle">🌓</span>
+    </div>
+    <div class="tabs">
+      <span class="tab on">▶ Run</span>
+      <span class="tab">🧪 Simulate</span>
+      <span class="tab">🔍 Scan</span>
+      <span class="tab">✓ Check</span>
+      <span class="tab">ℹ About</span>
+    </div>
+    <input class="search" value="🔎 Filter commands by name or description…" readonly>
+    <div class="cmd">
+      <h4>deploy_canary <span class="badge">proxy_args</span></h4>
+      <div class="desc">Deploy the current build to one canary region; pin a baking window before promoting.</div>
+      <div class="args">
+        <label>-region</label><input value="us-east-1" readonly><span class="t">string</span>
+        <label>-bake_minutes</label><input type="number" value="15" readonly><span class="t">int</span>
+        <label>-dry_run</label><input type="checkbox" readonly><span class="t">bool</span>
+      </div>
+      <div class="actions">
+        <span class="btn run">Run</span>
+        <span class="btn ghost">Copy as CLI</span>
+      </div>
+      <div class="out">
+<span class="di">[started]</span>
+▸ <span class="hi">if</span> has_bin "kubectl"  → true
+  ✓ <span class="ok">shell "kubectl apply -f canary.yaml -n prod"</span>
+  ✓ <span class="ok">shell "kubectl rollout status deploy/api-canary"</span>
+▸ <span class="hi">retry max=3</span>
+  ✓ <span class="ok">http_get "https://api.example.com/health"</span> → 200
+▸ wait 15m
+<span class="di">[ok] deploy_canary completed in 16m 02s</span>
+      </div>
+    </div>
+    <div class="cmd">
+      <h4>rollback_release <span class="badge t">test-allowed</span></h4>
+      <div class="desc">Revert to the previous tagged release across all regions.</div>
+      <div class="args">
+        <label>-to_tag</label><input value="" readonly><span class="t">string</span>
+      </div>
+      <div class="actions">
+        <span class="btn run">Run</span>
+        <span class="btn ghost">Copy as CLI</span>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">▶ Run tab — type-aware form per command, live NDJSON output, Copy-as-CLI hand-off</p>
+
+<div class="ui-mockup">
+  <div class="chrome">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="url">http://127.0.0.1:8080#simulate</span>
+  </div>
+  <div class="body">
+    <div class="hdr">
+      <h3>🪶 deploy</h3>
+      <span class="meta">Production deploy + rollback workflows · v1.2.0</span>
+      <span class="toggle">🌓</span>
+    </div>
+    <div class="tabs">
+      <span class="tab">▶ Run</span>
+      <span class="tab on">🧪 Simulate</span>
+      <span class="tab">🔍 Scan</span>
+      <span class="tab">✓ Check</span>
+      <span class="tab">ℹ About</span>
+    </div>
+    <div class="cmd">
+      <div class="args">
+        <label>command</label><input value="deploy_canary" readonly><span class="t"></span>
+        <label>--sim-os</label><input value="linux" readonly><span class="t">select</span>
+        <label>--sim-have-bin</label><input value="kubectl,docker,curl" readonly><span class="t">CSV</span>
+        <label>--sim-allow-host</label><input value="api.example.com" readonly><span class="t">CSV</span>
+        <label>fixture JSON</label><input value="{ … oracles + scenarios … }" readonly><span class="t">textarea</span>
+      </div>
+      <div class="actions"><span class="btn run">Simulate</span><span class="badge t" style="margin-left:8px">2 scenarios · 1 will-fail</span></div>
+      <div class="out">
+<span class="hi">═══ Scenario: happy-path ═══</span>
+✓ <span class="ok">if has_bin "kubectl"</span>  oracle: true → body runs
+  ✓ <span class="ok">shell "kubectl apply -f canary.yaml -n prod"</span>
+  ✓ <span class="ok">http_get "https://api.example.com/health"</span>  oracle: 200 OK
+<span class="di">summary: 4 will-run · 0 will-fail · 0 uncertain</span>
+
+<span class="hi">═══ Scenario: kubectl-missing ═══</span>
+✗ <span class="er">if has_bin "kubectl"</span>  oracle: false → body SKIPPED
+✗ <span class="er">fail "deploy requires kubectl"</span>
+<span class="di">1 op(s) would fail across simulated scenarios — CI blocks the PR</span>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="caption">🧪 Simulate tab — "what would happen on the prod host if I ran this?" answered without a terminal</p>
+
+**Five tabs, one file, zero config:**
 
 <div class="perch-features">
 

@@ -88,7 +88,9 @@ irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1
 # https://github.com/luowensheng/perch/releases
 ```
 
-### 🪟 Web UI — no terminal required
+### 🪟 Web UI — no terminal required (and increasingly *the* answer in the AI-agent era)
+
+**Why this matters more in 2026 than it did in 2024.** AI agents now run operational work on behalf of non-technical teammates ("deploy my app", "restart that pod"). The non-dev sees the agent's summary, not the actual ops — so when something goes sideways, they have no surface to investigate on. **`perch --server` is the "shows your work" companion to `perch-mcp`**: open the UI in a tab alongside the agent, watch every op stream in real time, and run pre-flight `simulate` / `scan` yourself before granting the agent a risky verb. Same `.perch` file, two consumers, zero duplicated schemas.
 
 For teammates who don't live in a terminal — support, ops, QA, the new hire on their first day — `perch --server` turns the same `.perch` file into a friendly localhost web app:
 

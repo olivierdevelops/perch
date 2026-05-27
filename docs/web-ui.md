@@ -2,6 +2,32 @@
 
 > **For teammates who don't live in a terminal.** Same `.perch` file, same interpreter, same restrictions — rendered as a friendly localhost web app.
 
+## Why this matters more in 2026 than it did in 2024
+
+The "non-dev runs a runbook" use case used to be niche. With AI agents now executing operational work on behalf of non-technical teammates, it's becoming central — and the *visibility* gap matters more than the *interface* gap.
+
+**The problem with agent-only workflows:**
+
+- An agent receives "deploy my app" and runs five commands. The non-dev sees one sentence of summary.
+- Something went sideways. Was it the build? The auth token? A network policy? The agent says "I ran into an issue" and the human has no surface to investigate on.
+- The non-dev wants to *check* something — "before the agent retries, is the staging env even reachable?" — but checking means a terminal, which means asking an engineer.
+- The agent could in principle answer all of these. In practice, the loop of "ask, wait for the agent to think, parse its reply" is far slower than a 1-second click.
+
+**What perch's web UI adds to that picture:**
+
+| Without the UI | With `perch --server` |
+|---|---|
+| Agent runs `perch_run deploy_canary` via MCP; non-dev sees the agent's summary only | Non-dev opens `http://localhost:8080` **alongside** the agent — every op the agent fires streams into the Run tab live |
+| "Is the API even up before the agent retries?" → ask the agent → wait | Open the **🧪 Simulate** tab → paste a fixture with the API returning 500 → see exactly what would happen |
+| "What does this command actually do?" → trust the agent's description | Open **🔍 Scan** → see every shell call, every host, every write root the command touches, with risk findings |
+| "Can I run this myself instead of asking the agent?" → no | The **▶ Run** tab is literally the same verbs the agent has, just clickable |
+
+The framing: **agents are great at deciding *what* to do; humans want to see *what's happening*.** perch's UI is the transparency surface — the same `.perch` file produces both the agent's MCP tools (via `perch-mcp`) AND the human's audit/run UI (via `--server`). One file, two consumers, no duplicate code, no out-of-sync schemas.
+
+A non-dev with the UI open in a tab can: watch agent-initiated runs in real time, run pre-flight `simulate` / `scan` before granting the agent a risky verb, take over and run a verb themselves when the agent is stuck, copy the verb invocation back as a CLI command for handoff to an engineer.
+
+---
+
 ---
 
 ## TL;DR
