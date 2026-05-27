@@ -196,6 +196,7 @@ end
 # 6. Catch — runs when the user types an unknown command (optional)
 catch unknown
     description "Forward unknown verbs to git, like `gh foo` would"
+    proxy_args                     # required to bind ${proxy_args} in the catch body
     do
         shell "git ${proxy_args}"
     end
@@ -1628,13 +1629,14 @@ Always validate user-supplied identifiers BEFORE interpolating into `shell` stri
 ```perch
 catch unknown
     description "Forward to gh, like a typo-correcting alias"
+    proxy_args                       # required to bind ${proxy_args}
     do
         shell "gh ${proxy_args}"
     end
 end
 ```
 
-Now `perch repo view` → `gh repo view`, etc. Useful for wrapping an existing CLI.
+Now `perch repo view` → `gh repo view`, etc. Useful for wrapping an existing CLI. The `proxy_args` modifier is **required** — without it, `${proxy_args}` is unbound in the catch body and referencing it errors. This makes the catch→shell forwarding pattern explicit instead of accidental.
 
 ### 8. Parallel fan-out with limit
 
@@ -3207,13 +3209,14 @@ print "${result}"   # ERROR: ${result} is unbound here
 
 ```perch
 catch unknown
+    proxy_args                       # explicit opt-in; without this, ${proxy_args} is unbound
     do
-        shell "git ${proxy_args}"   # ← user-controlled string into shell!
+        shell "git ${proxy_args}"    # ← user-controlled string into shell!
     end
 end
 ```
 
-If the user runs `perch '$(rm -rf /)'`, that string lands in `${proxy_args}` verbatim. **Always pair `proxy_args` with `--no-shell-metachars`** at launch, or validate per-arg before shelling.
+The `proxy_args` modifier is now **required** on both `command` and `catch` blocks to bind `${proxy_args}`. Without it, referencing `${proxy_args}` errors with `unresolved_var` — the forwarding intent has to be visible in the source. But even with the modifier declared, you still need to harden the launch: if the user runs `perch '$(rm -rf /)'`, that string lands in `${proxy_args}` verbatim. **Always pair `proxy_args` with `--no-shell-metachars`** at launch, or validate each segment with `regex_match` before shelling.
 
 ### `if exists "${path}"` race
 

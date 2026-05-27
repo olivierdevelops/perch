@@ -271,7 +271,7 @@ This is the application that **most teams will discover first**. Wrapping a know
 
 A close cousin of section 3, but a distinct pattern with its own use case. Instead of *replacing* a tool's UX, you **extend** it: add your team's high-value shortcuts on top while still letting users (and muscle memory) reach the underlying tool for anything else.
 
-Inside `catch`, perch binds the full unknown invocation as `${proxy_args}`. Forward it to the real binary and you have a drop-in superset.
+Inside `catch`, declare the `proxy_args` modifier to bind the full unknown invocation as `${proxy_args}`. Without the modifier, `${proxy_args}` is unbound — the forwarding pattern has to be explicit in the source. Forward it to the real binary and you have a drop-in superset.
 
 ```capy
 name "git"
@@ -307,6 +307,7 @@ end
 
 catch passthrough
     description "Forward unknown commands to real git"
+    proxy_args                       # required to bind ${proxy_args}
     do
         shell "git ${proxy_args}"
     end

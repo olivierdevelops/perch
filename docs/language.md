@@ -86,7 +86,7 @@ end
 | `arg NAME ... end`                | Declares a typed CLI argument. Each property is its own labelled inner line (see below). |
 | `private`                         | Hide from CLI; only callable via `run` from another command. |
 | `detached`                        | Don't wait on processes spawned by `shell_detached`. |
-| `proxy_args`                      | Skip arg parsing; argv comes through as `${proxy_args}`. |
+| `proxy_args`                      | Skip arg parsing; argv comes through as `${proxy_args}`. Required on both `command` and `catch` blocks — without it, `${proxy_args}` is unbound. |
 | `require_os "darwin" ...`         | Refuse to run on other OSes. Repeatable. |
 | `require_arch "arm64" ...`        | Refuse to run on other architectures. |
 | `dir "./subdir"`                  | Set the cwd for the body. |
@@ -194,7 +194,7 @@ See the [op catalog](op-reference.md) for every built-in op.
 
 ## `catch NAME … end`
 
-A fallback dispatched when the user types a command we don't have. The unknown name is bound to `NAME` inside the body. The full unknown invocation (command name + every remaining arg, joined with spaces) is also bound as `${proxy_args}` — this lets `catch` forward to an underlying tool.
+A fallback dispatched when the user types a command we don't have. The unknown name is bound to `NAME` inside the body.
 
 ```capy
 catch unknown
@@ -208,16 +208,19 @@ catch unknown
 end
 ```
 
-**Passthrough pattern** — extend an existing tool with team conventions:
+**Passthrough pattern** — extend an existing tool with team conventions. Requires the `proxy_args` modifier to opt in to receiving the full unknown invocation; without it, `${proxy_args}` is unbound and referencing it errors (prevents the "any unknown verb silently forwards to shell" footgun):
 
 ```capy
 catch passthrough
     description "Forward unknown commands to real git"
+    proxy_args                        # ← required to bind ${proxy_args}
     do
         shell "git ${proxy_args}"
     end
 end
 ```
+
+Without the `proxy_args` modifier, `${proxy_args}` is unbound; a catch that doesn't declare it but references `${proxy_args}` halts with `unresolved_var`. Aligns catch with commands (where the `proxy_args` modifier was already required).
 
 With that catch in place, `./mywrapper status` calls `git status`, `./mywrapper log --oneline -10` calls `git log --oneline -10`, and any custom commands you declare above the catch still take precedence over the underlying tool.
 
