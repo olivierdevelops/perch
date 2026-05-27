@@ -27,6 +27,25 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+### Changed (breaking)
+
+- **`${proxy_args}` in a `catch` block requires an explicit `proxy_args` modifier.** Previously `${proxy_args}` was always bound inside a catch — meaning `catch unknown ... shell "git ${proxy_args}" end` silently forwarded arbitrary user input to a shell command, the #1 pattern `perch --scan` flags as HIGH risk. Now the catch must opt in:
+
+  ```perch
+  catch unknown
+      proxy_args              # ← explicit declaration; without this, ${proxy_args} is unbound
+      do
+          shell "git ${proxy_args}"
+      end
+  end
+  ```
+
+  A catch WITHOUT the modifier that references `${proxy_args}` errors at op-dispatch with `unresolved_var` — the catch→shell forwarding pattern is no longer accidental. Existing catches that DON'T use `${proxy_args}` (just `${unknown}` or other bindings) are unaffected. Commands already required the `proxy_args` modifier; this aligns catch with that pattern.
+
+  Implementation: new `ProxyArgs bool` field on `domain.Catch`; loader recognizes the `proxy_args` modifier line inside catch (was previously silently ignored); interpreter only binds `${proxy_args}` when `Catch.ProxyArgs == true`. Tests: `TestCatchProxyArgs` (with modifier — passes) + new `TestCatchProxyArgsUnboundWithoutModifier` (without modifier — errors cleanly). Both demos that use a catch (`demos/04-portable-cli`, `demos/05-python-installer`) verified unaffected (they only reference `${unknown}`, not `${proxy_args}`).
+
+### Added
+
 - **Bare-ident lhs for `assert_version` + version-aware `if X >= Y`.** Two ergonomic upgrades to version gating: the lhs can now be a bare binding name (no `${...}` interpolation needed), and the existing `if X OP Y` block does semver-aware comparison when both sides look like version strings.
 
   ```perch

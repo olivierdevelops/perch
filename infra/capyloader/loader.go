@@ -874,11 +874,17 @@ func applyConfig(cmd *domain.Command, catch *domain.Catch, ev event) error {
 		return applyConfigToCommand(cmd, ev)
 	}
 	if catch != nil {
-		if ev.Kind == "description" {
+		switch ev.Kind {
+		case "description":
 			catch.Description = asString(ev.Value)
-			return nil
+		case "proxy_args":
+			// Explicit opt-in to binding ${proxy_args} in the catch
+			// body. Without this modifier, ${proxy_args} is unbound
+			// inside the catch and referencing it errors — the
+			// catch→shell forwarding pattern is no longer accidental.
+			catch.ProxyArgs = true
 		}
-		// Catch ignores other config kinds for now.
+		// Other config kinds silently ignored for catch.
 		return nil
 	}
 	return fmt.Errorf("config '%s' outside command/catch", ev.Kind)

@@ -166,6 +166,14 @@ type Catch struct {
 	Bind        string `json:"bind"`        // name of the implicit arg holding the unknown name
 	Description string `json:"description"`
 	Ops         []Op   `json:"ops"`
+	// ProxyArgs, when true, binds `${proxy_args}` in the catch body to
+	// the full unknown invocation (command name + every remaining
+	// argv). When false (the default), `${proxy_args}` is unbound —
+	// referencing it fails with unresolved_var. This makes the
+	// catch→shell forwarding pattern an EXPLICIT capability the
+	// author has to declare; it's the #1 "hidden privilege" pattern
+	// `perch --scan` flags as HIGH risk.
+	ProxyArgs bool `json:"proxy_args,omitempty"`
 }
 
 // Op is one statement inside a command body (or inside a block op's body).

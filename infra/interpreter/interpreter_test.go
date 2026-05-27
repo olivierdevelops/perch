@@ -154,13 +154,16 @@ func TestCatch(t *testing.T) {
 }
 
 func TestCatchProxyArgs(t *testing.T) {
-	// catch should expose the full unknown invocation as ${proxy_args}
-	// so wrappers can forward to an underlying tool.
+	// catch with the proxy_args modifier exposes the full unknown
+	// invocation as ${proxy_args} so wrappers can forward to an
+	// underlying tool. WITHOUT the modifier, ${proxy_args} is unbound
+	// (see TestCatchProxyArgsUnboundWithoutModifier below).
 	handlers, out := makeHandlers(t)
 	p := &domain.Program{
 		Commands: map[string]*domain.Command{},
 		Catch: &domain.Catch{
-			Bind: "name",
+			Bind:      "name",
+			ProxyArgs: true, // ← explicit opt-in to ${proxy_args} binding
 			Ops: []domain.Op{
 				{Kind: "print", Args: map[string]any{"msg": "→ ${proxy_args}"}},
 			},
@@ -173,6 +176,33 @@ func TestCatchProxyArgs(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "→ log --oneline -10") {
 		t.Errorf("output: %q", out.String())
+	}
+}
+
+func TestCatchProxyArgsUnboundWithoutModifier(t *testing.T) {
+	// catch WITHOUT the proxy_args modifier — ${proxy_args} is unbound,
+	// so referencing it fails with unresolved-var. Prevents the
+	// catch→shell forwarding pattern that --scan flags as HIGH risk
+	// from happening implicitly.
+	handlers, out := makeHandlers(t)
+	p := &domain.Program{
+		Commands: map[string]*domain.Command{},
+		Catch: &domain.Catch{
+			Bind: "name",
+			// ProxyArgs intentionally NOT set
+			Ops: []domain.Op{
+				{Kind: "print", Args: map[string]any{"msg": "→ ${proxy_args}"}},
+			},
+		},
+	}
+	i := New(handlers, p)
+	i.Stdout = out
+	err := i.Run("log", []string{"--oneline"})
+	if err == nil {
+		t.Fatal("expected unresolved-var error; got nil")
+	}
+	if !strings.Contains(err.Error(), "proxy_args") {
+		t.Errorf("expected error to mention proxy_args; got %q", err)
 	}
 }
 

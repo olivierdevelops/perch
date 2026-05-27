@@ -173,14 +173,18 @@ func (i *Interpreter) runCommand(commandName string, cliArgs []string, allowPriv
 		if i.Program.Catch == nil {
 			return fmt.Errorf("command not found: %q", commandName)
 		}
-		// catch: bind the unknown name plus the full argv as proxy_args
-		// (the command name + every remaining arg, joined with spaces).
-		// This lets `shell "real-tool ${proxy_args}"` forward unknown
-		// invocations through to the real tool — the "extend an existing
-		// tool" pattern.
+		// catch: bind the unknown name. ${proxy_args} (the full unknown
+		// invocation joined with spaces) is bound ONLY if the catch
+		// declared the `proxy_args` modifier — otherwise referencing it
+		// fails with unresolved_var, which is the right behavior for the
+		// "I don't intend to forward arbitrary input to shell" case.
+		// Declaring `proxy_args` is the explicit opt-in to the
+		// catch→shell forwarding pattern that --scan flags as HIGH.
 		b.Set(i.Program.Catch.Bind, commandName)
-		full := append([]string{commandName}, cliArgs...)
-		b.Set("proxy_args", strings.Join(full, " "))
+		if i.Program.Catch.ProxyArgs {
+			full := append([]string{commandName}, cliArgs...)
+			b.Set("proxy_args", strings.Join(full, " "))
+		}
 		return i.RunOps(i.Program.Catch.Ops, b)
 	}
 
