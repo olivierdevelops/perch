@@ -607,7 +607,7 @@ perch --report cmd    # execute + render the span tree
 
 ### 1. Replace the Makefile that everyone is afraid of
 
-<div class="perch-usecase">
+<div class="perch-usecase" markdown="1">
 
 **Before:** a 400-line `Makefile` with shell variations behind every target; Windows users on WSL; the CI YAML reimplements half of it; nobody touches `test-integration` because the last person who did is now in a different company.
 
@@ -661,7 +661,7 @@ end
 
 ### 2. Ship a Python / Node / monorepo project as one self-installing binary
 
-<div class="perch-usecase">
+<div class="perch-usecase" markdown="1">
 
 **Before:** "first install pyenv, then python 3.11, then a venv, then pip install -r requirements.txt, then…" Three pages of README and a Slack channel for install help.
 
@@ -708,7 +708,7 @@ The recipient needs **only** what your install command requires (here: `python3`
 > **Deep dive: [LLM control plane](llm-control-plane.md) — why a `.perch` file + `perch-mcp` + a few CLI flags replaces 2,000 lines of FastAPI scaffolding.**
 
 
-<div class="perch-usecase">
+<div class="perch-usecase" markdown="1">
 
 **Before:** the agent gets a shell. You hope. You write a long system prompt about what it should and shouldn't do. You audit logs after the fact.
 
@@ -769,7 +769,7 @@ The agent never sees `ssh`. It sees `restart_service(host, service)` with typed 
 
 ### 4. Wrap a clunky CLI behind sane verbs
 
-<div class="perch-usecase">
+<div class="perch-usecase" markdown="1">
 
 **Before:** every team member memorises 12 docker flags. Mistakes cost an afternoon. The Slack channel has the same three questions every week.
 
