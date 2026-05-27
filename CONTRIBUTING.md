@@ -1,58 +1,51 @@
 # Contributing to perch
 
-Thanks for considering a contribution.
+> ## 🚫 perch is NOT accepting external contributions at this time.
 
-## Quick start
+The project is currently maintained by one person on a single direction and is
+not in a phase where external code contributions, feature requests, or
+external maintenance fit the workflow. To set expectations honestly:
 
-```sh
-git clone https://github.com/luowensheng/perch.git
-cd perch
-go build -o perch ./cmd/perch
-go test ./...
-```
+| What | Status |
+|---|---|
+| **Pull requests** | Will be closed unread. Please don't open them. |
+| **Feature requests** | Will be redirected to [GitHub Discussions](https://github.com/luowensheng/perch/discussions). The maintainer reads Discussions, but ideas land on the roadmap at the maintainer's pace and are implemented by the maintainer. |
+| **Bug reports for shipped behavior** | Welcome. Open a [bug issue](https://github.com/luowensheng/perch/issues/new?template=bug.yml). Fixes will be authored by the maintainer. |
+| **Security issues** | Email the maintainer directly. See [SECURITY.md](SECURITY.md) if/when it exists; otherwise the GitHub profile contact. |
+| **Forks** | Encouraged. perch is Apache-2.0 — fork it, ship your own variant, run your own roadmap. |
 
-## Project layout
+## Why this stance
 
-perch follows [VHCO](https://github.com/luowensheng/perch/blob/main/vhco-architecture.md): six top-level folders, each with a fixed role. The doc explains the rules; the `infra/ops/` subfolder is where most contributions land.
+perch is at an early-design phase where the surface (DSL grammar, op catalog,
+capability model, file format) still moves frequently. Merging external work
+during a moving surface creates compatibility commitments the maintainer
+isn't ready to make, and quality-controlling drive-by PRs is itself a full-time
+job. The simplest honest answer right now is: not accepting.
 
-## Adding an op
+## What you CAN do
 
-The most common contribution. Two steps:
+- ⭐ **Star the repo** if you find it useful — that's a real signal.
+- 💬 **Open a Discussion** — share what you're building with perch, ask
+  questions, propose ideas. The maintainer reads every thread.
+- 🐛 **File bugs** — concrete reproduction steps for shipped behavior.
+  These get read and acted on.
+- 🍴 **Fork it** — Apache-2.0 lets you. Run your own line of development;
+  if a published change is useful enough downstream, the maintainer may
+  port it (under the maintainer's own pen).
+- 📦 **Use it** and tell people. Adoption is the signal that justifies
+  more maintainer time.
 
-1. Add a Go handler in `infra/ops/<category>.go`:
-   ```go
-   m["my_op"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-       v := argString(args, "input", "_0")
-       return strings.ToUpper(v), nil
-   }
-   ```
+## When this changes
 
-2. If the op is used as a statement (not just via `let`), add a matching capy function in `infra/capyloader/lib.capy`:
-   ```capy
-   function my_op
-       arg literal "my_op"
-       arg capture v string
-       write `{"event":"op","kind":"my_op","args":{"input":${v}}}
-   `
-   end
-   ```
+The stance is "for now" — the project genuinely intends to open up to
+external contributions once the core grammar/op-catalog stabilises. When
+that happens:
 
-3. Add a row to `docs/op-reference.md` and at least one test in `infra/ops/*_test.go`.
+1. This file will be replaced with concrete contribution guidelines
+   (style, test expectations, sign-off requirements, etc.).
+2. The notice at the top of `LICENSE` will be removed.
+3. A note will go out in the release CHANGELOG.
 
-## PR guidelines
+Until then: thanks for understanding, and thanks for using perch.
 
-- One feature or fix per PR. Don't bundle.
-- Run `go vet ./... && go test ./...` before pushing.
-- For changes that affect surface DSL: update `docs/language.md` and `skills/perch/SKILL.md` in the same PR.
-- For new ops: include a one-line example in `docs/op-reference.md` and a row in the catalog table.
-- For new demos: drop a folder under `demos/` with `commands.perch` + `README.md` + the command(s) to run.
-
-## Issues
-
-- **Bugs:** include perch version (`perch --version`), OS, the failing `commands.perch` minimised to ~10 lines, and the actual vs expected output.
-- **Op requests:** describe the use case, the proposed signature, and any prior art in other tools.
-- **DSL changes:** open a discussion first — DSL surface changes ripple through docs, demos, the Claude skill, and external users.
-
-## Code of Conduct
-
-This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
+— [@luowensheng](https://github.com/luowensheng)

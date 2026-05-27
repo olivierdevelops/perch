@@ -1,8 +1,15 @@
+# perch is not accepting external code contributions at this time.
+# This config surfaces that stance in the "New issue" picker so
+# feature/idea reports get routed to Discussions instead of issues
+# the maintainer can't action quickly.
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discussions
+  - name: 🚫 Not accepting contributions (read first)
+    url: https://github.com/luowensheng/perch/blob/main/CONTRIBUTING.md
+    about: perch is NOT accepting external PRs / feature work right now. Bugs are welcome; ideas go to Discussions.
+  - name: 💬 Discussions (ideas, questions, show-and-tell)
     url: https://github.com/luowensheng/perch/discussions
-    about: Questions, ideas, show-and-tell.
+    about: Feature ideas, questions, and "I built X with perch" stories go here. The maintainer reads every thread.
   - name: 📚 Docs
     url: https://luowensheng.github.io/perch/
     about: Read the docs site before opening an issue.

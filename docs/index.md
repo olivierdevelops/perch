@@ -5,6 +5,11 @@ hide:
 
 # perch
 
+<div style="background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.35);border-radius:10px;padding:12px 16px;margin:14px 0 20px;font-size:13px;line-height:1.5">
+<strong>🚫 perch is NOT accepting external contributions at this time.</strong><br>
+Pull requests will be closed unread. Feature ideas → <a href="https://github.com/luowensheng/perch/discussions">GitHub Discussions</a>. Bug reports for shipped behavior → <a href="https://github.com/luowensheng/perch/issues/new?template=bug.yml">issues</a> (welcome). The code is Apache-2.0 — fork freely. Full policy in <a href="https://github.com/luowensheng/perch/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>. This stance is "for now" and will change once the grammar / op catalog stabilises.
+</div>
+
 > **One file. Every surface.** Define your commands once in a `.perch` file — run them as a CLI, a **web UI** 🪟, a REPL, an **AI-agent tool** 🤖, or a portable binary. macOS · Linux · Windows.
 
 <style>

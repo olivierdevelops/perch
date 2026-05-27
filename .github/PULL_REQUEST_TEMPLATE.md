@@ -1,16 +1,22 @@
-<!-- Thanks for sending a PR. Quick checklist below. -->
+<!--
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🚫  perch is NOT accepting external pull requests at this time.
 
-## What this changes
+  This PR will be closed unread. The stance is documented in CONTRIBUTING.md.
 
-<!-- One paragraph. What changed, why. -->
+  If you want to share an idea or workaround, please open a Discussion
+  instead: https://github.com/luowensheng/perch/discussions
 
-## Checklist
+  If you found a bug in shipped behavior, please open an issue with
+  reproduction steps: https://github.com/luowensheng/perch/issues/new?template=bug.yml
 
-- [ ] `go vet ./... && go test ./...` is green locally
-- [ ] If this changes the DSL surface or adds an op: `docs/language.md`, `docs/op-reference.md`, and `skills/perch/SKILL.md` are updated in the same PR
-- [ ] If this changes user-visible behavior: `CHANGELOG.md` has an Unreleased entry
-- [ ] If this adds a new file format / on-disk artifact: the format is documented somewhere in `docs/`
+  Thanks for understanding. The stance is "for now" — it will change once
+  the core grammar/op-catalog stabilises.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-->
 
-## Test plan
+# This pull request will be closed without review
 
-<!-- How can a reviewer verify this? `perch <command>` recipes, screenshots, …  -->
+perch is not accepting external code contributions at this time. See
+[CONTRIBUTING.md](../CONTRIBUTING.md) for the full policy and what you CAN
+do instead (Discussions, bug reports, forks).

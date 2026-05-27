@@ -1,3 +1,23 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   NOTICE — perch is NOT accepting external contributions at this time.
+
+   The Apache License 2.0 below governs USE of this software. It does NOT
+   imply that the project is open to pull requests, code contributions,
+   feature requests, or external maintenance.
+
+   - Pull requests will be closed unread.
+   - Feature requests will be redirected to GitHub Discussions.
+   - Bug reports for shipped behavior are welcome and read; fixes will be
+     authored by the maintainer.
+
+   This stance may change in the future. If it does, this notice will be
+   removed and a CONTRIBUTING.md with concrete guidelines will replace it.
+
+   You retain every right Apache-2.0 grants for use, modification, and
+   redistribution of YOUR OWN fork. Nothing here restricts what you can do
+   with the code under the terms below — it only describes what the
+   maintainer accepts back into THIS repository.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
                                  Apache License
                            Version 2.0, January 2004

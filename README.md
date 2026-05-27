@@ -1,5 +1,9 @@
 # perch
 
+> 🚫 **perch is NOT accepting external contributions at this time.** Pull requests will be closed unread; feature requests should go to [Discussions](https://github.com/luowensheng/perch/discussions); bug reports for shipped behavior are welcome. The code is Apache-2.0 — fork freely. Full policy in [CONTRIBUTING.md](CONTRIBUTING.md). This stance is "for now" and will change once the grammar/op-catalog stabilises.
+
+---
+
 > **perch is a cross-platform command runtime for defining, running, and shipping operational tools in a single structured file.** Declare your commands once; run them consistently on macOS / Linux / Windows; expose them through a CLI, REPL, web UI, or MCP agent surface; and `perch --build` once to ship them as a single portable binary.
 
 **Replaces the usual combination of:** shell scripts · Makefiles · ad-hoc CLI wrappers · internal ops tools · "one-off automation repos" — with one declarative file that humans, CI, and agents all execute.
