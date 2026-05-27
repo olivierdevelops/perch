@@ -12,7 +12,11 @@ type UseCase interface {
 }
 
 type LoadFn func(path string) (*domain.Program, error)
-type ServeFn func(p *domain.Program, host string, port int) error
+
+// ServeFn mirrors httpserver.Server.Serve plus configPath — the UI
+// displays the source path and uses it for context in the
+// check/scan/simulate panels.
+type ServeFn func(p *domain.Program, host string, port int, configPath string) error
 
 type Impl struct {
 	Load  LoadFn
@@ -30,5 +34,5 @@ func (i *Impl) Execute(configPath string, args []string) error {
 	if err != nil {
 		return err
 	}
-	return i.Serve(p, *host, *port)
+	return i.Serve(p, *host, *port, configPath)
 }

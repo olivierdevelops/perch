@@ -4,94 +4,487 @@
 <meta charset="utf-8" />
 <title>{{.Program.Name}} — perch</title>
 <style>
-  body { font: 14px/1.5 -apple-system, ui-sans-serif, system-ui, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; color: #222; }
-  header { border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 24px; }
-  h1 { margin: 0 0 4px; font-size: 22px; }
-  .sub { color: #666; font-size: 13px; }
-  .cmd { border: 1px solid #e4e4e7; border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
-  .cmd h2 { margin: 0 0 4px; font-size: 16px; }
-  .cmd .desc { color: #555; margin-bottom: 8px; }
-  .args { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; margin: 8px 0; }
-  .args label { font-family: ui-monospace, monospace; font-size: 12px; align-self: center; }
-  .args input { padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font: inherit; }
-  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-  button { padding: 6px 14px; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
-  button:hover { background: #1452b8; }
-  .out { background: #0d1117; color: #c9d1d9; padding: 10px 12px; border-radius: 6px; font: 12px/1.55 ui-monospace, monospace; white-space: pre-wrap; max-height: 280px; overflow: auto; margin-top: 8px; display: none; }
+  :root {
+    --bg:#fff; --fg:#1c1f26; --muted:#666; --border:#e4e4e7; --card:#fafafa;
+    --accent:#4f46e5; --accent-fg:#fff; --ok:#16a34a; --err:#dc2626; --warn:#d97706;
+    --code-bg:#0d1117; --code-fg:#c9d1d9;
+  }
+  html.dark {
+    --bg:#0d1117; --fg:#c9d1d9; --muted:#8b949e; --border:#21262d; --card:#161b22;
+    --accent:#7c83f8; --accent-fg:#0d1117; --ok:#3fb950; --err:#f85149; --warn:#d29922;
+    --code-bg:#010409; --code-fg:#c9d1d9;
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, ui-sans-serif, system-ui, sans-serif; margin: 0; color: var(--fg); background: var(--bg); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 18px 80px; }
+  header { display:flex; align-items:center; gap:14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .meta code { background: var(--card); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  header .right { margin-left: auto; display:flex; gap:8px; align-items:center; }
+  .theme-toggle { background: var(--card); border: 1px solid var(--border); color: var(--fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size:13px; }
+  .tabs { display:flex; gap:2px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap:wrap; }
+  .tab { padding: 8px 14px; cursor: pointer; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; color: var(--muted); }
+  .tab:hover { color: var(--fg); background: var(--card); }
+  .tab.active { color: var(--fg); background: var(--card); border-color: var(--border); margin-bottom:-1px; padding-bottom: 9px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Run panel */
+  .search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 8px; font: inherit; margin-bottom: 14px; }
+  .cmd { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 10px 0; background: var(--card); }
+  .cmd-head { display:flex; align-items:center; gap:8px; }
+  .cmd-head h2 { margin: 0; font-size: 16px; font-family: ui-monospace, monospace; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+  .badge.test { color: var(--warn); border-color: var(--warn); }
+  .badge.detached, .badge.proxy { color: var(--accent); border-color: var(--accent); }
+  .desc { color: var(--muted); margin: 4px 0 10px; font-size: 13px; }
+  .args { display: grid; grid-template-columns: max-content 1fr max-content; gap: 6px 12px; margin: 8px 0; align-items: center; }
+  .args label { font-family: ui-monospace, monospace; font-size: 12px; }
+  .args .argtype { color: var(--muted); font-size: 10px; }
+  .args .opt { color: var(--muted); font-size: 10px; }
+  .args input[type=text], .args input[type=number], .args textarea { padding: 5px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 5px; font: inherit; width: 100%; }
+  .args input[type=checkbox] { width: auto; }
+  .args textarea { min-height: 32px; resize: vertical; font: 12px/1.4 ui-monospace, monospace; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 12px; }
+  button.run { padding: 6px 16px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); border-radius: 6px; cursor: pointer; font: inherit; font-weight: 500; }
+  button.run:hover { filter: brightness(1.1); }
+  button.run:disabled { opacity: 0.6; cursor:not-allowed; }
+  button.ghost { padding: 5px 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; font: inherit; font-size:12px; }
+  button.ghost:hover { color: var(--fg); border-color: var(--fg); }
+  .out { background: var(--code-bg); color: var(--code-fg); padding: 10px 12px; border-radius: 6px; font: 12px/1.55 ui-monospace, monospace; white-space: pre-wrap; max-height: 320px; overflow: auto; margin-top: 10px; display: none; }
   .out.show { display: block; }
-  .err { color: #f88; }
-  .status-ok { color: #6cf; }
+  .out .err { color: #ff8080; }
+  .out .ok { color: #6cf; }
+  .out .status { color: #888; font-style: italic; }
+
+  /* Panels: Simulate / Scan / Check / About */
+  .panel-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+  .panel-head h2 { margin:0; font-size: 17px; }
+  .panel-head .sub { color: var(--muted); font-size: 13px; }
+  .form-grid { display: grid; grid-template-columns: max-content 1fr; gap: 10px 14px; align-items:center; max-width: 720px; margin-bottom: 14px; }
+  .form-grid label { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .form-grid input[type=text], .form-grid select, .form-grid textarea { padding: 6px 10px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 5px; font: inherit; width: 100%; }
+  .form-grid textarea { font: 12px/1.4 ui-monospace, monospace; min-height: 110px; }
+  .form-toggles { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 16px; }
+  .form-toggles label { font-size: 12px; cursor:pointer; user-select:none; }
+  .report { background: var(--code-bg); color: var(--code-fg); padding: 14px; border-radius: 8px; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; min-height: 120px; }
+  .pill { display:inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-family: ui-monospace, monospace; }
+  .pill.ok { background: rgba(22,163,74,.15); color: var(--ok); }
+  .pill.err { background: rgba(220,38,38,.15); color: var(--err); }
+  .pill.warn { background: rgba(217,119,6,.15); color: var(--warn); }
+  details.globals { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; font-size: 13px; }
+  details.globals summary { cursor: pointer; color: var(--muted); }
+  details.globals table { width: 100%; margin-top: 8px; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 12px; }
+  details.globals td, details.globals th { padding: 4px 8px; text-align: left; border-top: 1px solid var(--border); }
+  .copy-cmd { background: var(--code-bg); color: var(--code-fg); padding: 8px 10px; border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; margin-top: 8px; word-break:break-all; user-select:all; cursor: copy; }
+  .about-card { background: var(--card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin: 10px 0; }
+  .about-card h3 { margin: 0 0 6px; font-size: 14px; }
+  .about-card .v { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .about-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
+<div class="wrap">
+
 <header>
-  <h1>{{.Program.Name}}</h1>
-  <div class="sub">{{.Program.Description}} · v{{.Program.Version}}</div>
+  <h1>🪶 {{.Program.Name}}</h1>
+  <div class="meta">
+    {{if .Program.Description}}{{.Program.Description}} · {{end}}
+    {{if .Program.Version}}v{{.Program.Version}}{{end}}
+    {{if .Path}} · <code>{{.Path}}</code>{{end}}
+    · {{len .Commands}} command{{if ne (len .Commands) 1}}s{{end}}
+  </div>
+  <div class="right">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  </div>
 </header>
 
-{{range .Commands}}
-<div class="cmd" data-name="{{.Name}}">
-  <h2>{{.Name}}</h2>
-  <div class="desc">{{.Description}}</div>
-  {{if .Args}}
-  <div class="args">
-    {{range .Args}}
-    <label for="{{$.Name}}-{{.Name}}">-{{.Name}} <span class="sub">({{.Type}})</span></label>
-    <input id="{{$.Name}}-{{.Name}}" data-arg="{{.Name}}" data-type="{{.Type}}" placeholder="{{.Description}}" value="{{if .HasDefault}}{{.Default}}{{end}}" />
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="run">▶ Run</div>
+  <div class="tab" data-tab="simulate">🧪 Simulate</div>
+  <div class="tab" data-tab="scan">🔍 Scan</div>
+  <div class="tab" data-tab="check">✓ Check</div>
+  <div class="tab" data-tab="about">ℹ About</div>
+</div>
+
+<!-- ─────────────  RUN PANEL  ───────────── -->
+<div class="panel active" data-panel="run">
+
+  {{if .Program.Globals.Bindings}}
+  <details class="globals">
+    <summary>Globals — {{len .Program.Globals.Bindings}} binding{{if ne (len .Program.Globals.Bindings) 1}}s{{end}}</summary>
+    <table>
+      <tr><th>name</th><th>type</th><th>value</th></tr>
+      {{range .Program.Globals.Bindings}}
+      <tr><td>{{.Name}}</td><td>{{.Type}}</td><td>{{.Value}}</td></tr>
+      {{end}}
+    </table>
+  </details>
+  {{end}}
+
+  <input class="search" id="search" placeholder="🔎 Filter commands by name or description…" oninput="filterCommands(this.value)" />
+
+  {{range .Commands}}
+  <div class="cmd" data-name="{{.Name}}" data-haystack="{{.Name}} {{.Description}}">
+    <div class="cmd-head">
+      <h2>{{.Name}}</h2>
+      {{if .Modifiers.Test}}<span class="badge test">test</span>{{end}}
+      {{if .Modifiers.Detached}}<span class="badge detached">detached</span>{{end}}
+      {{if .Modifiers.ProxyArgs}}<span class="badge proxy">proxy_args</span>{{end}}
+    </div>
+    {{if .Description}}<div class="desc">{{.Description}}</div>{{end}}
+    {{if .Args}}
+    <div class="args">
+      {{range .Args}}
+      <label for="{{$.Name}}-{{.Name}}">-{{.Name}}</label>
+      <div>
+        {{if eq .Type "bool"}}
+          <input id="{{$.Name}}-{{.Name}}" type="checkbox" data-arg="{{.Name}}" data-type="bool" {{if and .HasDefault .Default}}checked{{end}} />
+        {{else if eq .Type "int"}}
+          <input id="{{$.Name}}-{{.Name}}" type="number" step="1" data-arg="{{.Name}}" data-type="int" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+        {{else if eq .Type "float"}}
+          <input id="{{$.Name}}-{{.Name}}" type="number" step="any" data-arg="{{.Name}}" data-type="float" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+        {{else if .Rest}}
+          <textarea id="{{$.Name}}-{{.Name}}" data-arg="{{.Name}}" data-type="rest" placeholder="{{.Description}} (one per line)"></textarea>
+        {{else}}
+          <input id="{{$.Name}}-{{.Name}}" type="text" data-arg="{{.Name}}" data-type="string" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+        {{end}}
+      </div>
+      <span class="argtype">{{.Type}}{{if .Optional}} · <span class="opt">optional</span>{{end}}</span>
+      {{end}}
+    </div>
     {{end}}
+    <div class="row">
+      <button class="run" onclick="run('{{.Name}}', this)">Run</button>
+      <button class="ghost" onclick="copyAsCli('{{.Name}}', this)">Copy as CLI</button>
+      <button class="ghost" onclick="this.closest('.cmd').querySelector('.out')?.classList.remove('show')">Clear</button>
+    </div>
+    <div class="out"></div>
   </div>
   {{end}}
-  <div class="row"><button onclick="run('{{.Name}}', this)">Run</button></div>
-  <div class="out"></div>
+
 </div>
-{{end}}
+
+<!-- ─────────────  SIMULATE PANEL  ───────────── -->
+<div class="panel" data-panel="simulate">
+  <div class="panel-head">
+    <h2>🧪 perch simulate</h2>
+    <div class="sub">Walk the program against a hypothetical environment — no execution.</div>
+  </div>
+  <div class="form-grid">
+    <label>command</label><input type="text" id="sim-cmd" placeholder="leave empty to simulate every command" />
+    <label>--sim-os</label><select id="sim-os"><option value="">(host)</option><option>linux</option><option>darwin</option><option>windows</option></select>
+    <label>--sim-arch</label><select id="sim-arch"><option value="">(host)</option><option>amd64</option><option>arm64</option></select>
+    <label>--sim-env</label><input type="text" id="sim-env" placeholder="HOME=/h,PATH=/usr/bin" />
+    <label>--sim-fs-read</label><input type="text" id="sim-fsread" placeholder="/srv,/etc" />
+    <label>--sim-fs-write</label><input type="text" id="sim-fswrite" placeholder="/tmp" />
+    <label>--sim-have-bin</label><input type="text" id="sim-bins" placeholder="docker,kubectl,git" />
+    <label>--sim-allow-host</label><input type="text" id="sim-hosts" placeholder="api.github.com,*.s3.amazonaws.com" />
+    <label>fixture JSON</label><textarea id="sim-fixture" placeholder='Paste a v2 fixture (capabilities + oracles + scenarios). Empty → use the flag fields above.'></textarea>
+  </div>
+  <div class="form-toggles">
+    <label><input type="checkbox" id="sim-envonly" /> --sim-env-only</label>
+    <label><input type="checkbox" id="sim-noshell" /> --sim-no-shell</label>
+    <label><input type="checkbox" id="sim-nonet" /> --sim-no-network</label>
+    <label><input type="checkbox" id="sim-nosub" /> --sim-no-subprocess</label>
+    <label><input type="checkbox" id="sim-nowrite" /> --sim-no-write</label>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runSimulate(this)">Simulate</button>
+    <button class="ghost" onclick="document.getElementById('sim-report').textContent=''">Clear</button>
+    <span id="sim-summary"></span>
+  </div>
+  <div class="report" id="sim-report" style="margin-top:14px"></div>
+</div>
+
+<!-- ─────────────  SCAN PANEL  ───────────── -->
+<div class="panel" data-panel="scan">
+  <div class="panel-head">
+    <h2>🔍 perch --scan</h2>
+    <div class="sub">Static capability audit + risk findings.</div>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runScan(this)">Run scan</button>
+    <span id="scan-summary"></span>
+  </div>
+  <div class="report" id="scan-report" style="margin-top:14px"></div>
+</div>
+
+<!-- ─────────────  CHECK PANEL  ───────────── -->
+<div class="panel" data-panel="check">
+  <div class="panel-head">
+    <h2>✓ perch --check</h2>
+    <div class="sub">Syntax + reference validation. Wire into pre-commit.</div>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runCheck(this)">Validate</button>
+    <span id="check-summary"></span>
+  </div>
+  <div class="report" id="check-report" style="margin-top:14px"></div>
+</div>
+
+<!-- ─────────────  ABOUT PANEL  ───────────── -->
+<div class="panel" data-panel="about">
+  <div class="panel-head">
+    <h2>ℹ About this program</h2>
+  </div>
+  <div class="about-grid">
+    <div class="about-card">
+      <h3>Program</h3>
+      <div class="v">name:    {{.Program.Name}}</div>
+      <div class="v">version: {{.Program.Version}}</div>
+      <div class="v">file:    {{.Path}}</div>
+      <div class="v">commands: {{len .Commands}}</div>
+    </div>
+    <div class="about-card">
+      <h3>Links</h3>
+      <div><a href="https://luowensheng.github.io/perch/" target="_blank">📖 Docs</a></div>
+      <div><a href="https://luowensheng.github.io/perch/simulate/" target="_blank">🧪 Simulate guide</a></div>
+      <div><a href="https://luowensheng.github.io/perch/mcp/" target="_blank">🤖 MCP server</a></div>
+      <div><a href="https://github.com/luowensheng/perch" target="_blank">⌥ GitHub</a></div>
+    </div>
+  </div>
+  {{if .Program.Description}}
+  <div class="about-card" style="margin-top:14px">
+    <h3>Description</h3>
+    <div>{{.Program.Description}}</div>
+  </div>
+  {{end}}
+</div>
+
+</div><!-- /.wrap -->
 
 <script>
-async function run(name, btn) {
-  const card = btn.closest('.cmd');
-  const out = card.querySelector('.out');
-  out.classList.add('show');
-  out.textContent = '';
-  const args = {};
-  card.querySelectorAll('input[data-arg]').forEach(el => {
-    const t = el.dataset.type;
-    let v = el.value;
-    if (t === 'int') v = v === '' ? 0 : parseInt(v, 10);
-    else if (t === 'float') v = v === '' ? 0 : parseFloat(v);
-    else if (t === 'bool') v = v === 'true';
-    if (v !== '' && v !== undefined && v !== null) args[el.dataset.arg] = v;
+// ── theme ─────────────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem("perch-theme");
+if (savedTheme === "dark" || (savedTheme === null && matchMedia("(prefers-color-scheme: dark)").matches)) {
+  document.documentElement.classList.add("dark");
+}
+function toggleTheme() {
+  document.documentElement.classList.toggle("dark");
+  localStorage.setItem("perch-theme", document.documentElement.classList.contains("dark") ? "dark" : "light");
+}
+
+// ── tabs ──────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  document.querySelector(`.panel[data-panel="${t.dataset.tab}"]`).classList.add("active");
+  location.hash = t.dataset.tab;
+}));
+if (location.hash) {
+  const t = document.querySelector(`.tab[data-tab="${location.hash.slice(1)}"]`);
+  if (t) t.click();
+}
+
+// ── filter commands ───────────────────────────────────────────────────
+function filterCommands(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll(".cmd").forEach(c => {
+    const h = (c.dataset.haystack || "").toLowerCase();
+    c.style.display = (!q || h.includes(q)) ? "" : "none";
   });
+}
+
+// ── arg collection ────────────────────────────────────────────────────
+function collectArgs(card) {
+  const args = {};
+  card.querySelectorAll("[data-arg]").forEach(el => {
+    const t = el.dataset.type;
+    let v;
+    if (t === "bool") {
+      v = el.checked;
+      args[el.dataset.arg] = v;
+    } else if (t === "int") {
+      if (el.value !== "") args[el.dataset.arg] = parseInt(el.value, 10);
+    } else if (t === "float") {
+      if (el.value !== "") args[el.dataset.arg] = parseFloat(el.value);
+    } else if (t === "rest") {
+      const vals = el.value.split("\n").map(s => s.trim()).filter(Boolean);
+      if (vals.length) args[el.dataset.arg] = vals.join("\n");
+    } else {
+      if (el.value !== "") args[el.dataset.arg] = el.value;
+    }
+  });
+  return args;
+}
+
+// ── /api/exec ─────────────────────────────────────────────────────────
+async function run(name, btn) {
+  const card = btn.closest(".cmd");
+  const out = card.querySelector(".out");
+  out.classList.add("show");
+  out.textContent = "";
+  const args = collectArgs(card);
   btn.disabled = true;
   try {
-    const resp = await fetch('/api/exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const resp = await fetch("/api/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command: name, args }),
     });
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
-    let buf = '';
+    let buf = "";
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n');
+      const lines = buf.split("\n");
       buf = lines.pop();
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const e = JSON.parse(line);
-          const span = document.createElement('span');
-          if (e.kind === 'err') span.className = 'err';
-          if (e.kind === 'status') span.className = 'status-ok';
-          span.textContent = (e.kind === 'status' ? '\n[' + e.msg + ']\n' : e.msg) + '\n';
+          const span = document.createElement("span");
+          if (e.kind === "err") span.className = "err";
+          else if (e.kind === "status") span.className = "status";
+          span.textContent = (e.kind === "status" ? "\n[" + e.msg + "]\n" : e.msg) + "\n";
           out.appendChild(span);
+          out.scrollTop = out.scrollHeight;
         } catch (_) {}
       }
     }
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── copy as CLI ───────────────────────────────────────────────────────
+function copyAsCli(name, btn) {
+  const card = btn.closest(".cmd");
+  const args = collectArgs(card);
+  const argStr = Object.entries(args).map(([k, v]) => {
+    if (typeof v === "boolean") return v ? `-${k}` : "";
+    return `-${k}=${shellEscape(String(v))}`;
+  }).filter(Boolean).join(" ");
+  const filePart = {{if .Path}}"-f {{.Path}} "{{else}}""{{end}};
+  const cli = `perch ${filePart}${name} ${argStr}`.replace(/\s+/g, " ").trim();
+  const old = card.querySelector(".copy-cmd");
+  if (old) old.remove();
+  const div = document.createElement("div");
+  div.className = "copy-cmd";
+  div.textContent = cli;
+  div.title = "click to select";
+  card.querySelector(".row").after(div);
+  navigator.clipboard?.writeText(cli);
+}
+function shellEscape(s) {
+  if (!/[^A-Za-z0-9_./@:%+=,-]/.test(s)) return s;
+  return "'" + s.replace(/'/g, `'\\''`) + "'";
+}
+
+// ── /api/simulate ─────────────────────────────────────────────────────
+async function runSimulate(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("sim-report");
+  const sum = document.getElementById("sim-summary");
+  rep.textContent = "running…";
+  sum.innerHTML = "";
+  try {
+    const fixtureRaw = document.getElementById("sim-fixture").value.trim();
+    let fixture = null;
+    if (fixtureRaw) {
+      try { fixture = JSON.parse(fixtureRaw); }
+      catch (e) { rep.textContent = "fixture JSON parse error: " + e.message; return; }
+    }
+    const env = {
+      OS:           valOf("sim-os"),
+      Arch:         valOf("sim-arch"),
+      Env:          parseKV(valOf("sim-env")),
+      EnvRestrict:  checked("sim-envonly"),
+      FsRead:       splitList(valOf("sim-fsread")),
+      FsWrite:      splitList(valOf("sim-fswrite")),
+      Bins:         binsSet(valOf("sim-bins")),
+      Network:      splitList(valOf("sim-hosts")),
+      NoShell:      checked("sim-noshell"),
+      NoSubprocess: checked("sim-nosub"),
+      NoNetwork:    checked("sim-nonet"),
+      NoWrite:      checked("sim-nowrite"),
+    };
+    const body = { command: valOf("sim-cmd"), env, fixture };
+    const resp = await fetch("/api/simulate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    rep.textContent = data.report || "(no output)";
+    sum.innerHTML = data.ok ? `<span class="pill ok">all clear</span>` : `<span class="pill err">simulated failures present</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── /api/scan ─────────────────────────────────────────────────────────
+async function runScan(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("scan-report");
+  const sum = document.getElementById("scan-summary");
+  rep.textContent = "running…";
+  sum.innerHTML = "";
+  try {
+    const resp = await fetch("/api/scan", { method: "POST" });
+    const data = await resp.json();
+    rep.textContent = data.report || "(no findings)";
+    const high = (data.findings || []).filter(f => f.severity === "high").length;
+    const med  = (data.findings || []).filter(f => f.severity === "med").length;
+    sum.innerHTML = high ? `<span class="pill err">${high} HIGH · ${med} MED</span>`
+                  : med  ? `<span class="pill warn">${med} MED</span>`
+                  : `<span class="pill ok">no risk findings</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── /api/check ────────────────────────────────────────────────────────
+async function runCheck(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("check-report");
+  const sum = document.getElementById("check-summary");
+  rep.textContent = "validating…";
+  sum.innerHTML = "";
+  try {
+    const resp = await fetch("/api/check", { method: "POST" });
+    const data = await resp.json();
+    if (data.ok && data.warnings === 0) {
+      rep.textContent = "✓ no issues — every command, arg, and op kind validates.";
+      sum.innerHTML = `<span class="pill ok">clean</span>`;
+    } else {
+      rep.textContent = (data.issues || []).map(i =>
+        `[${i.severity}] ${i.where ? i.where + ": " : ""}${i.message}`
+      ).join("\n") || "(no issues)";
+      sum.innerHTML = data.errors > 0
+        ? `<span class="pill err">${data.errors} error${data.errors!==1?'s':''} · ${data.warnings} warning${data.warnings!==1?'s':''}</span>`
+        : `<span class="pill warn">${data.warnings} warning${data.warnings!==1?'s':''}</span>`;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── helpers ───────────────────────────────────────────────────────────
+function valOf(id) { return document.getElementById(id).value.trim(); }
+function checked(id) { return document.getElementById(id).checked; }
+function splitList(s) { return s ? s.split(",").map(x => x.trim()).filter(Boolean) : null; }
+function parseKV(s) {
+  if (!s) return null;
+  const out = {};
+  s.split(",").forEach(pair => {
+    const i = pair.indexOf("=");
+    if (i > 0) out[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+    else if (pair.trim()) out[pair.trim()] = "";
+  });
+  return out;
+}
+function binsSet(s) {
+  const list = splitList(s);
+  if (!list) return null;
+  const out = {};
+  list.forEach(b => out[b] = true);
+  return out;
 }
 </script>
 </body>

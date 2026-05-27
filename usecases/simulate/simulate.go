@@ -257,6 +257,13 @@ type SimResult struct {
 
 // simulateCommand entrypoint — walks the command's ops and produces a
 // SimResult. Recursive for block ops.
+// SimulateCommand is the exported entry-point for callers (the HTTP UI
+// in particular). Equivalent to the unexported simulateCommand with
+// depth=0.
+func SimulateCommand(p *domain.Program, name string, env SimEnv) SimResult {
+	return simulateCommand(p, name, env, 0)
+}
+
 func simulateCommand(p *domain.Program, name string, env SimEnv, depth int) SimResult {
 	res := SimResult{Command: name}
 	cmd, ok := p.Commands[name]
@@ -903,6 +910,12 @@ func sortedKeys(m map[string]string) string {
 }
 
 // ── report rendering ───────────────────────────────────────────────
+
+// RenderResult is the exported wrapper. Renders the per-op tree the
+// CLI prints, into w.
+func RenderResult(w io.Writer, res SimResult, p *domain.Program, name string) {
+	renderResult(w, res, p, name)
+}
 
 func renderResult(w io.Writer, res SimResult, p *domain.Program, name string) {
 	cmd := p.Commands[name]

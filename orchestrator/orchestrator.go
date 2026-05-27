@@ -752,7 +752,7 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		}
 		return err
 	}
-	srv := &httpserver.Server{Handlers: handlers}
+	srv := &httpserver.Server{Handlers: handlers, KnownOps: knownOps(handlers)}
 
 	use := cli.UseCases{
 		Run: &runcommand.Impl{
@@ -862,7 +862,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		}
 		return err
 	}
-	srv := &httpserver.Server{Handlers: handlers}
+	srv := &httpserver.Server{Handlers: handlers, KnownOps: knownOps(handlers)}
 
 	use := cli.UseCases{
 		Run: &runcommand.Impl{
