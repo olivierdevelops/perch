@@ -946,11 +946,36 @@ let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
 | `version_lt A B`, `version_le A B` | strict / inclusive less |
 | `version_compat A B` | same major version (`~=`-style compatibility) |
 
-Plus the assertion variant for tests / hard gates:
+### Infix assertion (recommended)
+
+For halt-on-failure version gates, **`assert_version "X" OP "Y"`** reads like the math:
 
 ```perch
-assert_version_ge "${v}" "1.28.0"   # halts with assert_failed if v < 1.28.0
+let raw = shell_output "kubectl version --client -o json"
+let v   = version_extract "${raw}"
+
+assert_version "${v}" >= "1.28.0"   # halt with assert_failed if too old
+assert_version "${v}" <  "2.0.0"    # halt if too new
+assert_version "${v}" ~  "1.0.0"    # halt unless same major (PEP 440 ~= / Cargo caret)
 ```
+
+Supported operators: `>=`, `>`, `<=`, `<`, `==`, `!=`, `~` (same-major). Halts with `err.kind = assert_failed`, composes with `try / rescue`:
+
+```perch
+try
+    assert_version "${v}" >= "1.28.0"
+rescue err
+    match "${err.kind}"
+        case assert_failed
+            print "kubectl too old — using legacy path"
+            run deploy_legacy
+        else
+            throw "${err.message}"
+    end
+end
+```
+
+For programmatic boolean checks (e.g. inside an `if`), use the prefix `version_ge` / `version_gt` / etc. ops, which return `"true"` / `"false"` strings.
 
 **Ordering rules** — best-effort, no library dependency:
 

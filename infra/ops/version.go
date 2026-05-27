@@ -81,6 +81,48 @@ func registerVersion(m map[string]interpreter.Handler) {
 			fmt.Sprintf("version %q is below required %q", got, want)).
 			WithDetail(fmt.Sprintf("got=%q want_at_least=%q", got, want))
 	}
+	// assert_version with infix operator — `assert_version "X" OP "Y"`.
+	// The grammar carries the operator as args.op; this single handler
+	// dispatches all six comparison operators + the compat (~=) check.
+	m["assert_version"] = opAssertVersionInfix
+}
+
+func opAssertVersionInfix(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	op, _ := args["op"].(string)
+	lhs := argString(args, "lhs")
+	rhs := argString(args, "rhs")
+	cmp := versionCompare(lhs, rhs)
+
+	var ok bool
+	var symbol string
+	switch op {
+	case "ge":
+		ok, symbol = cmp >= 0, ">="
+	case "gt":
+		ok, symbol = cmp > 0, ">"
+	case "le":
+		ok, symbol = cmp <= 0, "<="
+	case "lt":
+		ok, symbol = cmp < 0, "<"
+	case "eq":
+		ok, symbol = cmp == 0, "=="
+	case "ne":
+		ok, symbol = cmp != 0, "!="
+	case "compat":
+		la := versionParts(lhs)
+		lb := versionParts(rhs)
+		ok = len(la) > 0 && len(lb) > 0 && la[0] == lb[0]
+		symbol = "~"
+	default:
+		return nil, domain.NewOpError("assert_version", domain.ErrUnclassified,
+			"unknown comparison operator "+strconv.Quote(op))
+	}
+	if ok {
+		return nil, nil
+	}
+	return nil, domain.NewOpError("assert_version", domain.ErrAssertFailed,
+		fmt.Sprintf("version assertion failed: %q %s %q is not true", lhs, symbol, rhs)).
+		WithDetail(fmt.Sprintf("got=%q op=%s want=%q", lhs, symbol, rhs))
 }
 
 // opVersionExtract pulls a version string out of arbitrary text.

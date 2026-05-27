@@ -27,6 +27,19 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **Infix `assert_version "X" OP "Y"` — version gates that read like math.** Supplements the prefix `version_ge "X" "Y"` shape with a much more readable infix form:
+
+  ```perch
+  let v = version_extract "${raw}"
+  assert_version "${v}" >= "1.28.0"
+  assert_version "${v}" <  "2.0.0"
+  assert_version "${v}" ~  "1.0.0"   # same major (PEP 440 ~= / Cargo caret)
+  ```
+
+  Seven supported operators: `>=`, `>`, `<=`, `<`, `==`, `!=`, `~` — same-major check uses `~` to avoid grammar collisions with `=`. Halts with `err.kind = assert_failed`, composes cleanly with `try / rescue` for "version too old → use legacy path" workflows.
+
+  Grammar: seven `assert_version_X_infix` functions in `lib.perch`, one per operator, each emitting an `assert_version` op with `args.op` carrying the operator code. Single Go handler (`opAssertVersionInfix`) dispatches by `args.op`. The existing prefix `version_ge` / `version_le` / etc. ops stay for `let`-capture cases (`let ok = version_ge "${v}" "1.28.0"` then `if ok ...`); infix is the recommended canonical shape for halt-on-fail gates.
+
 - **Version extraction + comparison ops (`version_extract` + `version_eq` / `_ne` / `_gt` / `_ge` / `_lt` / `_le` / `_compat` + `assert_version_ge`).** The right primitives for version-gating workflows without inventing a brittle per-binary version-parser table. Two-step compose: user controls the regex (or accepts a default heuristic), perch handles the comparison.
 
   ```perch

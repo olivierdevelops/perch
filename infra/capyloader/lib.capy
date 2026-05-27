@@ -1038,6 +1038,82 @@ end
 # Assertion ops — thin sugar for tests. Each is 2-arg (or 1-arg for the
 # existence checks) and fails the surrounding test on mismatch.
 
+# ────────────────────────────────────────────────────────────────────────────
+# Version assertions — infix comparison reads like math.
+#
+#   assert_version "${v}" >= "1.28.0"
+#   assert_version "${v}" <  "2.0.0"
+#   assert_version "${v}" == "1.29.3"
+#
+# Six grammar functions (one per operator) all emit the same op kind
+# with the operator carried in args. Halts with err.kind = assert_failed
+# if the comparison fails — composes with try/rescue.
+# ────────────────────────────────────────────────────────────────────────────
+
+function assert_version_ge_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal ">="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"ge","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_gt_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal ">"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"gt","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_le_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal "<="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"le","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_lt_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal "<"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"lt","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_eq_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal "=="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"eq","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_ne_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal "!="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"ne","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
+# ~ is the "same major" / compatibility check (PEP 440 ~= / Cargo caret).
+function assert_version_compat_infix
+    arg literal "assert_version"
+    arg capture lhs string
+    arg literal "~"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"compat","lhs":${lhs},"rhs":${rhs}}}
+`
+end
+
 function assert_eq
     arg literal "assert_eq"
     arg capture actual string
