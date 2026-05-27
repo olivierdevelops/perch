@@ -27,6 +27,30 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **`arch "ARCH" ... end` — architecture execution context block.** Sibling to `os "PLATFORM" ... end`, gates the body by `${arch}`. Targets are Go GOARCH values (`amd64`, `arm64`, `386`, `arm`, `riscv64`, …); exact match, no umbrellas (matrix builds want exact pinning). Composes cleanly with `os` for cross-product matrices:
+
+  ```perch
+  command release
+      do
+          os "linux"
+              arch "amd64"
+                  shell "GOOS=linux GOARCH=amd64 go build -o app-x64 ./cmd/app"
+              end
+              arch "arm64"
+                  shell "GOOS=linux GOARCH=arm64 go build -o app-arm64 ./cmd/app"
+              end
+          end
+          os "darwin"
+              arch "arm64"
+                  shell "GOOS=darwin GOARCH=arm64 go build -o app-mac-arm64 ./cmd/app"
+              end
+          end
+      end
+  end
+  ```
+
+  `perch simulate release --sim-os=linux --sim-arch=arm64` prunes everything except the matching leaf, reporting per-block whether the target matched. Wired into both simulator walkers (static + v2 state-threaded). When the unified `with ... do ... end ... end` block lands (deferred), `arch "X"` becomes an attribute inside it (`with arch "arm64" do … end end`); the standalone block remains as the dedicated arch-only shape.
+
 - **`os "unix"` umbrella target** for execution-context blocks. Matches darwin, linux, freebsd, openbsd, netbsd — the same set the existing `${is_unix}` auto-bound var covers. Standard "any Unix; Windows is special" pattern is now one block:
 
   ```perch

@@ -912,6 +912,33 @@ command setup
 end
 ```
 
+**`arch "ARCH" ... end`** is the architecture sibling — runs the body only when `${arch}` matches. Standard targets: `"amd64"`, `"arm64"`, `"386"`, `"arm"`, `"riscv64"` (Go GOARCH values). Compose with `os` for matrix builds:
+
+```perch
+command release
+    do
+        os "linux"
+            arch "amd64"
+                shell "GOOS=linux GOARCH=amd64 go build -o app-linux-x64 ./cmd/app"
+            end
+            arch "arm64"
+                shell "GOOS=linux GOARCH=arm64 go build -o app-linux-arm64 ./cmd/app"
+            end
+        end
+        os "darwin"
+            arch "amd64"
+                shell "GOOS=darwin GOARCH=amd64 go build -o app-darwin-x64 ./cmd/app"
+            end
+            arch "arm64"
+                shell "GOOS=darwin GOARCH=arm64 go build -o app-darwin-arm64 ./cmd/app"
+            end
+        end
+    end
+end
+```
+
+`perch simulate release --sim-os=linux --sim-arch=arm64` prunes everything except the matching leaf. No umbrellas for arch (matrix builds want exact pinning).
+
 **`os "unix"`** is an umbrella that matches darwin / linux / freebsd / openbsd / netbsd — handy for "any Unix; Windows needs its own":
 
 ```perch

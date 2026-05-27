@@ -381,6 +381,22 @@ func simulateOp(op domain.Op, env SimEnv, depth int, p *domain.Program, cmdName 
 		rollupChildren(&r)
 		return r
 
+	case "arch":
+		// Architecture execution context block. Prune by --sim-arch.
+		r.IsBlockEntry = true
+		target, _ := op.Args["target"].(string)
+		if env.Arch == "" || target == env.Arch {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("arch %q matches sim-arch — body will run", target))
+			r.Children = simulateBody(op.Body, env, depth+1, p, cmdName)
+		} else {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("arch %q does NOT match sim-arch %q — body skipped",
+					target, env.Arch))
+		}
+		rollupChildren(&r)
+		return r
+
 	case "run":
 		classifyRun(&r, op, env, depth, p)
 		return r

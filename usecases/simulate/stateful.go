@@ -116,6 +116,20 @@ func simulateOpStateful(op domain.Op, state *SimState, env SimEnv, depth int, p 
 		rollupChildren(&r)
 		return r
 
+	case "arch":
+		r.IsBlockEntry = true
+		target, _ := op.Args["target"].(string)
+		if env.Arch == "" || target == env.Arch {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("arch %q matches — body runs", target))
+			r.Children = simulateBodyStateful(op.Body, env, state, depth+1, p, cmdName)
+		} else {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("arch %q != sim-arch %q — body skipped", target, env.Arch))
+		}
+		rollupChildren(&r)
+		return r
+
 	case "parallel", "retry", "timeout", "with_env", "with_cwd", "sandbox", "cache", "for_each":
 		r.IsBlockEntry = true
 		// Block ops snapshot the state so concurrent branches don't

@@ -198,7 +198,7 @@ func (o Op) IsBlock() bool {
 	case "if", "if_call", "for_each",
 		"parallel", "timeout", "retry", "with_env", "with_cwd", "sandbox", "cache",
 		"wasm_run",
-		"try", "match", "os":
+		"try", "match", "os", "arch":
 		return true
 	}
 	return false

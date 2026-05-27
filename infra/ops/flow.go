@@ -13,6 +13,31 @@ func registerFlow(m map[string]interpreter.Handler) {
 	m["if_call"] = opIfCall
 	m["for_each"] = opForEach
 	m["os"] = opOsBlock
+	m["arch"] = opArchBlock
+}
+
+// opArchBlock — architecture execution context block. Body runs only
+// when ${arch} matches the declared target. Targets are Go GOARCH
+// values ("amd64", "arm64", "386", "arm", "riscv64", …); exact match
+// only — no umbrella names because matrix builds want exact pinning.
+func opArchBlock(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	target, _ := args["target"].(string)
+	currentArch, _ := b.Lookup("arch")
+	if !ArchTargetMatches(target, currentArch) {
+		return nil, nil
+	}
+	body, _ := args["_body"].([]domain.Op)
+	return nil, i.RunOps(body, b)
+}
+
+// ArchTargetMatches reports whether the declared target matches the
+// host's ${arch}. Exact match; future-proofed for arch families if
+// they become useful.
+func ArchTargetMatches(target, host string) bool {
+	if target == "" || host == "" {
+		return false
+	}
+	return target == host
 }
 
 // opOsBlock — OS execution context block. `os "linux" ... end` runs

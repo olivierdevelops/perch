@@ -871,6 +871,37 @@ ${body}{"event":"op","kind":"_leave"}
 `
 end
 
+# arch "ARCH" ... end — architecture execution context block.
+#
+# Body runs only when ${arch} matches the declared target. Targets are
+# Go GOARCH values: "amd64", "arm64", "386", "arm", "riscv64", etc.
+# No umbrellas (every modern target is one of amd64 or arm64; mixing
+# them is the case worth being explicit about).
+#
+# Pairs cleanly with os "PLATFORM" blocks for matrix-shaped builds:
+#
+#   os "linux"
+#       arch "amd64"
+#           shell "go build -o app-linux-x64 ./cmd/app"
+#       end
+#       arch "arm64"
+#           shell "go build -o app-linux-arm64 ./cmd/app"
+#       end
+#   end
+#
+# When the unified `with ... do ... end ... end` block lands, `arch`
+# becomes an attribute inside it ("with arch \"arm64\" do …"); this
+# standalone block remains as the dedicated arch-only shape.
+
+function arch_block
+    arg literal "arch"
+    arg capture target string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"arch","args":{"target":${target}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
 function try_block
     arg literal "try"
     block_closer end
