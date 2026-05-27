@@ -23,6 +23,19 @@ type Impl struct {
 	Suggest SuggestFn // optional: fuzzy-match suggestion provider
 }
 
+// HasCommand reports whether the named command is declared in the
+// file at configPath. Errors loading the file count as "no" — the
+// caller (shebang-default dispatch in cli.go) handles missing files
+// via a separate path.
+func (i *Impl) HasCommand(configPath, name string) bool {
+	p, err := i.Load(configPath)
+	if err != nil {
+		return false
+	}
+	_, ok := p.Commands[name]
+	return ok
+}
+
 func (i *Impl) Execute(configPath, name string, args []string) error {
 	p, err := i.Load(configPath)
 	if err != nil {

@@ -23,6 +23,13 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **Shebang scripts — `#!/usr/bin/env perch` works.** `.perch` files can now run as standalone scripts on Linux / macOS / WSL the same way Python or bash scripts do. Three new behaviours wire this up:
+  - **`perch --init`** writes the shebang line at the top, sets the file `+x`, and includes a `main` command so `./commands.perch` (no args) runs a sensible default. Prints the exact `chmod +x` and `./commands.perch` commands so the user sees the script idiom on day one.
+  - **`perch FILE [CMD] [ARGS]`** auto-detects when the first arg is a path to a `.perch` file (path-shaped + exists + regular file) and treats it as `-f FILE`. This is what makes the kernel-invoked `perch /abs/path/script.perch ARGS…` form work after the shebang.
+  - **Shebang invocation with no command name** dispatches to a `main` command if the file declares one (Python / bash convention), otherwise lists available commands cleanly. Implemented via a new `HasCommand` probe on the run use case so we don't print "unknown command" noise before the listing.
+  - Net result: a `.perch` file is now simultaneously a structured CLI surface AND a standalone executable script. `./deploy.perch up`, `perch -f deploy.perch up`, `perch --build` + `./deploy up` all behave identically.
+  - The shebang line itself is `#` comment text to capy's parser — no grammar change required.
+  - SKILL.md updated so AI-assisted authoring suggests the shebang in new files.
 - **`perch --scan FILE`** — static security audit. Walks the program (no execution), produces:
   - **Capabilities needed** — shell? subprocess? network? writes? — broken out with the actual binaries called, the hosts contacted, and the path roots written. Each row that's NOT used carries an "add `--no-X` for free" hint.
   - **Env vars referenced** — every `${UPPERCASE_NAME}` interpolated in any string arg, so the `--env A,B,C` allowlist becomes a copy-paste.

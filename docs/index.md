@@ -485,9 +485,46 @@ Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
+**Can I run `.perch` files as scripts (shebang)?** Yes. `perch --init` writes a `#!/usr/bin/env perch` line at the top and sets the file executable. Then `./commands.perch` runs the `main` command; `./commands.perch hello` runs `hello`; everything between just works. Conceptually a `.perch` file is a script *and* a structured CLI surface — both at once.
+
+```sh
+$ perch --init
+$ chmod +x commands.perch
+$ ./commands.perch           # runs the `main` command
+$ ./commands.perch hello     # runs `hello`
+$ ./commands.perch --help    # lists commands
+```
+
+The shebang line is just a `#` comment to perch's parser, so it has no effect on parsing.
+
 **Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
+
+<div class="pterm" id="t-shebang" data-title=".perch files are scripts too"></div>
+<script type="application/json" data-pterm="t-shebang">
+[
+  {"k":"in",  "t":"perch --init"},
+  {"k":"ok",  "t":"✓ wrote commands.perch"},
+  {"k":"dim", "t":"Or run it as a script (perch must be on $PATH):"},
+  {"k":"dim", "t":"  chmod +x commands.perch"},
+  {"k":"dim", "t":"  ./commands.perch          # runs the `main` command"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"head -1 commands.perch"},
+  {"k":"out", "t":"#!/usr/bin/env perch"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"chmod +x commands.perch"},
+  {"k":"in",  "t":"./commands.perch"},
+  {"k":"ok",  "t":"Hello from /Users/you"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"./commands.perch hello"},
+  {"k":"ok",  "t":"Hello from /Users/you"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"./commands.perch --help"},
+  {"k":"out", "t":"  hello   Say hello"},
+  {"k":"out", "t":"  main    Default action when the file runs as a script"}
+]
+</script>
 
 <div class="pterm" id="t-scan" data-title="perch --scan — static security audit"></div>
 <script type="application/json" data-pterm="t-scan">

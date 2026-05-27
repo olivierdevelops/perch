@@ -21,7 +21,12 @@ func (i *Impl) Execute(path string) error {
 		return nil
 	}
 	cwd, _ := os.Getwd()
-	data := strings.TrimSpace(fmt.Sprintf(`
+	// The shebang line makes the file directly executable once the user
+	// `chmod +x`s it — `./commands.perch hello` runs without typing
+	// `perch` first. Capy treats `#` lines as comments, so the shebang
+	// has no effect on parsing; it's just a hint to the kernel + a hint
+	// to the user that "this file is itself a program."
+	data := strings.TrimSpace(fmt.Sprintf(`#!/usr/bin/env perch
 name    "%s"
 about   "A perch project"
 version "0.1.0"
@@ -36,6 +41,26 @@ command hello
         print "Hello from ${HOME}"
     end
 end
+
+command main
+    description "Default action — runs when the file is invoked with no command"
+    do
+        run hello
+    end
+end
 `, filepath.Base(cwd))) + "\n"
-	return os.WriteFile(path, []byte(data), 0644)
+	if err := os.WriteFile(path, []byte(data), 0755); err != nil {
+		return err
+	}
+	fmt.Printf("✓ wrote %s\n", path)
+	fmt.Println()
+	fmt.Println("Try:")
+	fmt.Printf("  perch -f %s --help\n", path)
+	fmt.Printf("  perch -f %s hello\n", path)
+	fmt.Println()
+	fmt.Println("Or run it as a script (perch must be on $PATH):")
+	fmt.Printf("  chmod +x %s\n", path)
+	fmt.Printf("  ./%s          # runs the `main` command\n", path)
+	fmt.Printf("  ./%s hello    # runs `hello` directly\n", path)
+	return nil
 }

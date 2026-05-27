@@ -12,6 +12,8 @@ You are writing or modifying a `commands.perch` file. perch is a cross-platform 
 Every `commands.perch` follows the same shape:
 
 ```capy
+#!/usr/bin/env perch            # optional but recommended — lets the file be `./run` as a script
+
 name    "PROGRAM_NAME"          # required
 about   "PROGRAM_DESCRIPTION"   # optional but recommended
 version "X.Y.Z"                 # optional but recommended

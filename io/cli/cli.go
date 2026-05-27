@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"strings"
 )
 
 //go:embed completions/perch.bash
@@ -18,6 +19,11 @@ var completionFish string
 
 type RunCommandUseCase interface {
 	Execute(configPath, commandName string, args []string) error
+	// HasCommand reports whether the named command is declared in the
+	// file at configPath. Used by the shebang-default path to fall back
+	// cleanly when `main` is missing (no spurious "unknown command"
+	// noise before the listing prints).
+	HasCommand(configPath, commandName string) bool
 }
 
 type ListCommandsUseCase interface {
@@ -107,6 +113,24 @@ func (c *CLI) Run() int {
 		filePath := args[1]
 		commandName = args[2]
 		remaining = append([]string{"-f", filePath}, args[3:]...)
+	} else if looksLikeScriptPath(args[0]) {
+		// Shebang-style invocation. The kernel runs:
+		//   `perch /abs/path/to/script.perch ARGS…`
+		// when a file starting with `#!/usr/bin/env perch` is executed.
+		// We auto-promote the first arg to `-f` and treat the rest as
+		// the command + its args. With no command we fall back to a
+		// conventional `main` target so `./script.perch` (no args)
+		// just runs the default action — same shape Python / bash users
+		// expect from `./script`. Empty `commandName` is resolved
+		// downstream after parseFileFlag.
+		filePath := args[0]
+		if len(args) >= 2 {
+			commandName = args[1]
+			remaining = append([]string{"-f", filePath}, args[2:]...)
+		} else {
+			commandName = scriptDefaultCommand // sentinel: "try main, then list"
+			remaining = []string{"-f", filePath}
+		}
 	} else {
 		commandName = args[0]
 		remaining = args[1:]
@@ -170,7 +194,51 @@ func (c *CLI) Run() int {
 		return errExit(c.UseCases.CommandHelp.Execute(path, commandName))
 	}
 
+	// Shebang invocation with no command name: try `main` first
+	// (Python / bash convention), fall back to listing commands. Use
+	// HasCommand for a clean check — running with an unknown name and
+	// catching the error would print "unknown command" before our
+	// listing, which is noisy.
+	if commandName == scriptDefaultCommand {
+		if c.UseCases.Run.HasCommand(path, "main") {
+			return errExit(c.UseCases.Run.Execute(path, "main", rest))
+		}
+		return errExit(c.UseCases.List.Execute(path))
+	}
+
 	return errExit(c.UseCases.Run.Execute(path, commandName, rest))
+}
+
+// scriptDefaultCommand is the sentinel used when `perch ./script.perch`
+// is invoked with no command after it. The dispatcher resolves it to
+// `main` (if the file declares one) or to a command listing.
+const scriptDefaultCommand = "\x00__script_default__"
+
+// looksLikeScriptPath returns true when arg ought to be treated as a
+// path to a `.perch` file (shebang-style invocation: `perch script.perch`
+// or `./script.perch`). Conservative — we want to avoid mistaking a
+// command name like `deploy` for a file.
+//
+// A token qualifies if (1) it's an existing regular file AND (2) it
+// either ends in `.perch` or looks path-shaped (starts with `./`, `../`,
+// `/`, `~`, or contains a `/`). That last clause is what makes
+// `#!/usr/bin/env perch` work: the kernel passes the absolute path,
+// which always contains `/`.
+func looksLikeScriptPath(arg string) bool {
+	pathShaped := strings.HasSuffix(arg, ".perch") ||
+		strings.HasPrefix(arg, "./") ||
+		strings.HasPrefix(arg, "../") ||
+		strings.HasPrefix(arg, "/") ||
+		strings.HasPrefix(arg, "~") ||
+		strings.Contains(arg, "/")
+	if !pathShaped {
+		return false
+	}
+	info, err := os.Stat(arg)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	return true
 }
 
 func hasHelp(args []string) bool {
