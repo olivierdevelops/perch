@@ -37,13 +37,33 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 ---
 
-## What's new
+## The three things perch does that nothing else does
 
-- 🧪 **`perch simulate` v2 — stateful + oracled + multi-scenario.** Threads file/cwd/var state through the op walk (write-then-exists works), accepts a JSON fixture (`--sim-file fixture.json`) declaring **oracles** (`shell_output`, `http`, `file_exists`, `has_bin`) and **named scenarios** that run as independent walks with their own report. Answers: *"what if the file exists after the previous step?", "what if HTTP returns 500?", "what if upstream redirects to evil.com?"* [Details →](simulate.md#stateful-simulation-oracles-and-scenarios) · [example fixture](https://github.com/luowensheng/perch/blob/main/docs/simulate-example.json)
-- 📡 **`perch-mcp` now streams stdout/stderr live** via [MCP progress notifications](mcp.md#streaming-progress). When the client sends `_meta.progressToken`, every line of output emits a `notifications/progress` event as it's produced — no more silent waits for long-running verbs. Closes the asymmetry with the web UI's NDJSON streaming.
-- 🔒 **`wasm-plugin-host` demo — the architectural killer demo.** A pluggable runtime where every plugin is a WASM module. Ships 4 legitimate plugins + 1 **deliberately malicious** plugin that tries 5 escape attempts; every one fails because the WASI runtime doesn't provide those operations. [Browse the demo →](https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host)
-- 🧪 **3 runnable `wasm_run` demos:** schema validator, K8s policy check, agent-safe git-diff summarizer. Each ships Go source + pre-built `.wasm` + walkthroughs. [`wasm-walkthroughs.md`](wasm-walkthroughs.md)
-- 📦 **22 ready-made recipes.** Redis, Postgres, devstack, aistack, observe, kafka, modern-unix, gh-flow, docker-mgr, mkcert-local, backup, scan-secrets … one curl, audit with `--scan`, run. [Browse →](recipes.md)
+<div class="perch-features">
+
+<div class="card">
+  <h4>🎯 One file → five surfaces</h4>
+  <p>The same <code>commands.perch</code> is callable as a <strong>CLI</strong>, served as a <strong>web UI</strong> (<code>--server</code>), steppable in a <strong>REPL</strong> (<code>--shell</code>), exposed to AI agents over <strong>MCP</strong> (<code>perch-mcp</code>), and bundled into a <strong>single portable binary</strong> (<code>--build</code> with your whole project embedded). Not five integrations — one abstraction, five renderings. <em>Nothing in the bash / Make / Click / Cobra / Just / Task ecosystem does this.</em></p>
+</div>
+
+<div class="card">
+  <h4>🔒 <code>wasm_run</code> — capabilities by construction, not by policy</h4>
+  <p>Load a WebAssembly module under WASI. The module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is <strong>invisible by construction</strong>, not blocked by policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <strong>The killer demo:</strong> a plugin host runs 4 legitimate plugins + 1 deliberately malicious plugin that tries 5 escape routes — every escape fails because the runtime doesn't <em>provide</em> those operations.<br><a href="wasm/"><strong>Reference →</strong></a> · <a href="wasm-walkthroughs/">5 walkthroughs</a> · <a href="https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host"><strong>zero-trust AI plugin demo →</strong></a></p>
+</div>
+
+<div class="card">
+  <h4>🧪 <code>perch simulate</code> — answer "what would happen on THAT host?" without running anything <span style="background:#eef;padding:1px 6px;border-radius:3px;font-size:.75em;vertical-align:middle">v2</span></h4>
+  <p>Walk the program against a <strong>hypothetical environment</strong> — sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots — and report per-op outcomes (WILL_RUN ✓ / WILL_FAIL ✗ / MIGHT_FAIL ?). <strong>v2</strong> threads state through the walk (write-then-exists works), accepts a JSON fixture (<code>--sim-file</code>) with <strong>oracles</strong> (pin <code>shell_output</code>, <code>http</code>, <code>file_exists</code>, <code>has_bin</code>) and <strong>named scenarios</strong> that run as independent walks ("happy" vs "github-down" vs "kubectl-missing" all in one report). Drop into CI as a multi-environment gate. <a href="simulate/"><strong>Details →</strong></a></p>
+</div>
+
+</div>
+
+<p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
+<strong>Also recently shipped:</strong>
+📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
+📦 <a href="recipes/"><strong>22 ready-made recipes</strong></a> — Redis / Postgres / devstack / aistack / observe / kafka / modern-unix / gh-flow / docker-mgr / mkcert / backup / scan-secrets · one curl, audit with <code>--scan</code>, run ·
+🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer
+</p>
 
 ---
 
@@ -103,18 +123,8 @@ ops/security (mkcert-local, backup, scan-secrets).
 <div class="perch-features">
 
 <div class="card">
-  <h4>🎯 One file, every surface</h4>
-  <p>The same <code>commands.perch</code> is callable as a CLI, served as a web UI, steppable in a REPL, exposed to AI agents over MCP, and bundled into a portable binary. Everything else is rendering.</p>
-</div>
-
-<div class="card">
   <h4>🛡️ Safe by composition</h4>
   <p>Restriction flags compose — <code>--no-shell --no-network --env HOME,PATH</code>. Default-on SSRF and redirect guards. <code>--scan</code> audits a file before you run it. The grammar is the security boundary.</p>
-</div>
-
-<div class="card">
-  <h4>🔒 <code>wasm_run</code> — the constrained execution lane</h4>
-  <p>For when "capability-gated shell" isn't enough. Load a WebAssembly module under WASI; the module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is invisible <em>by construction</em>, not policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <a href="wasm/">Reference →</a> · <a href="wasm-walkthroughs/">5 walkthroughs →</a> · <a href="https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host"><strong>The killer demo: AI-generated plugins running zero-trust →</strong></a></p>
 </div>
 
 <div class="card">
@@ -227,11 +237,6 @@ The technical details that don't fit on the marketing panel above:
 <div class="card">
   <h4>Static <code>--check</code> validator</h4>
   <p>Catches typo'd arg types, mismatched defaults, duplicate args, colliding positional indexes, missing <code>run TARGET</code>, unknown ops, unresolved <code>${name}</code> placeholders — before any command runs. Wire it into pre-commit.</p>
-</div>
-
-<div class="card">
-  <h4>🧪 <code>perch simulate</code> — stateful what-if analyzer <span style="background:#eef;padding:1px 5px;border-radius:3px;font-size:.75em">v2</span></h4>
-  <p>Walks the program against a HYPOTHETICAL environment (sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots) and reports per-op outcomes: <strong>WILL_RUN ✓</strong> / <strong>WILL_FAIL ✗</strong> / <strong>MIGHT_FAIL ?</strong>. <strong>v2 adds:</strong> state threading (write-then-exists works), <strong>oracles</strong> for `shell_output` / `http` / `file_exists` / `has_bin` (pin simulated outputs), and <strong>named scenarios</strong> in a JSON fixture (<code>--sim-file fixture.json</code>) so one run reports "happy path" vs "github-down" vs "kubectl-missing" side by side. <a href="simulate/">Details →</a></p>
 </div>
 
 <div class="card">
