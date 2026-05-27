@@ -27,6 +27,24 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **Version extraction + comparison ops (`version_extract` + `version_eq` / `_ne` / `_gt` / `_ge` / `_lt` / `_le` / `_compat` + `assert_version_ge`).** The right primitives for version-gating workflows without inventing a brittle per-binary version-parser table. Two-step compose: user controls the regex (or accepts a default heuristic), perch handles the comparison.
+
+  ```perch
+  command deploy
+      do
+          let raw = shell_output "kubectl version --client -o json"
+          let v   = version_extract "${raw}"
+          let ok  = version_ge "${v}" "1.28.0"
+          if not ok
+              fail "kubectl ${v} < 1.28.0 — upgrade and retry"
+          end
+          shell "kubectl rollout restart deployment/api"
+      end
+  end
+  ```
+
+  `version_extract` defaults to a permissive heuristic (`v?\d+(\.\d+)+(...)?`) that matches most CLI version output. For unusual formats, pass a pattern with one capture group: `version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)``. Comparators are numeric (`1.10 > 1.9`, not lexicographic), strip optional `v` prefix, handle pre-release suffixes per semver (`1.0.0 > 1.0.0-rc.1`), ignore build metadata after `+`, and fall back to string-compare on unparseable input so callers always reach a decision. `version_compat` is the same-major-version check (PEP 440 `~=` / Cargo caret). `assert_version_ge` is the test/hard-gate variant — halts with `assert_failed` kind on mismatch, composes with `try/rescue`. New file: `infra/ops/version.go`; tested via `infra/ops/version_test.go` (numeric ordering, prefix stripping, pre-release rules, build metadata, missing segments — all green). No external dep — kept dependency-free.
+
 - **`arch "ARCH" ... end` — architecture execution context block.** Sibling to `os "PLATFORM" ... end`, gates the body by `${arch}`. Targets are Go GOARCH values (`amd64`, `arm64`, `386`, `arm`, `riscv64`, …); exact match, no umbrellas (matrix builds want exact pinning). Composes cleanly with `os` for cross-product matrices:
 
   ```perch

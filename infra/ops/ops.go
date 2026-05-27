@@ -29,5 +29,6 @@ func AllHandlers() map[string]interpreter.Handler {
 	registerPaths(m)
 	registerInstall(m)
 	registerErrorOps(m)
+	registerVersion(m)
 	return m
 }

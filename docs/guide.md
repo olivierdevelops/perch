@@ -912,6 +912,55 @@ command setup
 end
 ```
 
+### Version checks
+
+`shell_output` + `version_extract` + `version_*` comparators give you typed version gating without a per-binary parser table to maintain. The pattern:
+
+```perch
+command deploy
+    do
+        let raw = shell_output "kubectl version --client -o json"
+        let v   = version_extract "${raw}"
+        let ok  = version_ge "${v}" "1.28.0"
+        if not ok
+            fail "kubectl ${v} < 1.28.0 — upgrade and retry"
+        end
+        shell "kubectl rollout restart deployment/api"
+    end
+end
+```
+
+**`version_extract STRING [PATTERN]`** pulls a version out of arbitrary text. With no PATTERN it uses a default heuristic (`v?\d+(\.\d+)+(...optional pre-release tail...)`) that matches most CLI version output. Supply a pattern with one capture group for unusual formats:
+
+```perch
+let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
+```
+
+**Comparators** return `"true"` / `"false"`:
+
+| Op | Semantics |
+|---|---|
+| `version_eq A B` | A == B |
+| `version_ne A B` | A != B |
+| `version_gt A B`, `version_ge A B` | strict / inclusive greater |
+| `version_lt A B`, `version_le A B` | strict / inclusive less |
+| `version_compat A B` | same major version (`~=`-style compatibility) |
+
+Plus the assertion variant for tests / hard gates:
+
+```perch
+assert_version_ge "${v}" "1.28.0"   # halts with assert_failed if v < 1.28.0
+```
+
+**Ordering rules** — best-effort, no library dependency:
+
+- Optional `v` prefix is stripped on both sides
+- Numeric segments compared element-wise (`1.10.0 > 1.9.0` — numeric, not lex)
+- Missing segments treated as zero (`1.2 == 1.2.0`)
+- Pre-release suffix (`-rc.1`) sorts BEFORE the unsuffixed version (semver spec)
+- Build metadata after `+` is ignored
+- Falls back to string compare if either side is unparseable (so `if ok ... end` still reaches a decision)
+
 **`arch "ARCH" ... end`** is the architecture sibling — runs the body only when `${arch}` matches. Standard targets: `"amd64"`, `"arm64"`, `"386"`, `"arm"`, `"riscv64"` (Go GOARCH values). Compose with `os` for matrix builds:
 
 ```perch
