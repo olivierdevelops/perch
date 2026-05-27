@@ -8,7 +8,22 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Design notes (planned, not yet shipped)
 
-- **Unified `with ... then ... end` context block** — replace `os "X" ... end` / `with_env` / `with_cwd` / `sandbox` with a single block carrying any combination of context attributes (os, cwd, env, no_tty, allow_host, max_runtime, …). Composability win: adding a new context kind never requires a new block construct, just a new attribute line. **Status: blocked.** Attempted in two commits this session (`with` and `using` keywords); capy's grammar engine doesn't currently support the "header (attribute lines) → separator (`then`) → body" shape inside a `block_closer end` block — body-parser doesn't recognise the attribute lines as valid body content. Documented here as a planned design pending a capy grammar capability bump; in the meantime `os "X" ... end` (below) covers the OS-context piece and the existing `with_env` / `with_cwd` / `sandbox` blocks cover the rest.
+- **Unified `with ... do ... end ... end` context block** — replace `os "X" ... end` / `with_env` / `with_cwd` / `sandbox` with a single block carrying any combination of context attributes (os, cwd, env, no_tty, allow_host, max_runtime, …). Target shape:
+
+  ```perch
+  with
+      os "unix"
+      cwd "./build"
+      env DEBUG=1
+      do
+          shell "make"
+      end
+  end
+  ```
+
+  Same `do ... end` body opener every other block in perch uses (`command`, `catch`, `template`) — no new separator keyword, two `end`s mirror the standard `command ... do ... end ... end` shape. Composability win: adding a new context kind never requires a new block construct, just a new attribute line.
+
+  **Status: blocked.** Attempt this session shipped a working OS-context block via `os "X" ... end` (below) but the unified `with` shape needs two capabilities the current capy engine doesn't have: (a) body-parser accepting attribute lines like `os "unix"` / `cwd "./build"` as valid content inside an outer `block_closer end` block (errored even with `arg literal "X" + arg capture target string` matching the wasm_arg precedent); (b) loader's `do_begin` state machine extended to accept `do` inside a `with` block (the current code hardcodes `stCommand` / `stCatch` / `stTemplate` only). Documented here as the design intent; in the meantime `os "X" ... end` covers the OS piece and existing `with_env` / `with_cwd` / `sandbox` blocks cover the rest.
 
 ### Added
 
