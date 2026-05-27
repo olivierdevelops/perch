@@ -33,12 +33,19 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/capyloader"
 	"github.com/luowensheng/perch/infra/interpreter"
 	"github.com/luowensheng/perch/infra/ops"
 )
+
+// encMu serializes every write to the JSON-RPC stream. Required because
+// progress notifications emitted from `parallel` block goroutines run
+// concurrently with each other and with the main loop's response writes.
+var encMu sync.Mutex
 
 const (
 	protocolVersion = "2025-06-18"
@@ -97,13 +104,104 @@ func main() {
 }
 
 func respond(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, result any) {
+	encMu.Lock()
+	defer encMu.Unlock()
 	_ = enc.Encode(rpcResp{JSONRPC: "2.0", ID: id, Result: result})
 	w.Flush()
 }
 
 func respondErr(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, code int, msg string) {
+	encMu.Lock()
+	defer encMu.Unlock()
 	_ = enc.Encode(rpcResp{JSONRPC: "2.0", ID: id, Error: &rpcErr{Code: code, Message: msg}})
 	w.Flush()
+}
+
+// progressWriter is an io.Writer that fans out to a buffer (for the
+// final tools/call response) AND to MCP progress notifications on the
+// JSON-RPC stream (so the agent sees output as the command produces
+// it, not buffered until completion).
+//
+// Required for any long-running perch verb — `kubectl apply`, a full
+// deploy pipeline, a parallel build matrix. Without progress
+// notifications, the agent waits in silence for minutes and then
+// receives the whole output as one blob.
+//
+// MCP spec: progress notifications carry a `progressToken` that
+// matches the one the client sent in `params._meta.progressToken`.
+// We forward it verbatim (as json.RawMessage) so a client that uses
+// a string token or a numeric token both work.
+//
+// Concurrency: perch's `parallel` block-op runs op handlers in
+// goroutines, so multiple Write() calls can race. encMu serializes
+// emissions onto the JSON-RPC stream; the accumulated buffer is
+// guarded by its own mutex.
+type progressWriter struct {
+	enc           *json.Encoder
+	w             *bufio.Writer
+	progressToken json.RawMessage // nil → no notifications, just buffer
+	stream        string          // "stdout" or "stderr" — passed in _meta
+	progressN     uint64          // monotonic counter for the progress field
+	accMu         sync.Mutex
+	accumulated   *bytes.Buffer
+}
+
+func newProgressWriter(enc *json.Encoder, w *bufio.Writer, token json.RawMessage, stream string) *progressWriter {
+	return &progressWriter{
+		enc:           enc,
+		w:             w,
+		progressToken: token,
+		stream:        stream,
+		accumulated:   new(bytes.Buffer),
+	}
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	// Always accumulate — the final tool result includes the whole output.
+	p.accMu.Lock()
+	p.accumulated.Write(b)
+	p.accMu.Unlock()
+
+	// Only emit progress notifications if the client asked for them.
+	if p.progressToken == nil {
+		return len(b), nil
+	}
+
+	n := atomic.AddUint64(&p.progressN, 1)
+	notif := map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/progress",
+		"params": map[string]any{
+			"progressToken": p.progressToken,
+			"progress":      n,
+			// MCP progress notifications carry an optional `message`
+			// (the human-readable description). We strip the trailing
+			// newline because the MCP client typically renders each
+			// message as its own line.
+			"message": strings.TrimRight(string(b), "\n"),
+			// Non-standard `_meta` — clients that recognize it can
+			// render stdout vs stderr distinctly; clients that don't
+			// just ignore.
+			"_meta": map[string]any{"stream": p.stream},
+		},
+	}
+	encMu.Lock()
+	_ = p.enc.Encode(notif)
+	_ = p.w.Flush()
+	encMu.Unlock()
+	return len(b), nil
+}
+
+func (p *progressWriter) String() string {
+	p.accMu.Lock()
+	defer p.accMu.Unlock()
+	return p.accumulated.String()
+}
+
+func (p *progressWriter) Len() int {
+	p.accMu.Lock()
+	defer p.accMu.Unlock()
+	return p.accumulated.Len()
 }
 
 func handle(enc *json.Encoder, w *bufio.Writer, req *rpcReq, cfgPath string, handlers map[string]interpreter.Handler) {
@@ -160,16 +258,28 @@ func handle(enc *json.Encoder, w *bufio.Writer, req *rpcReq, cfgPath string, han
 		var params struct {
 			Name      string          `json:"name"`
 			Arguments json.RawMessage `json:"arguments"`
+			// MCP spec: clients send `_meta.progressToken` (string or
+			// number) when they want server-pushed progress
+			// notifications. We pass it through to handlePerchRun so
+			// every stdout/stderr write turns into a `notifications/
+			// progress` event the client renders live.
+			Meta *struct {
+				ProgressToken json.RawMessage `json:"progressToken,omitempty"`
+			} `json:"_meta,omitempty"`
 		}
 		if err := json.Unmarshal(req.Params, &params); err != nil {
 			respondErr(enc, w, req.ID, -32602, "invalid params: "+err.Error())
 			return
 		}
+		var progressToken json.RawMessage
+		if params.Meta != nil {
+			progressToken = params.Meta.ProgressToken
+		}
 		switch params.Name {
 		case "perch_list":
 			handlePerchList(enc, w, req.ID, cfgPath)
 		case "perch_run":
-			handlePerchRun(enc, w, req.ID, cfgPath, handlers, params.Arguments)
+			handlePerchRun(enc, w, req.ID, cfgPath, handlers, params.Arguments, progressToken)
 		default:
 			respondErr(enc, w, req.ID, -32601, "unknown tool: "+params.Name)
 		}
@@ -215,7 +325,7 @@ func handlePerchList(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, cfg
 	respondToolResult(enc, w, id, b.String(), false)
 }
 
-func handlePerchRun(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, cfgPath string, handlers map[string]interpreter.Handler, raw json.RawMessage) {
+func handlePerchRun(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, cfgPath string, handlers map[string]interpreter.Handler, raw json.RawMessage, progressToken json.RawMessage) {
 	var args struct {
 		Command string         `json:"command"`
 		Args    map[string]any `json:"args"`
@@ -240,11 +350,17 @@ func handlePerchRun(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, cfgP
 		}
 	}
 
-	// Capture output.
-	var stdout, stderr bytes.Buffer
+	// Two progressWriters — one per stream. Both accumulate to
+	// independent buffers (so the final response can label stdout vs
+	// stderr) AND emit MCP progress notifications when the client
+	// requested them. If progressToken is nil, no notifications fire;
+	// behavior degrades to the old buffer-and-return model.
+	stdout := newProgressWriter(enc, w, progressToken, "stdout")
+	stderr := newProgressWriter(enc, w, progressToken, "stderr")
+
 	i := interpreter.New(handlers, p)
-	i.Stdout = &stdout
-	i.Stderr = &stderr
+	i.Stdout = stdout
+	i.Stderr = stderr
 
 	// Convert the named-args map to -k=v argv.
 	argv := []string{}
