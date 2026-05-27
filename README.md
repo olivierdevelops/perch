@@ -126,6 +126,23 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 ---
 
+## What perch is **not**
+
+Perch is deliberately narrow. It is not:
+
+- **A general-purpose programming language.** No closures, objects, modules, or user-defined functions beyond `command`. If your script needs those, it should call out to a language that has them.
+- **A CI system.** It can be *invoked from* one (`perch ci` in a GitHub-Actions step) and replace shell glue *inside* a job. It doesn't schedule, queue, retry, or manage resources across machines.
+- **A Kubernetes / container orchestrator.** It drives `kubectl` / `docker` / `helm` from the host side. It doesn't reimplement them.
+- **A package manager.** `pkg_install` wraps `brew` / `apt` / `winget` etc. — perch doesn't host a registry or resolve dependencies.
+- **An init system or service supervisor.** No restart policies, no health checks, no PID files. Use `systemd` / `launchd` / a process manager for that.
+- **A polyglot runtime.** No Python / JS / Rust embedding. Call them via `shell` or ship them via `--build --include`.
+- **A multi-user auth system.** `--server` is single-tenant, localhost-bound by default. For multi-tenant or public access, put it behind a reverse proxy with the auth story you already use.
+- **A kernel-level sandbox.** The op set is the security boundary. `--no-shell` is airtight; once you allow `shell`, the spawned subprocess can talk to the kernel directly and `--no-network` only fences perch's own HTTP ops. For adversarial input, layer with `firejail` / `sandbox-exec` / `AppContainer`. See [docs/sandbox.md §0d](docs/sandbox.md#0d-the-subprocess-escape-hatch--and-the-layered-defense) for the honest discussion.
+
+If you need one of the above, perch is the wrong layer — but it composes with whichever one you pick.
+
+---
+
 ## A 30-second tour
 
 After `go install github.com/luowensheng/perch@latest`:
@@ -142,6 +159,72 @@ perch --build -o ./greet              # bundles commands.perch into ./greet
 ```
 
 `.perch` files double as standalone executable scripts — `perch --init` writes `#!/usr/bin/env perch` at the top and sets the file executable. Same shape as a bash script.
+
+---
+
+## A real example: perch builds itself
+
+The repo's own [`commands.perch`](commands.perch) is what we use to build, clean, and tidy perch. It's 30 lines, four commands, and is the canonical "small portable task runner" shape:
+
+```capy
+#!/usr/bin/env perch
+name "perch"
+about "perch — a cross-platform command runner driven by capy"
+
+globals
+    BUILD_DIR = "${script_dir}/.ignore"
+    BUILD_OUT = "${script_dir}/.ignore/perch"
+end
+
+command build
+    description "Build the perch binary"
+    do
+        mkdir "${BUILD_DIR}"
+        shell "go build -o ${BUILD_OUT} ."
+        let size = file_size "${BUILD_OUT}"
+        print "Built ${size} bytes."
+    end
+end
+
+command clean
+    description "Remove the built binary"
+    do
+        if exists "${BUILD_OUT}"
+            rm "${BUILD_OUT}"
+        end
+    end
+end
+
+command tidy
+    do
+        shell "go mod tidy"
+    end
+end
+```
+
+Run with `perch build` or `./commands.perch build`. `${script_dir}` is one of the auto-bound variables — the directory containing the `.perch` file, so the build works from any cwd and contains no hardcoded paths.
+
+Four more worked examples live under [demos/](demos): a Docker wrapper, a cross-platform installer, a Python project shipped as one binary, and a Go-project task runner. They're complete `commands.perch` files you can read end-to-end in two minutes each.
+
+**Adoption is small.** Perch is young (v0.x). We use it ourselves; we'd like to see what other shapes it grows into.
+
+---
+
+## Where it breaks down
+
+Honest about the limits — useful for deciding whether perch fits your problem:
+
+- **Streaming captures.** `shell "X"` streams output to stdout; `let s = shell_output "X"` waits for X to finish. Long real-time log views work via plain `shell`, not via captures.
+- **No real list type.** Variadic args, `glob`, and `list_dir` return newline-joined strings; `for_each` iterates them. Nested data structures (maps, lists-of-lists) don't exist in the binding system. Use JSON ops + `json_get` for nested reads.
+- **No closures or higher-order anything.** Commands are the unit of composition. `run other_command` exists; passing a command as an argument doesn't.
+- **Single-process, sequential.** No coroutines, no event loop, no daemons. `shell_detached` is the only parallel escape; everything else runs in order.
+- **State is per-invocation.** Persistent state lives in files / databases / whatever you choose. The REPL keeps bindings across lines within one session — that's the extent of in-memory persistence.
+- **Scale ceiling per file.** ~10 commands reads well; ~50 starts to feel cramped; beyond that you probably want multiple files (which perch supports via `-f`, but with a flat per-file namespace — no imports yet).
+- **Cross-platform parity has an asterisk.** The ~140 ops are identical across macOS / Linux / Windows. `shell` invocations are inherently OS-specific. `--no-shell` is the only way to *guarantee* parity; with `shell` allowed, you write per-OS branches.
+- **Adversarial input.** Restriction flags close the easy cases. For genuinely hostile `.perch` files you can't trust, layer perch under a kernel-level sandbox (`firejail`, `sandbox-exec`, `AppContainer`) — perch's security model assumes you've code-reviewed the file, not that it could be from a determined attacker. [docs/sandbox.md](docs/sandbox.md) is honest about this.
+- **Hot reload.** Parsed once at start. Edit, re-run. No file-watcher mode.
+
+If two or three of these are deal-breakers, perch is the wrong tool. If they're acceptable trade-offs, perch is probably saving you a Cobra app + a Makefile + a CI YAML + an MCP server.
 
 ---
 
