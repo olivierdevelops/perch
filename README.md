@@ -120,7 +120,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
-3. **Three frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), and steppable in a REPL (`--shell`).
+3. **Five frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), steppable in a REPL (`--shell`), exposed to AI agents via MCP (`perch-mcp`), and runnable as an executable script (`#!/usr/bin/env perch` shebang).
 4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
 
 ---
@@ -131,12 +131,16 @@ After `go install github.com/luowensheng/perch@latest`:
 
 ```sh
 mkdir hello-perch && cd hello-perch
-perch --init                          # writes a starter commands.perch
+perch --init                          # writes a starter commands.perch (with shebang, +x)
 perch --help                          # lists the commands in it
-perch hello                           # runs one
+perch hello                           # runs one via the perch binary
+./commands.perch hello                # … or run the file directly as a script
+./commands.perch                      # … or run the `main` default
 perch --build -o ./greet              # bundles commands.perch into ./greet
 ./greet hello                         # ./greet works anywhere, no perch needed
 ```
+
+`.perch` files double as standalone executable scripts — `perch --init` writes `#!/usr/bin/env perch` at the top and sets the file executable. Same shape as a bash script.
 
 ---
 

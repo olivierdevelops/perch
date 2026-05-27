@@ -6,7 +6,7 @@ This page is the manifesto. It maps the parts of an operating system to the part
 
 ---
 
-## The 10 things an OS gives a program
+## The 11 things an OS gives a program
 
 Pick any operating system. Strip away the hardware story and what's left is a small set of abstractions: a way to run things, a way to scope what they touch, a way to watch them, a way to bound them. perch implements those abstractions inside a single Go binary that you can `scp` to a server, embed inside another binary, or hand to an AI agent.
 
@@ -22,8 +22,9 @@ Pick any operating system. Strip away the hardware story and what's left is a sm
 | 8 | **Package manager** (install other software) | `pkg_install` + `detect_pkg_mgr` (brew / apt / dnf / pacman / apk / zypper / winget / choco / scoop) | shipped |
 | 9 | **Configuration / state** (where things land on disk) | auto-bound `${config_dir}`, `${cache_dir}`, `${data_dir}`, `${home}`, `${temp_dir}`; `bundle_extract` for content-addressable install dirs | shipped |
 | 10 | **Multiple frontends** (CLI / GUI / API) | same `.perch` file becomes a CLI, a web UI (`--server`), a REPL (`--shell`), an MCP tool surface (`perch-mcp`), and a portable binary (`--build`) | shipped |
+| 11 | **Executable script form** (shebang) | `#!/usr/bin/env perch` makes a `.perch` file directly executable: `chmod +x ./script.perch && ./script.perch up`. Same shape as a bash script — muscle memory works. | shipped |
 
-That's the OS in 10 rows. Everything below details how each row works and what the limits are.
+That's the OS in 11 rows. Everything below details how each row works and what the limits are.
 
 ---
 
@@ -206,6 +207,29 @@ All five share the same command set, the same arg parsing, the same op dispatch,
 
 ---
 
+## 11. Executable script form — `#!/usr/bin/env perch`
+
+A `.perch` file isn't just a config the `perch` CLI reads; it's also a **runnable script** in its own right. `perch --init` writes a shebang line at the top and makes the file executable, so you can do:
+
+```sh
+chmod +x deploy.perch
+./deploy.perch up        # invokes the `up` command
+./deploy.perch           # invokes `main` (Python / bash convention)
+./deploy.perch --help    # lists commands
+```
+
+This works through three pieces that compose:
+
+- **`#!/usr/bin/env perch`** at the top of the file is just a `#` comment to capy's parser. The kernel reads it on `execve` and dispatches to `perch /abs/path/to/the-script.perch <args>`.
+- **The CLI auto-detects** when the first positional arg is a path-shaped name pointing at an existing regular file, and promotes it to `-f FILE`. So the kernel-invoked form Just Works.
+- **`main` as the default command** — Python and bash both follow this convention; perch does too. `./deploy.perch` (no args) runs `main` if declared, otherwise lists commands.
+
+Net effect: a `.perch` file is simultaneously a structured CLI surface AND a standalone script. Your team's muscle memory from `./deploy.sh up` carries over to `./deploy.perch up` without retraining. This is OS-like in the same sense that `/usr/local/bin/foo` is OS-like — once on PATH, it's just another command.
+
+For the Wrap / Translate / Rewrite migration story from existing shell scripts, see [migrating-from-shell.md](migrating-from-shell.md).
+
+---
+
 ## What perch is NOT
 
 To be honest about the limits:
@@ -253,6 +277,7 @@ Each of these tightens the OS analogy. The current set already covers the cases 
 | Package manager | ✅ `pkg_install` (9 backends) | — | — |
 | Standard dirs | ✅ auto-bound vars | — | — |
 | Multiple frontends | ✅ CLI / web / REPL / MCP / binary | — | — |
+| Executable script form | ✅ `#!/usr/bin/env perch` shebang | — | — |
 | Multi-user / login | — | — | use the host's |
 | Init / service supervision | — | (roadmap) | — |
 | Hardware / hypervisor | — | — | use the host's |

@@ -33,9 +33,10 @@ mkdir hello-perch && cd hello-perch
 perch --init
 ```
 
-This writes a starter `commands.perch`:
+This writes a starter `commands.perch` (executable, with a shebang line at the top so it can run as a script):
 
 ```capy
+#!/usr/bin/env perch
 name    "hello-perch"
 about   "A perch project"
 version "0.1.0"
@@ -50,17 +51,29 @@ command hello
         print "Hello from ${HOME}"
     end
 end
+
+command main
+    description "Default action — runs when the file is invoked with no command"
+    do
+        run hello
+    end
+end
 ```
 
-## Run it three ways
+## Run it four ways
 
 ```sh
-perch --help          # see what's in commands.perch
-perch hello           # run the command
-perch hello --help    # per-command help with args + defaults + examples
-perch --check         # statically validate commands.perch before running
-perch --shell         # REPL — type `hello` then Enter
-perch --server        # serve a web UI at http://127.0.0.1:10032
+perch --help                  # see what's in commands.perch
+perch hello                   # invoke via the perch binary
+perch hello --help            # per-command help with args + defaults + examples
+perch --check                 # statically validate commands.perch before running
+perch --shell                 # REPL — type `hello` then Enter
+perch --server                # serve a web UI at http://127.0.0.1:10032
+
+# Or run the file directly as a script (the shebang makes this work):
+./commands.perch              # runs `main` (which delegates to `hello`)
+./commands.perch hello        # runs hello explicitly
+./commands.perch --help       # lists commands
 ```
 
 ## Add an arg

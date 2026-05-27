@@ -204,6 +204,24 @@ end
 
 Same file. Three platforms. Zero Makefile-per-OS dance.
 
+## Bonus — your team's muscle memory carries over
+
+`perch --init` writes a shebang at the top of `commands.perch` and sets the file executable. That means your team can invoke commands the same way they invoked Make targets:
+
+```sh
+# Before (Make):
+make build
+make test
+make ci
+
+# After (perch):
+./commands.perch build
+./commands.perch test
+./commands.perch ci
+```
+
+Same shape, same muscle memory, plus all the things Make didn't have: typed args, per-command `--help`, `--check` static validation, `--scan` security audit, a web UI, MCP for AI agents. If you prefer the `perch` prefix that's also still there (`perch build`, `perch -f commands.perch build`) — pick whichever your team finds cleaner.
+
 ## What you learned
 
 - Globals replace Makefile variables. Interpolation is `${name}` not `$(name)`.
@@ -211,6 +229,7 @@ Same file. Three platforms. Zero Makefile-per-OS dance.
 - Ops (`mkdir`, `rm`, `if exists "..."`, `if os == "..."`) replace shell incantations and platform-conditional Makefile-snippet hackery.
 - `run COMMAND` replaces recursive Make.
 - One file drives both local dev and CI.
+- The shebang + `+x` permissions make `./commands.perch test` work — no `perch` prefix required once `perch` is on `$PATH`.
 
 ## Next
 

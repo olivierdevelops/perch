@@ -6,6 +6,21 @@ You can stop at any rung. Each gives you real benefits over plain bash; each lat
 
 ---
 
+## What stays the same
+
+The first thing to know: **`.perch` files run as scripts**, the same way `.sh` files do.
+
+```sh
+chmod +x deploy.perch
+./deploy.perch              # invokes the `main` command (if declared)
+./deploy.perch up           # invokes a specific command
+./deploy.perch --help       # lists commands
+```
+
+`perch --init` writes the shebang line (`#!/usr/bin/env perch`) at the top and sets the file executable. From your shell's perspective, a `.perch` is just another script — `./deploy.perch up` works identically to `./deploy.sh up`. No `perch` prefix needed once `perch` is on `$PATH`.
+
+This matters because muscle memory is real. If your team types `./deploy.sh up` today, they'll type `./deploy.perch up` tomorrow without re-learning anything.
+
 ## TL;DR
 
 | Option | Command | Effort | What you get | What you keep |
