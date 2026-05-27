@@ -137,8 +137,8 @@ func ApplyRestrictions(handlers map[string]interpreter.Handler, r Restrictions) 
 func makeDeny(flag, op string) interpreter.Handler {
 	return func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 		return nil, fmt.Errorf(
-			"op %q is disabled by --%s (see https://luowensheng.github.io/perch/sandbox/)",
-			op, flag,
+			"op %q is disabled by --%s — run `perch help --%s` for details",
+			op, flag, flag,
 		)
 	}
 }

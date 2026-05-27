@@ -28,6 +28,7 @@ import (
 	"github.com/luowensheng/perch/usecases/initconfig"
 	"github.com/luowensheng/perch/usecases/installlsp"
 	"github.com/luowensheng/perch/usecases/installvscode"
+	"github.com/luowensheng/perch/usecases/help"
 	"github.com/luowensheng/perch/usecases/importsh"
 	"github.com/luowensheng/perch/usecases/scan"
 	"github.com/luowensheng/perch/usecases/listcommands"
@@ -54,6 +55,14 @@ const DefaultCommandsFile = "commands.perch"
 //
 // Top-level main.go is a one-liner that calls this function.
 func Run() {
+	// `perch help TOPIC` and `perch help --json` need the literal flag
+	// tokens preserved (the topic name may BE a flag like --no-shell).
+	// Skip the global-flag stripping in that case — the help use case
+	// reads os.Args directly.
+	if len(os.Args) >= 2 && os.Args[1] == "help" {
+		os.Exit(buildCLI(ops.Restrictions{}, nil, nil, false, "", 0, "", false).Run())
+	}
+
 	// Global flags are stripped from os.Args before any sub-CLI sees
 	// them. Each call below removes the flags it owns and returns the
 	// parsed value. See docs/sandbox.md for the design.
@@ -523,6 +532,7 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
+		Help:          &help.Impl{Version: Version},
 	}
 
 	return &cli.CLI{
@@ -603,6 +613,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		InstallVSCode: &installvscode.Impl{InstallLSP: (&installlsp.Impl{}).Execute},
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
+		Help:          &help.Impl{Version: Version},
 	}
 
 	version := p.Version

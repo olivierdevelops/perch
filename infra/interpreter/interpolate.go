@@ -35,11 +35,11 @@ func Interpolate(s string, b *Bindings) (string, error) {
 				// — that's almost always why it didn't resolve.
 				if b.EnvRestricted() && looksLikeEnvName(name) {
 					return "", fmt.Errorf(
-						"env var ${%s} is not in --env allowlist (declare with --env %s)",
+						"env var ${%s} is not in --env allowlist (declare with --env %s — run `perch help --env` for details)",
 						name, name,
 					)
 				}
-				return "", fmt.Errorf("unknown placeholder ${%s} in %q", name, s)
+				return "", fmt.Errorf("unknown placeholder ${%s} in %q — run `perch help interpolation` for resolution order", name, s)
 			}
 			out.WriteString(v)
 			i += 2 + end + 1

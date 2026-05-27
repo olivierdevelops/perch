@@ -485,6 +485,18 @@ Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
+**Where do I look up what a flag or concept means?** `perch help` — auto-generated reference. Three surfaces share the same catalog:
+
+```sh
+perch help                    # top-level index, grouped by Execution / Authoring / Security / …
+perch help --no-shell         # detail on one flag
+perch help shebang            # or one concept
+perch help shell              # fuzzy match (4 results in this case)
+perch help --json             # full machine-readable dump — for agents and tooling
+```
+
+Every error message includes a `perch help <topic>` hint pointing exactly at the right entry: `op "shell" is disabled by --no-shell — run perch help --no-shell for details`. Both humans and AI agents land on the same canonical reference.
+
 **How do I install it / how do I run a remote `.perch` file?** Two one-liners.
 
 Install (macOS / Linux / WSL — picks the right binary for your platform):

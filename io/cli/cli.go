@@ -70,6 +70,10 @@ type ScanUseCase interface {
 	Execute(configPath string) error
 }
 
+type HelpUseCase interface {
+	Execute(topic string, asJSON bool) error
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -83,6 +87,7 @@ type UseCases struct {
 	InstallVSCode InstallVSCodeUseCase
 	ImportSh      ImportShUseCase
 	Scan          ScanUseCase
+	Help          HelpUseCase
 }
 
 type Config struct {
@@ -165,6 +170,22 @@ func (c *CLI) Run() int {
 		// recommended-tightest CLI invocation. No execution.
 		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Scan.Execute(path))
+	case "help":
+		// `perch help [TOPIC] [--json]` — auto-generated reference of
+		// every CLI flag, subcommand, and concept. Plain text by default;
+		// `--json` dumps the full machine-readable catalog for agents.
+		topic := ""
+		asJSON := false
+		for _, a := range remaining {
+			if a == "--json" {
+				asJSON = true
+				continue
+			}
+			if topic == "" {
+				topic = a
+			}
+		}
+		return errExit(c.UseCases.Help.Execute(topic, asJSON))
 	case "--install-lsp":
 		return errExit(c.UseCases.InstallLSP.Execute())
 	case "--install-vscode":

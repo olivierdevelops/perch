@@ -23,6 +23,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **`perch help` — auto-generated CLI reference.** Single source of truth for every CLI flag, subcommand, and concept, with three surfaces:
+  - **`perch help`** — top-level index grouped by Execution / Authoring / Security / Build / Agents / Concepts. Each row is a one-line synopsis with the flag/subcommand name.
+  - **`perch help <TOPIC>`** — detail on one item. Topic is matched by exact name first, then substring fuzzy match. `perch help --no-shell`, `perch help shebang`, `perch help interpolation` all work. Multiple matches show a refinement list.
+  - **`perch help --json`** — full machine-readable catalog (~37 topics today) with name, kind, group, synopsis, description, examples, doc URL, and see-also. Designed for agents and tooling: an LLM can fetch the catalog once and have the entire CLI surface as context.
+  - Each topic carries a `doc_url` field pointing at the canonical doc page on GH Pages, so the help system stays a navigation index rather than a duplicate of the prose docs.
+- **Error messages now point at `perch help`.** A blocked op call says `op "shell" is disabled by --no-shell — run perch help --no-shell for details`. An undeclared env var says `env var ${X} is not in --env allowlist — run perch help --env`. An unresolved placeholder says `run perch help interpolation`. The hint pattern is consistent so users and agents both know where to look.
 - **Stdin input is untrusted by default — explicit opt-in for capabilities.** When `-f -` is used, perch applies the strictest posture automatically (`--no-shell --no-subprocess --no-network --no-write` + empty env allowlist) and requires the user to grant capabilities with new positive flags:
   - **`--allow-shell`** — re-enable shell ops
   - **`--allow-subprocess`** — re-enable pkg_install/kill_by_name/etc.
