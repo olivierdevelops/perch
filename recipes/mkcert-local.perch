@@ -1,0 +1,72 @@
+name "mkcert-local"
+about "Local HTTPS certificates via mkcert — install CA, mint per-domain certs"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command install_mkcert
+    description "Install the mkcert binary via the host package manager"
+    do
+        if os == "darwin"
+            call require_bin "brew"
+            shell "brew install mkcert nss"
+        end
+        if os == "linux"
+            call warn "Linux: install mkcert via your distro's package or release binary"
+            print "  see: https://github.com/FiloSottile/mkcert#linux"
+        end
+        if os == "windows"
+            call require_bin "winget"
+            shell "winget install --id FiloSottile.mkcert -e"
+        end
+        call ok "mkcert installed"
+    end
+end
+
+command install_ca
+    description "Install mkcert's root CA into the OS + browser trust stores"
+    do
+        call require_bin "mkcert"
+        shell "mkcert -install"
+        call ok "root CA installed (browsers will trust certs minted by mkcert)"
+    end
+end
+
+command cert
+    description "Mint a TLS cert+key for one or more domains"
+    arg domains
+        type string
+        rest
+        index 0
+        description "Domains to cover (e.g. localhost 127.0.0.1 dev.local)"
+    end
+    do
+        call require_bin "mkcert"
+        shell "mkcert ${domains}"
+        call ok "wrote *.pem files to current directory"
+    end
+end
+
+command uninstall_ca
+    description "Remove the mkcert root CA from trust stores"
+    do
+        call require_bin "mkcert"
+        shell "mkcert -uninstall"
+        call ok "root CA removed"
+    end
+end
+
+command status
+    description "Where is mkcert installed and which CA is active?"
+    do
+        let h = has_bin "mkcert"
+        if h
+            let ver = shell_output "mkcert -version"
+            print "  ✓ mkcert ${ver}"
+            shell "mkcert -CAROOT"
+        end
+        if not h
+            print "  ✗ mkcert not installed (run install_mkcert)"
+        end
+    end
+end

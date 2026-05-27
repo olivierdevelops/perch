@@ -1,0 +1,155 @@
+name "aistack"
+about "Local LLM lab — Ollama + ChromaDB + Open WebUI in one command"
+version "1.0.0"
+
+import "./_lib.perch"
+
+globals
+    OLL_NAME = "aistack-ollama"
+    CHR_NAME = "aistack-chroma"
+    UI_NAME = "aistack-webui"
+    OLL_IMG = "ollama/ollama:latest"
+    CHR_IMG = "chromadb/chroma:latest"
+    UI_IMG = "ghcr.io/open-webui/open-webui:main"
+end
+
+command up
+    description "Bring up Ollama (LLM runtime) + ChromaDB (vector store) + Open WebUI"
+    do
+        call require_docker
+        call say "Starting local LLM stack"
+        parallel
+            run start_ollama
+            run start_chroma
+        end
+        run start_webui
+        print ""
+        call ok "aistack ready"
+        print ""
+        print "  Open WebUI:  http://localhost:3000"
+        print "  Ollama API:  http://localhost:11434  (try: aistack pull llama3)"
+        print "  ChromaDB:    http://localhost:8000"
+    end
+end
+
+command start_ollama
+    private
+    do
+        let r = shell_output "docker ps -q -f name=^${OLL_NAME}$"
+        if r
+            call ok "ollama already running"
+        end
+        if not r
+            let e = shell_output "docker ps -aq -f name=^${OLL_NAME}$"
+            if e
+                shell "docker start ${OLL_NAME}"
+            end
+            if not e
+                shell "docker run -d --name ${OLL_NAME} -p 11434:11434 -v ${OLL_NAME}-data:/root/.ollama ${OLL_IMG}"
+            end
+            call ok "ollama up"
+        end
+    end
+end
+
+command start_chroma
+    private
+    do
+        let r = shell_output "docker ps -q -f name=^${CHR_NAME}$"
+        if r
+            call ok "chromadb already running"
+        end
+        if not r
+            let e = shell_output "docker ps -aq -f name=^${CHR_NAME}$"
+            if e
+                shell "docker start ${CHR_NAME}"
+            end
+            if not e
+                shell "docker run -d --name ${CHR_NAME} -p 8000:8000 -v ${CHR_NAME}-data:/chroma/chroma ${CHR_IMG}"
+            end
+            call ok "chromadb up"
+        end
+    end
+end
+
+command start_webui
+    private
+    do
+        let r = shell_output "docker ps -q -f name=^${UI_NAME}$"
+        if r
+            call ok "open-webui already running"
+        end
+        if not r
+            let e = shell_output "docker ps -aq -f name=^${UI_NAME}$"
+            if e
+                shell "docker start ${UI_NAME}"
+            end
+            if not e
+                shell "docker run -d --name ${UI_NAME} -p 3000:8080 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 --add-host=host.docker.internal:host-gateway -v ${UI_NAME}-data:/app/backend/data ${UI_IMG}"
+            end
+            call ok "open-webui up"
+        end
+    end
+end
+
+command pull
+    description "Pull a model into the local Ollama instance"
+    arg model
+        type string
+        index 0
+        description "Model name (llama3, mistral, codellama, …)"
+    end
+    do
+        shell "docker exec ${OLL_NAME} ollama pull ${model}"
+        call ok "pulled ${model}"
+    end
+end
+
+command list_models
+    description "List models available locally"
+    do
+        shell "docker exec ${OLL_NAME} ollama list"
+    end
+end
+
+command chat
+    description "One-shot chat with a model (no UI)"
+    arg model
+        type string
+        index 0
+    end
+    arg prompt
+        type string
+        index 1
+    end
+    do
+        shell "docker exec -i ${OLL_NAME} ollama run ${model} '${prompt}'"
+    end
+end
+
+command down
+    description "Stop everything (volumes preserved — models stay cached)"
+    do
+        parallel
+            shell "docker stop ${OLL_NAME}"
+            shell "docker stop ${CHR_NAME}"
+            shell "docker stop ${UI_NAME}"
+        end
+        call ok "aistack stopped"
+    end
+end
+
+command destroy
+    description "Full wipe — including downloaded models"
+    do
+        shell "docker rm -f ${OLL_NAME} ${CHR_NAME} ${UI_NAME}"
+        shell "docker volume rm ${OLL_NAME}-data ${CHR_NAME}-data ${UI_NAME}-data"
+        call ok "destroyed"
+    end
+end
+
+command status
+    do
+        shell "docker ps --filter name=^${OLL_NAME}$ --filter name=^${CHR_NAME}$ --filter name=^${UI_NAME}$ --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+    end
+end

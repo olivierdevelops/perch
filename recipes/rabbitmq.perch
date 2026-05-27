@@ -1,0 +1,78 @@
+name "rabbitmq"
+about "Local RabbitMQ via Docker — up / down / mgmt UI / logs"
+version "1.0.0"
+
+import "./_lib.perch"
+
+globals
+    NAME = "perch-rabbit"
+    IMAGE = "rabbitmq:3-management-alpine"
+end
+
+command up
+    description "Start RabbitMQ with the management UI enabled"
+    arg amqp_port
+        type string
+        default "5672"
+    end
+    arg mgmt_port
+        type string
+        default "15672"
+    end
+    do
+        call require_docker
+        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        if running
+            call ok "${NAME} already running"
+            print "  mgmt: http://localhost:${mgmt_port} (guest/guest)"
+        end
+        if not running
+            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            if existing
+                shell "docker start ${NAME}"
+            end
+            if not existing
+                shell "docker run -d --name ${NAME} -p ${amqp_port}:5672 -p ${mgmt_port}:15672 -v ${NAME}-data:/var/lib/rabbitmq ${IMAGE}"
+            end
+            call ok "rabbitmq up"
+            print "  AMQP:  localhost:${amqp_port}"
+            print "  mgmt:  http://localhost:${mgmt_port} (guest/guest)"
+        end
+    end
+end
+
+command down
+    do
+        shell "docker stop ${NAME}"
+        call ok "${NAME} stopped"
+    end
+end
+
+command destroy
+    do
+        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        if exists
+            shell "docker rm -f ${NAME}"
+        end
+        shell "docker volume rm ${NAME}-data"
+        call ok "destroyed"
+    end
+end
+
+command logs
+    do
+        shell "docker logs -f ${NAME}"
+    end
+end
+
+command status
+    do
+        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        if info
+            call ok "${info}"
+        end
+        if not info
+            print "${NAME} is not running"
+        end
+    end
+end

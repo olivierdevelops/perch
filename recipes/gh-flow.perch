@@ -1,0 +1,100 @@
+name "gh-flow"
+about "Common GitHub workflow on top of gh: pr, land, sync, cleanup, wip"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command pr
+    description "Create a PR from the current branch with a useful template"
+    arg title
+        type string
+        index 0
+        optional
+        description "PR title (defaults to last commit subject)"
+    end
+    do
+        call require_bin "gh"
+        shell "gh pr create ${title}"
+    end
+end
+
+command land
+    description "Squash-merge the current branch's PR and delete the branch"
+    do
+        call require_bin "gh"
+        shell "gh pr merge --squash --delete-branch --auto"
+        call ok "PR landed (queued for auto-merge after checks pass)"
+    end
+end
+
+command sync
+    description "Pull the latest main and rebase the current branch on top"
+    do
+        let branch = shell_output "git rev-parse --abbrev-ref HEAD"
+        shell "git fetch origin main:main"
+        if branch == "main"
+            call ok "already on main; pulled latest"
+            exit 0
+        end
+        shell "git rebase main"
+        call ok "${branch} rebased on main"
+    end
+end
+
+command cleanup
+    description "Delete every local branch that no longer has a remote"
+    do
+        shell "git fetch -p"
+        shell "git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D"
+        call ok "stale local branches deleted"
+    end
+end
+
+command wip
+    description "Stage everything, commit as 'wip', push — for quick context-switch saves"
+    do
+        shell "git add -A"
+        let staged = shell_output "git diff --cached --stat"
+        if not staged
+            call ok "nothing to commit"
+            exit 0
+        end
+        shell "git commit -m 'wip'"
+        shell "git push"
+        call ok "wip saved + pushed"
+    end
+end
+
+command status
+    description "Show open PRs you authored + the current branch state"
+    do
+        call require_bin "gh"
+        print "── your open PRs ──"
+        shell "gh pr list --author '@me'"
+        print ""
+        print "── current branch ──"
+        shell "git status -sb"
+    end
+end
+
+command review
+    description "Open a PR in the browser for review"
+    arg pr
+        type string
+        index 0
+        optional
+        description "PR number (defaults to the PR for the current branch)"
+    end
+    do
+        call require_bin "gh"
+        shell "gh pr view ${pr} --web"
+    end
+end
+
+command checks
+    description "Show CI status for the current branch's PR"
+    do
+        call require_bin "gh"
+        shell "gh pr checks"
+    end
+end

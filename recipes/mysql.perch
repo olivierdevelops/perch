@@ -1,0 +1,110 @@
+name "mysql"
+about "Local MySQL via Docker — up / down / cli / dump / restore"
+version "1.0.0"
+
+import "./_lib.perch"
+
+globals
+    NAME = "perch-mysql"
+    IMAGE = "mysql:8"
+    ROOT_PASS = "rootpass"
+end
+
+command up
+    arg port
+        type string
+        default "3306"
+    end
+    arg db
+        type string
+        default "app"
+    end
+    do
+        call require_docker
+        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        if running
+            call ok "${NAME} already running"
+        end
+        if not running
+            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            if existing
+                shell "docker start ${NAME}"
+            end
+            if not existing
+                shell "docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}"
+            end
+            call ok "mysql up on port ${port}"
+            print "  connect: mysql -h 127.0.0.1 -P ${port} -uroot -p${ROOT_PASS} ${db}"
+        end
+    end
+end
+
+command down
+    do
+        shell "docker stop ${NAME}"
+        call ok "${NAME} stopped"
+    end
+end
+
+command destroy
+    do
+        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        if exists
+            shell "docker rm -f ${NAME}"
+        end
+        shell "docker volume rm ${NAME}-data"
+        call ok "destroyed"
+    end
+end
+
+command cli
+    arg db
+        type string
+        default "app"
+    end
+    do
+        shell "docker exec -it ${NAME} mysql -uroot -p${ROOT_PASS} ${db}"
+    end
+end
+
+command dump
+    arg db
+        type string
+        index 0
+    end
+    arg out
+        type string
+        default "dump.sql"
+    end
+    do
+        shell "docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} > ${out}"
+        call ok "wrote ${out}"
+    end
+end
+
+command restore
+    arg db
+        type string
+        index 0
+    end
+    arg file
+        type string
+        index 1
+    end
+    do
+        shell "cat ${file} | docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}"
+        call ok "restored ${file} → ${db}"
+    end
+end
+
+command status
+    do
+        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        if info
+            call ok "${info}"
+        end
+        if not info
+            print "${NAME} is not running"
+        end
+    end
+end

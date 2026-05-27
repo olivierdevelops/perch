@@ -1,0 +1,56 @@
+name "perch-recipes-lib"
+about "Shared templates for the perch recipes collection — imported by every recipe"
+
+template require_bin
+    description "Fail with a clear message if BIN is not on PATH"
+    arg bin
+        type string
+        description "Binary name to require (docker, gh, kubectl, …)"
+    end
+    do
+        let has = has_bin "${bin}"
+        if not has
+            fail "${bin} is required but not on PATH. Install it first."
+        end
+    end
+end
+
+template require_docker
+    description "Fail fast if docker is not available (alias docker→podman if you use podman)"
+    do
+        let has_docker = has_bin "docker"
+        if not has_docker
+            fail "docker is required. Install Docker Desktop, or alias docker→podman."
+        end
+    end
+end
+
+template say
+    description "Pretty section header — prefix the label with ==>"
+    arg label
+        type string
+    end
+    do
+        print "==> ${label}"
+    end
+end
+
+template ok
+    description "Pretty success line — prefix the message with a check"
+    arg msg
+        type string
+    end
+    do
+        print "✓ ${msg}"
+    end
+end
+
+template warn
+    description "Pretty warning — prefix with ⚠ but do not fail"
+    arg msg
+        type string
+    end
+    do
+        eprintln "⚠ ${msg}"
+    end
+end

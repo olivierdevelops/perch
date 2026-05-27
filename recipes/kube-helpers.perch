@@ -1,0 +1,136 @@
+name "kube-helpers"
+about "kubectl daily-use helpers — context switch, pod shell, log tail, port-forward, restart"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command ctx
+    description "Switch kubectl context"
+    arg name
+        type string
+        index 0
+        optional
+        description "Context name (omit to list)"
+    end
+    do
+        call require_bin "kubectl"
+        if not name
+            shell "kubectl config get-contexts"
+            exit 0
+        end
+        shell "kubectl config use-context ${name}"
+        call ok "context: ${name}"
+    end
+end
+
+command ns
+    description "Switch the default namespace for the current context"
+    arg name
+        type string
+        index 0
+        optional
+    end
+    do
+        call require_bin "kubectl"
+        if not name
+            shell "kubectl get namespaces"
+            exit 0
+        end
+        shell "kubectl config set-context --current --namespace=${name}"
+        call ok "namespace: ${name}"
+    end
+end
+
+command pods
+    description "List pods in the current namespace"
+    do
+        shell "kubectl get pods -o wide"
+    end
+end
+
+command shell
+    description "Open a shell inside a pod"
+    arg pod
+        type string
+        index 0
+    end
+    arg container
+        type string
+        optional
+        description "Container name (only needed for multi-container pods)"
+    end
+    do
+        if container
+            shell "kubectl exec -it ${pod} -c ${container} -- sh"
+        end
+        if not container
+            shell "kubectl exec -it ${pod} -- sh"
+        end
+    end
+end
+
+command logs
+    description "Tail logs for a pod (or all containers in a pod)"
+    arg pod
+        type string
+        index 0
+    end
+    do
+        shell "kubectl logs -f --all-containers ${pod}"
+    end
+end
+
+command pf
+    description "Port-forward a service to localhost"
+    arg svc
+        type string
+        index 0
+    end
+    arg ports
+        type string
+        index 1
+        description "LOCAL:REMOTE (e.g. 8080:80)"
+    end
+    do
+        shell "kubectl port-forward svc/${svc} ${ports}"
+    end
+end
+
+command restart
+    description "Rolling-restart a deployment"
+    arg deploy
+        type string
+        index 0
+    end
+    do
+        shell "kubectl rollout restart deployment/${deploy}"
+        shell "kubectl rollout status deployment/${deploy}"
+        call ok "${deploy} restarted"
+    end
+end
+
+command top
+    description "Live pod CPU/memory usage"
+    do
+        shell "kubectl top pods"
+    end
+end
+
+command events
+    description "Recent cluster events (most useful when debugging)"
+    do
+        shell "kubectl get events --sort-by=.lastTimestamp"
+    end
+end
+
+command who_am_i
+    description "Show current context + namespace + user"
+    do
+        let ctx = shell_output "kubectl config current-context"
+        let ns = shell_output "kubectl config view --minify -o jsonpath='{..namespace}'"
+        let user = shell_output "kubectl config view --minify -o jsonpath='{.users[0].name}'"
+        print "context:   ${ctx}"
+        print "namespace: ${ns}"
+        print "user:      ${user}"
+    end
+end

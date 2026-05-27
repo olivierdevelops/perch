@@ -1,0 +1,100 @@
+name "redis"
+about "Local Redis via Docker — up / down / cli / flush / monitor / logs"
+version "1.0.0"
+
+import "./_lib.perch"
+
+globals
+    NAME = "perch-redis"
+    IMAGE = "redis:7-alpine"
+end
+
+command up
+    description "Start a local Redis container (idempotent)"
+    arg port
+        type string
+        default "6379"
+        description "Host port to bind"
+    end
+    do
+        call require_docker
+        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        if running
+            call ok "${NAME} already running"
+        end
+        if not running
+            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            if existing
+                shell "docker rm ${NAME}"
+            end
+            shell "docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}"
+            call ok "redis up on port ${port}"
+            print "  connect: redis-cli -p ${port}"
+        end
+    end
+end
+
+command down
+    description "Stop and remove the container"
+    do
+        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        if exists
+            shell "docker rm -f ${NAME}"
+            call ok "${NAME} removed"
+        end
+        if not exists
+            print "${NAME} not running"
+        end
+    end
+end
+
+command cli
+    description "Open an interactive redis-cli inside the container"
+    do
+        shell "docker exec -it ${NAME} redis-cli"
+    end
+end
+
+command flush
+    description "FLUSHALL — destroy every key (use with care)"
+    do
+        shell "docker exec ${NAME} redis-cli FLUSHALL"
+        call ok "flushed"
+    end
+end
+
+command monitor
+    description "Tail every command Redis sees (redis-cli MONITOR)"
+    do
+        shell "docker exec -it ${NAME} redis-cli MONITOR"
+    end
+end
+
+command logs
+    description "Tail container logs"
+    do
+        shell "docker logs -f ${NAME}"
+    end
+end
+
+command status
+    description "Is it running? On what port?"
+    do
+        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        if info
+            call ok "${info}"
+        end
+        if not info
+            print "${NAME} is not running"
+        end
+    end
+end
+
+command backup
+    description "Dump RDB snapshot to ./redis-backup.rdb"
+    do
+        shell "docker exec ${NAME} redis-cli SAVE"
+        shell "docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb"
+        call ok "wrote redis-backup.rdb"
+    end
+end

@@ -1,0 +1,84 @@
+name "mailpit"
+about "Local email-testing inbox (SMTP catcher + web UI) via Mailpit"
+version "1.0.0"
+
+import "./_lib.perch"
+
+globals
+    NAME = "perch-mailpit"
+    IMAGE = "axllent/mailpit:latest"
+end
+
+command up
+    description "Start Mailpit — catches every outgoing email; serves a web UI"
+    arg smtp_port
+        type string
+        default "1025"
+    end
+    arg ui_port
+        type string
+        default "8025"
+    end
+    do
+        call require_docker
+        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        if running
+            call ok "${NAME} already running"
+            print "  inbox: http://localhost:${ui_port}"
+        end
+        if not running
+            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            if existing
+                shell "docker rm ${NAME}"
+            end
+            shell "docker run -d --name ${NAME} -p ${smtp_port}:1025 -p ${ui_port}:8025 ${IMAGE}"
+            call ok "mailpit up"
+            print "  send SMTP to localhost:${smtp_port}"
+            print "  view inbox at http://localhost:${ui_port}"
+        end
+    end
+end
+
+command down
+    do
+        shell "docker rm -f ${NAME}"
+        call ok "${NAME} removed"
+    end
+end
+
+command open
+    description "Open the web inbox in your browser"
+    arg port
+        type string
+        default "8025"
+    end
+    do
+        if os == "darwin"
+            shell "open http://localhost:${port}"
+        end
+        if os == "linux"
+            shell "xdg-open http://localhost:${port}"
+        end
+        if os == "windows"
+            shell "start http://localhost:${port}"
+        end
+    end
+end
+
+command logs
+    do
+        shell "docker logs -f ${NAME}"
+    end
+end
+
+command status
+    do
+        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        if info
+            call ok "${info}"
+        end
+        if not info
+            print "${NAME} is not running"
+        end
+    end
+end

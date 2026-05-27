@@ -1,0 +1,95 @@
+name "modern-unix"
+about "Install the modern Unix toolkit (ripgrep, fd, bat, fzf, jq, yq, eza, zoxide) cross-platform"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command install
+    description "Install every modern-unix tool via the host package manager (brew / apt / winget)"
+    do
+        call say "Detecting package manager"
+        if os == "darwin"
+            run install_brew
+        end
+        if os == "linux"
+            run install_apt
+        end
+        if os == "windows"
+            run install_winget
+        end
+        print ""
+        call ok "modern-unix toolkit installed"
+        print "  ripgrep (rg), fd, bat, fzf, jq, yq, eza, zoxide"
+    end
+end
+
+command install_brew
+    private
+    do
+        call require_bin "brew"
+        shell "brew install ripgrep fd bat fzf jq yq eza zoxide"
+    end
+end
+
+command install_apt
+    private
+    do
+        call require_bin "apt-get"
+        shell "sudo apt-get update"
+        shell "sudo apt-get install -y ripgrep fd-find bat fzf jq"
+        call warn "On Debian/Ubuntu fd is installed as 'fdfind' and bat as 'batcat' — add aliases or symlinks."
+        call warn "yq, eza, zoxide are not in apt — install via cargo or their release pages."
+    end
+end
+
+command install_winget
+    private
+    do
+        call require_bin "winget"
+        shell "winget install --id BurntSushi.ripgrep.MSVC -e"
+        shell "winget install --id sharkdp.fd -e"
+        shell "winget install --id sharkdp.bat -e"
+        shell "winget install --id junegunn.fzf -e"
+        shell "winget install --id stedolan.jq -e"
+        shell "winget install --id MikeFarah.yq -e"
+        shell "winget install --id eza-community.eza -e"
+        shell "winget install --id ajeetdsouza.zoxide -e"
+    end
+end
+
+command check
+    description "Report which tools are installed and which are missing"
+    do
+        call check_one "rg"
+        call check_one "fd"
+        call check_one "bat"
+        call check_one "fzf"
+        call check_one "jq"
+        call check_one "yq"
+        call check_one "eza"
+        call check_one "zoxide"
+    end
+end
+
+template check_one
+    arg bin
+        type string
+    end
+    do
+        let h = has_bin "${bin}"
+        if h
+            print "  ✓ ${bin}"
+        end
+        if not h
+            print "  ✗ ${bin} (missing)"
+        end
+    end
+end
+
+command uninstall_brew
+    description "Remove the toolkit (macOS only)"
+    require_os "darwin"
+    do
+        shell "brew uninstall ripgrep fd bat fzf jq yq eza zoxide"
+    end
+end

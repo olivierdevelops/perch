@@ -1,0 +1,114 @@
+name "clouds"
+about "Install cloud CLIs in bulk — aws, gcloud, az, kubectl, helm, terraform"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command install_all
+    description "Install every cloud CLI via the host package manager"
+    do
+        if os == "darwin"
+            run brew_install
+        end
+        if os == "linux"
+            run linux_install
+        end
+        if os == "windows"
+            run winget_install
+        end
+        print ""
+        call ok "cloud CLIs installed"
+        run check
+    end
+end
+
+command brew_install
+    private
+    do
+        call require_bin "brew"
+        shell "brew install awscli google-cloud-sdk azure-cli kubectl helm terraform"
+    end
+end
+
+command linux_install
+    private
+    do
+        call warn "Linux: install via the official vendor scripts for best results"
+        print "  AWS CLI:   curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscli.zip && unzip awscli.zip && sudo ./aws/install"
+        print "  gcloud:    curl https://sdk.cloud.google.com | bash"
+        print "  Azure:     curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash"
+        print "  kubectl:   curl -LO 'https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl' && sudo install kubectl /usr/local/bin/"
+        print "  helm:      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+        print "  terraform: see https://developer.hashicorp.com/terraform/install"
+    end
+end
+
+command winget_install
+    private
+    do
+        call require_bin "winget"
+        shell "winget install --id Amazon.AWSCLI -e"
+        shell "winget install --id Google.CloudSDK -e"
+        shell "winget install --id Microsoft.AzureCLI -e"
+        shell "winget install --id Kubernetes.kubectl -e"
+        shell "winget install --id Helm.Helm -e"
+        shell "winget install --id Hashicorp.Terraform -e"
+    end
+end
+
+command check
+    description "Report which cloud CLIs are installed"
+    do
+        call check_one "aws"
+        call check_one "gcloud"
+        call check_one "az"
+        call check_one "kubectl"
+        call check_one "helm"
+        call check_one "terraform"
+    end
+end
+
+template check_one
+    arg bin
+        type string
+    end
+    do
+        let h = has_bin "${bin}"
+        if h
+            let v = shell_output "${bin} --version 2>&1 | head -1"
+            print "  ✓ ${bin}   ${v}"
+        end
+        if not h
+            print "  ✗ ${bin} (missing)"
+        end
+    end
+end
+
+command aws_login
+    description "AWS SSO login + write credentials"
+    arg profile
+        type string
+        default "default"
+    end
+    do
+        call require_bin "aws"
+        shell "aws sso login --profile ${profile}"
+    end
+end
+
+command gcp_login
+    description "gcloud login + default project"
+    do
+        call require_bin "gcloud"
+        shell "gcloud auth login"
+        shell "gcloud auth application-default login"
+    end
+end
+
+command azure_login
+    description "Azure CLI login"
+    do
+        call require_bin "az"
+        shell "az login"
+    end
+end

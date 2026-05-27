@@ -1,0 +1,116 @@
+name "python-stack"
+about "Install uv (the fast Python package manager) + bootstrap projects + manage venvs"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command install_uv
+    description "Install Astral's uv — a fast drop-in for pip + venv + pip-tools"
+    do
+        if os == "darwin"
+            call require_bin "brew"
+            shell "brew install uv"
+        end
+        if os == "linux"
+            shell "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        end
+        if os == "windows"
+            call require_bin "winget"
+            shell "winget install --id astral-sh.uv -e"
+        end
+        call ok "uv installed"
+    end
+end
+
+command bootstrap
+    description "Create a new Python project with uv + a .venv + standard layout"
+    arg name
+        type string
+        index 0
+    end
+    arg python
+        type string
+        default "3.12"
+    end
+    do
+        call require_bin "uv"
+        shell "uv init ${name} --python ${python}"
+        with_cwd "${name}"
+            shell "uv venv"
+        end
+        call ok "project ${name} ready"
+        print ""
+        print "  cd ${name}"
+        print "  uv add fastapi uvicorn   # add dependencies"
+        print "  uv run python -m fastapi # run anything in the venv"
+    end
+end
+
+command venv
+    description "Create a .venv with a specific Python version (or use the default uv pick)"
+    arg python
+        type string
+        default "3.12"
+    end
+    do
+        call require_bin "uv"
+        shell "uv venv --python ${python}"
+        call ok ".venv ready (python ${python})"
+    end
+end
+
+command sync
+    description "Install dependencies from uv.lock / pyproject.toml"
+    do
+        call require_bin "uv"
+        shell "uv sync"
+        call ok "synced"
+    end
+end
+
+command add
+    description "Add a dependency"
+    arg pkg
+        type string
+        index 0
+    end
+    do
+        call require_bin "uv"
+        shell "uv add ${pkg}"
+    end
+end
+
+command remove
+    description "Remove a dependency"
+    arg pkg
+        type string
+        index 0
+    end
+    do
+        call require_bin "uv"
+        shell "uv remove ${pkg}"
+    end
+end
+
+command run
+    description "Run any command inside the project's venv"
+    arg cmd
+        type string
+        rest
+        index 0
+    end
+    do
+        call require_bin "uv"
+        shell "uv run ${cmd}"
+    end
+end
+
+command clean
+    description "Remove the .venv (uv sync will recreate it)"
+    do
+        if exists ".venv"
+            shell "rm -rf .venv"
+            call ok ".venv removed"
+        end
+    end
+end

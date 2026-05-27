@@ -1,0 +1,82 @@
+name "node-stack"
+about "Install fnm (Node version manager) + pnpm; pin Node version; init projects"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command install
+    description "Install fnm + pnpm via the host package manager"
+    do
+        if os == "darwin"
+            call require_bin "brew"
+            shell "brew install fnm pnpm"
+        end
+        if os == "linux"
+            shell "curl -fsSL https://fnm.vercel.app/install | bash"
+            shell "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+        end
+        if os == "windows"
+            call require_bin "winget"
+            shell "winget install --id Schniz.fnm -e"
+            shell "winget install --id pnpm.pnpm -e"
+        end
+        call ok "fnm + pnpm installed"
+        print ""
+        print "Add to your shell rc (~/.zshrc or ~/.bashrc):"
+        print "  eval \"\\$(fnm env --use-on-cd)\""
+    end
+end
+
+command pin
+    description "Pin Node version for this project (writes .nvmrc)"
+    arg version
+        type string
+        default "20"
+        index 0
+    end
+    do
+        call require_bin "fnm"
+        shell "fnm install ${version}"
+        write_file ".nvmrc" "${version}"
+        call ok "pinned Node ${version} (.nvmrc written)"
+    end
+end
+
+command bootstrap
+    description "Init a fresh Node project with sane defaults"
+    arg name
+        type string
+        index 0
+    end
+    do
+        call require_bin "pnpm"
+        mkdir "${name}"
+        with_cwd "${name}"
+            shell "pnpm init"
+            write_file ".nvmrc" "20"
+            write_file ".gitignore" "node_modules\ndist\n.env\n*.log"
+        end
+        call ok "project ${name} ready (cd ${name} && pnpm install)"
+    end
+end
+
+command upgrade_all
+    description "Bump every dependency to its latest version (interactive)"
+    do
+        call require_bin "pnpm"
+        shell "pnpm update --interactive --latest"
+    end
+end
+
+command clean
+    description "Nuke node_modules + lockfile (full reset)"
+    do
+        if exists "node_modules"
+            shell "rm -rf node_modules"
+        end
+        if exists "pnpm-lock.yaml"
+            rm "pnpm-lock.yaml"
+        end
+        call ok "cleaned"
+    end
+end

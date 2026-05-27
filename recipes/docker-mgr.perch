@@ -1,0 +1,101 @@
+name "docker-mgr"
+about "Daily Docker hygiene — prune-all, big-images, stop-all, restart-stack"
+version "1.0.0"
+
+import "./_lib.perch"
+
+command status
+    description "All running containers with disk + memory"
+    do
+        call require_bin "docker"
+        shell "docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}'"
+    end
+end
+
+command images_by_size
+    description "List all local images sorted by size (largest first)"
+    do
+        shell "docker image ls --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}' | sort -k2 -h -r"
+    end
+end
+
+command big_volumes
+    description "Show volume disk usage"
+    do
+        shell "docker system df -v"
+    end
+end
+
+command stop_all
+    description "Stop EVERY running container"
+    do
+        let running = shell_output "docker ps -q"
+        if not running
+            call ok "nothing running"
+            exit 0
+        end
+        shell "docker stop $(docker ps -q)"
+        call ok "all containers stopped"
+    end
+end
+
+command restart_all
+    description "Restart EVERY running container"
+    do
+        let running = shell_output "docker ps -q"
+        if not running
+            call ok "nothing to restart"
+            exit 0
+        end
+        shell "docker restart $(docker ps -q)"
+        call ok "all containers restarted"
+    end
+end
+
+command prune_safe
+    description "Remove stopped containers + dangling images + unused networks (no volumes)"
+    do
+        shell "docker container prune -f"
+        shell "docker image prune -f"
+        shell "docker network prune -f"
+        call ok "safe prune done"
+    end
+end
+
+command prune_all
+    description "AGGRESSIVE — remove every stopped container, every unused image, every unused volume"
+    do
+        call warn "this WILL delete unused volumes — data loss possible"
+        shell "docker system prune -a --volumes -f"
+        call ok "aggressive prune done"
+    end
+end
+
+command logs
+    description "Tail logs for a container by name"
+    arg name
+        type string
+        index 0
+    end
+    do
+        shell "docker logs -f ${name}"
+    end
+end
+
+command shell
+    description "Open a shell inside a running container"
+    arg name
+        type string
+        index 0
+    end
+    do
+        shell "docker exec -it ${name} sh"
+    end
+end
+
+command top_cpu
+    description "Show running containers sorted by CPU usage (one-shot)"
+    do
+        shell "docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'"
+    end
+end
