@@ -39,6 +39,7 @@ import (
 	"github.com/luowensheng/perch/usecases/runserver"
 	"github.com/luowensheng/perch/usecases/runshell"
 	"github.com/luowensheng/perch/usecases/runtests"
+	"github.com/luowensheng/perch/usecases/simulate"
 	"github.com/luowensheng/perch/usecases/validate"
 )
 
@@ -636,6 +637,30 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
+// simulateAdapter bridges the cli.SimulateUseCase interface (which uses
+// cli.SimulateEnv to keep the cli package usecases-import-free) to the
+// usecases/simulate package's SimEnv. One-line translation; lives here
+// because orchestrator/ is the only place that imports both.
+type simulateAdapter struct{}
+
+func (simulateAdapter) Execute(configPath, commandName string, env cli.SimulateEnv, w io.Writer) error {
+	impl := simulate.Impl{Load: capyloader.Load}
+	return impl.Execute(configPath, commandName, simulate.SimEnv{
+		OS:           env.OS,
+		Arch:         env.Arch,
+		Env:          env.Env,
+		EnvRestrict:  env.EnvRestrict,
+		FsRead:       env.FsRead,
+		FsWrite:      env.FsWrite,
+		Bins:         env.Bins,
+		Network:      env.Network,
+		NoShell:      env.NoShell,
+		NoSubprocess: env.NoSubprocess,
+		NoNetwork:    env.NoNetwork,
+		NoWrite:      env.NoWrite,
+	}, w)
+}
+
 // runTestFnFor constructs the per-test runner closure shared by both
 // buildCLI and buildEmbeddedCLI. Each test gets its own handler map
 // (the runner can layer no_shell / no_network / no_subprocess for THIS
@@ -764,7 +789,8 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
 		Help:          &help.Impl{Version: Version},
-		Test: &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
+		Test:     &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
+		Simulate: &simulateAdapter{},
 	}
 
 	return &cli.CLI{
@@ -871,7 +897,8 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		ImportSh:      &importsh.Impl{},
 		Scan:          &scan.Impl{Load: capyloader.Load},
 		Help:          &help.Impl{Version: Version},
-		Test: &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
+		Test:     &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
+		Simulate: &simulateAdapter{},
 	}
 
 	version := p.Version

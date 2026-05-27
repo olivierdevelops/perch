@@ -4,6 +4,7 @@ package cli
 import (
 	_ "embed"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -82,6 +83,29 @@ type TestUseCase interface {
 	Execute(configPath string, filter string, verbose bool) error
 }
 
+// SimulateUseCase analyzes the program against a hypothetical runtime
+// environment and reports per-op outcomes. The simulate Args struct
+// carries every flag from `perch simulate`.
+type SimulateUseCase interface {
+	Execute(configPath, commandName string, env SimulateEnv, w io.Writer) error
+}
+
+// SimulateEnv is the CLI-side mirror of usecases/simulate.SimEnv.
+// Defined here so the cli package doesn't import usecases.
+type SimulateEnv struct {
+	OS, Arch     string
+	Env          map[string]string
+	EnvRestrict  bool
+	FsRead       []string
+	FsWrite      []string
+	Bins         map[string]bool
+	Network      []string
+	NoShell      bool
+	NoSubprocess bool
+	NoNetwork    bool
+	NoWrite      bool
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -97,6 +121,7 @@ type UseCases struct {
 	Scan          ScanUseCase
 	Help          HelpUseCase
 	Test          TestUseCase
+	Simulate      SimulateUseCase
 }
 
 type Config struct {
@@ -180,6 +205,13 @@ func (c *CLI) Run() int {
 		path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		filter, verbose := parseTestFlags(rest)
 		return errExit(c.UseCases.Test.Execute(path, filter, verbose))
+	case "simulate", "--simulate":
+		// `perch simulate COMMAND [sim flags]` — analyze the program
+		// against a hypothetical runtime environment and report per-op
+		// outcomes (WILL_RUN / WILL_FAIL / MIGHT_FAIL). No execution.
+		path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+		cmdName, env := parseSimulateFlags(rest)
+		return errExit(c.UseCases.Simulate.Execute(path, cmdName, env, os.Stdout))
 	case "--scan":
 		// `perch --scan FILE` — static security audit. Prints what
 		// capabilities the script needs, risk findings, and the
@@ -350,6 +382,118 @@ func parseTestFlags(args []string) (filter string, verbose bool) {
 			filter = a[9:]
 		case a == "-v", a == "--verbose":
 			verbose = true
+		}
+	}
+	return
+}
+
+// parseSimulateFlags reads the `perch simulate` argv:
+//
+//	COMMAND                              — name of the command to simulate (optional; defaults to all)
+//	--sim-os OS                          — "darwin" | "linux" | "windows"
+//	--sim-arch ARCH                      — "amd64" | "arm64"
+//	--sim-env K=v,K=v[,...]              — sim host env (sets the named vars)
+//	--sim-env-only                       — together with --sim-env, restrict envs to ONLY listed names
+//	--sim-fs-read PATH,PATH,...          — sim allowed read roots
+//	--sim-fs-write PATH,PATH,...         — sim allowed write roots
+//	--sim-have-bin NAME,NAME,...         — sim binaries present on PATH
+//	--sim-allow-host HOST,HOST,...       — sim network allowlist
+//	--sim-no-shell                       — sim --no-shell capability flag
+//	--sim-no-subprocess                  — sim --no-subprocess
+//	--sim-no-network                     — sim --no-network
+//	--sim-no-write                       — sim --no-write
+//
+// First non-flag arg (or argv after the flag block) is the command name.
+// Empty command means "simulate all callable commands."
+func parseSimulateFlags(args []string) (cmd string, env SimulateEnv) {
+	pullStringList := func(s string) []string {
+		out := []string{}
+		for _, p := range strings.Split(s, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	pullKV := func(s string) map[string]string {
+		out := map[string]string{}
+		for _, pair := range strings.Split(s, ",") {
+			pair = strings.TrimSpace(pair)
+			if pair == "" {
+				continue
+			}
+			eq := strings.IndexByte(pair, '=')
+			if eq > 0 {
+				out[pair[:eq]] = pair[eq+1:]
+			} else {
+				out[pair] = ""
+			}
+		}
+		return out
+	}
+	pullBinSet := func(s string) map[string]bool {
+		out := map[string]bool{}
+		for _, b := range pullStringList(s) {
+			out[b] = true
+		}
+		return out
+	}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		take := func() string {
+			if i+1 >= len(args) {
+				return ""
+			}
+			i++
+			return args[i]
+		}
+		switch {
+		case strings.HasPrefix(a, "--sim-os="):
+			env.OS = strings.TrimPrefix(a, "--sim-os=")
+		case a == "--sim-os":
+			env.OS = take()
+		case strings.HasPrefix(a, "--sim-arch="):
+			env.Arch = strings.TrimPrefix(a, "--sim-arch=")
+		case a == "--sim-arch":
+			env.Arch = take()
+		case strings.HasPrefix(a, "--sim-env="):
+			env.Env = pullKV(strings.TrimPrefix(a, "--sim-env="))
+		case a == "--sim-env":
+			env.Env = pullKV(take())
+		case a == "--sim-env-only":
+			env.EnvRestrict = true
+		case strings.HasPrefix(a, "--sim-fs-read="):
+			env.FsRead = pullStringList(strings.TrimPrefix(a, "--sim-fs-read="))
+		case a == "--sim-fs-read":
+			env.FsRead = pullStringList(take())
+		case strings.HasPrefix(a, "--sim-fs-write="):
+			env.FsWrite = pullStringList(strings.TrimPrefix(a, "--sim-fs-write="))
+		case a == "--sim-fs-write":
+			env.FsWrite = pullStringList(take())
+		case strings.HasPrefix(a, "--sim-have-bin="):
+			env.Bins = pullBinSet(strings.TrimPrefix(a, "--sim-have-bin="))
+		case a == "--sim-have-bin":
+			env.Bins = pullBinSet(take())
+		case strings.HasPrefix(a, "--sim-allow-host="):
+			env.Network = pullStringList(strings.TrimPrefix(a, "--sim-allow-host="))
+		case a == "--sim-allow-host":
+			env.Network = pullStringList(take())
+		case a == "--sim-no-shell":
+			env.NoShell = true
+		case a == "--sim-no-subprocess":
+			env.NoSubprocess = true
+		case a == "--sim-no-network":
+			env.NoNetwork = true
+		case a == "--sim-no-write":
+			env.NoWrite = true
+		default:
+			// First non-flag token = the command name. Subsequent tokens
+			// after that are ignored (perch simulate doesn't take
+			// command-arg overrides in v1).
+			if cmd == "" && !strings.HasPrefix(a, "-") {
+				cmd = a
+			}
 		}
 	}
 	return

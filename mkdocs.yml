@@ -79,6 +79,7 @@ nav:
   - MCP server (AI agents): mcp.md
   - LLM control plane: llm-control-plane.md
   - Sandboxing (design): sandbox.md
+  - "🧪 Simulate (what-if analyzer)": simulate.md
   - Editor integration (LSP): lsp.md
   - What perch is for: applications.md
   - FAQ: faq.md

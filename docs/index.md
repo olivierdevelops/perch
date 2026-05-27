@@ -190,6 +190,7 @@ perch --help          # list commands
 perch <cmd> --help    # per-command help (args, defaults, examples)
 perch --check         # static validation
 perch test            # run every command marked `test` (sandboxed)
+perch simulate cmd --sim-os=linux --sim-have-bin=kubectl  # what would happen on THAT host?
 perch --report cmd    # execute + render the span tree
 ```
 
@@ -215,6 +216,11 @@ The technical details that don't fit on the marketing panel above:
 <div class="card">
   <h4>Static <code>--check</code> validator</h4>
   <p>Catches typo'd arg types, mismatched defaults, duplicate args, colliding positional indexes, missing <code>run TARGET</code>, unknown ops, unresolved <code>${name}</code> placeholders — before any command runs. Wire it into pre-commit.</p>
+</div>
+
+<div class="card">
+  <h4>🧪 <code>perch simulate</code> — what-if analyzer</h4>
+  <p>Walks the program against a HYPOTHETICAL environment (sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots) and reports per-op outcomes: <strong>WILL_RUN ✓</strong> / <strong>WILL_FAIL ✗</strong> (with the specific capability that's missing) / <strong>MIGHT_FAIL ?</strong> (with the scenario that branches the outcome). No execution. Drop into CI to refuse PRs that wouldn't work on the target host. <a href="simulate/">Details →</a></p>
 </div>
 
 <div class="card">
