@@ -826,6 +826,17 @@ function wasm_env
 `
 end
 
+# wasm_allow_host — per-module HTTP host allowlist. Composes AND-wise
+# with the outer --allow-host policy. Required for any URL the module
+# wants to fetch via the perch.http_get host import; modules with no
+# wasm_allow_host see http_get → -1 for every URL.
+function wasm_allow_host
+    arg literal "wasm_allow_host"
+    arg capture v string
+    write `{"event":"op","kind":"wasm_allow_host","args":{"host":${v}}}
+`
+end
+
 # `cache "KEY" "TTL" ... end` — user-keyed body cache. On miss: run the
 # body and persist every `let X = ...` binding produced. On hit within
 # TTL: skip the body and replay the captured bindings into scope.

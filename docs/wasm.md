@@ -150,7 +150,7 @@ The string form (`wasm_run "./foo.wasm"`) still works alongside the alias form �
 
 ## The capability vocabulary
 
-Inside a `wasm_run` block, four declarations control what the module sees:
+Inside a `wasm_run` block, five declarations control what the module sees:
 
 | Declaration | Effect |
 |---|---|
@@ -158,9 +158,48 @@ Inside a `wasm_run` block, four declarations control what the module sees:
 | `wasm_env "K1,K2,…"` | Comma-joined env var names. Only listed names pass through. Anything else is `(not set)` from inside the module. |
 | `wasm_mount_read "PATH"` | Mount host `PATH` (a directory) as read-only at `/ro/<basename>` inside the module. |
 | `wasm_mount_write "PATH"` | Same, but read-write, at `/rw/<basename>`. |
+| `wasm_allow_host "HOST"` | Permit the module to dial `HOST` via the host-provided HTTP imports (see below). May appear multiple times. Composes AND-wise with `--allow-host`. |
 
 Anything not declared **does not exist** in the module's environment.
 There is no escape hatch from inside.
+
+### HTTP from inside a module (`wasm_allow_host`)
+
+WASI Preview 1 has no sockets. Rather than wait for Preview 2, perch exposes a small set of host imports under the module name `perch`: `http_get`, `http_status`, `http_body_len`, `http_read_body`, `http_close`. Modules call them through a tiny SDK (Go: `wasm-sdk/perchhttp`; equivalents for Rust / Zig are straight-forward).
+
+```perch
+command zen
+    do
+        wasm_run "${script_dir}/fetch.wasm"
+            wasm_allow_host "api.github.com"     # ← required for any HTTP
+        end
+    end
+end
+```
+
+```go
+// inside fetch.go — compiled with GOOS=wasip1 GOARCH=wasm
+import "github.com/luowensheng/perch/wasm-sdk/perchhttp"
+
+body, status, err := perchhttp.Get("https://api.github.com/zen")
+```
+
+**What's enforced:**
+
+1. **No `wasm_allow_host` declarations → every HTTP call returns -1.** The module can call `http_get` (the import always resolves) but it never reaches the network. Same fail-closed shape as the rest of perch.
+2. **`wasm_allow_host "api.github.com"` and the module dials `evil.com` → refused.** The allowlist is checked at the host-function entry; the module never sees the request leave the host.
+3. **Outer `--allow-host` policy still applies.** If perch was launched with `--allow-host api.github.com`, a module declaring `wasm_allow_host "example.com"` gets the **intersection** (empty → no network).
+4. **SSRF guard still active.** A module dialing `http://169.254.169.254/latest/meta-data` (AWS metadata) is refused even when the host is on the allowlist, because the SSRF guard runs on every request and every redirect hop.
+5. **Redirect policy still active.** A 302 to a host outside the allowlist is refused at the redirect-check boundary.
+
+**What's NOT yet supported (honest):**
+
+- Only `GET` (no POST/PUT/DELETE) and no custom headers. The minimum surface that gives modules an "HTTP read" capability without exploding scope.
+- No streaming — bodies are buffered (32 MB cap).
+- No sockets, no DNS, no UDP, no raw TCP.
+- No mTLS / cert pinning yet.
+
+Roadmap: `perchhttp.Post(url, body)` is next; custom headers after that; sockets only if WASI Preview 2 reaches stable in wazero.
 
 The module is invoked via WASI's `_start` (no return value, exit code
 indicates outcome). The standard streams (stdin / stdout / stderr) are

@@ -60,6 +60,7 @@ func registerWasm(m map[string]interpreter.Handler) {
 	m["wasm_mount_read"] = wasmMarkerErr("wasm_mount_read")
 	m["wasm_mount_write"] = wasmMarkerErr("wasm_mount_write")
 	m["wasm_env"] = wasmMarkerErr("wasm_env")
+	m["wasm_allow_host"] = wasmMarkerErr("wasm_allow_host")
 }
 
 func wasmMarkerErr(name string) interpreter.Handler {
@@ -176,8 +177,14 @@ func runWasmModule(
 					cfg.envAllow = append(cfg.envAllow, n)
 				}
 			}
+		case "wasm_allow_host":
+			// Per-module HTTP host allowlist. Each entry composes
+			// AND-wise with the outer --allow-host policy. When the
+			// module imports the `perch.http_get` host function, only
+			// these hosts will resolve; everything else is refused.
+			cfg.allowHost = append(cfg.allowHost, argString(opArgs, "host", "_0"))
 		default:
-			return nil, fmt.Errorf("%s: %q is not valid inside a %s block (only wasm_arg / wasm_mount_read / wasm_mount_write / wasm_env)", opName, op.Kind, opName)
+			return nil, fmt.Errorf("%s: %q is not valid inside a %s block (only wasm_arg / wasm_mount_read / wasm_mount_write / wasm_env / wasm_allow_host)", opName, op.Kind, opName)
 		}
 	}
 
@@ -236,6 +243,13 @@ func runWasmModule(
 		ctx, cancel = context.WithDeadline(ctx, i.Deadline)
 		defer cancel()
 	}
+	// Attach per-call HTTP state to the context. The shared "perch"
+	// host module (installed once at runtime init) reads this on every
+	// `perch.http_get` call. Modules that didn't declare wasm_allow_host
+	// will see http_get → -1 (host module is always linked but the
+	// allow-table is empty for them).
+	httpState := buildHTTPCallState(i, cfg.allowHost)
+	ctx = context.WithValue(ctx, httpStateKey{}, httpState)
 	mod, err := wasmRuntime.InstantiateModule(ctx, compiled, wasiCfg)
 	if err != nil {
 		// wazero returns *sys.ExitError when WASI's exit() is called;
@@ -262,10 +276,11 @@ func wasmArgv0(modulePath, rawPath string) string {
 }
 
 type wasmConfig struct {
-	argv     []string
-	mountsRO []string
-	mountsRW []string
-	envAllow []string
+	argv      []string
+	mountsRO  []string
+	mountsRW  []string
+	envAllow  []string
+	allowHost []string // wasm_allow_host declarations — per-module HTTP allowlist
 }
 
 // compileWasm reads a .wasm file from disk, compiles it via wazero
@@ -294,6 +309,12 @@ func compileWasmBytes(cacheKey string, moduleBytes []byte) (wazero.CompiledModul
 		ctx := context.Background()
 		wasmRuntime = wazero.NewRuntime(ctx)
 		wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
+		// "perch" host module — exposes http_get / http_status /
+		// http_body_len / http_read_body / http_close. Per-call gating
+		// is via context-attached state; see wasm_http.go.
+		if err := installPerchHostModule(ctx, wasmRuntime); err != nil {
+			return nil, fmt.Errorf("install perch host module: %w", err)
+		}
 	}
 	compiled, err := wasmRuntime.CompileModule(context.Background(), moduleBytes)
 	if err != nil {
