@@ -75,6 +75,37 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - everything else → `shell` op with the original line preserved verbatim
   - The "pick whichever delimiter doesn't appear in your content" rule is applied automatically per line, so JSON / SQL / mixed-quote bodies get the right wrapper without manual escaping. Three-or-more-quote-types lines get a `# TODO: fix quoting` flag.
 - **New doc: [docs/migrating-from-shell.md](docs/migrating-from-shell.md)** — three-option migration guide (Wrap / Translate / Rewrite) with a rewriting checklist mapping common bash idioms to perch ops.
+- **Multi-file imports** — `.perch` files can now compose. The most-named missing feature across all third-party reviews; ships in this release.
+
+  ```capy
+  #!/usr/bin/env perch
+  name "main"
+
+  import "./shared.perch"               # flat: commands callable by bare names
+  import "./aws.perch" as aws            # namespaced: `run aws.upload` etc.
+
+  command deploy
+      do
+          run notify                    # from shared.perch
+          run aws.upload                # from aws.perch
+      end
+  end
+  ```
+
+  Semantics, all enforced:
+
+  - **Cycle detection.** `a imports b imports a` → "import cycle detected: /abs/a.perch already on the import stack". No infinite recursion.
+  - **Conflict detection.** Two flat imports defining the same command, or a flat import + an importer-local command with the same name → static error from both `Load` and `--check`. No silent winner.
+  - **Path resolution against the importing file.** `import "./x"` in `/a/b/main.perch` looks for `/a/b/x.perch`, not `cwd/x.perch`.
+  - **Globals merge parent-wins.** Importer's value silently overrides the imported default — "default with override" without ceremony.
+  - **`private` commands** hidden from flat import, accessible via aliased import (`alias.privatename`).
+  - **Catch handlers** do NOT propagate — only the root file's catch is active.
+  - **Namespacing via single-label dots.** `import "x" as ns` exposes `ns.cmd` callable from both the CLI (`perch ns.cmd`) and from other commands (`run ns.cmd`). New capy grammar variant `run NS.CMD` makes the cross-file call site readable.
+
+  Implementation: ~190 LOC. `Load` becomes a recursive resolver with a `visited` set; `parseEventStream` collects import directives and returns them alongside the program; `mergeProgram` folds imported commands + globals into the importer with the rules above. Four new unit tests in `infra/capyloader/loader_test.go`.
+
+  This is the structural feature that closes the "weak composability ceiling" critique flagged across the README review rounds. perch now scales to multi-file projects (within reason — see [README: Where it breaks down](README.md#where-it-breaks-down) for the new ceiling).
+
 - **Three string delimiters documented** — `"..."`, `'...'`, `` `...` ``. All three are equivalent (raw, interpolation-active), so authors pick whichever doesn't appear in their content. Massive readability win for JSON / SQL / shell-with-quotes:
 
   ```capy

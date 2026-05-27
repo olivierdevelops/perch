@@ -225,11 +225,11 @@ Four more worked examples live under [demos/](demos): a Docker wrapper, a cross-
 
 Honest about the limits — useful for deciding whether perch fits your problem:
 
-**Composability.** This is where perch outgrows itself fastest:
+**Composability.** Improved in v0.2; still bounded:
 
-- **No user-defined functions, closures, or higher-order ops.** `command NAME ... end` is the only abstraction unit. `run other_command` calls another command (with `let` bindings flowing through), but you can't pass a command as an argument, return one from another, or write a one-line helper inside a body. Repeated patterns get repeated literally — no macros, no `define`, no `defn`.
-- **No imports or modules.** `-f` picks one file at a time. A second file can be referenced via `shell "perch -f other.perch sub-cmd"`, but that's a subprocess boundary, not a language one — no shared bindings, no static cross-file checks. **Multi-file composition is the most concrete missing feature.**
-- **Scale ceiling per file.** ~10 commands reads well; ~30 starts to feel cramped; ~50+ probably wants splitting (which today means subprocess fan-out, not a language solution). If your problem looks like a 200-command monorepo orchestrator, perch is the wrong tool today.
+- **Multi-file imports work.** `import "./shared.perch"` (flat) or `import "./aws.perch" as aws` (namespaced — `run aws.cmd`) pull in another file's commands. Cycles detected, conflicts erroring statically. Globals merge parent-wins; `private` commands hidden from flat import. Good enough to split a 100-command program into a few files of related concerns, or share a team-wide `ops-lib.perch` across projects.
+- **No user-defined functions, closures, or higher-order ops.** `command NAME ... end` is the only abstraction unit; `run other_command` calls another command (with `let` bindings flowing through). You can't pass a command as an argument, return one from another, or write a one-line helper inside a body. Repeated patterns get repeated literally — no macros, no `define`, no `defn`.
+- **Scale ceiling.** ~50 commands across a few imported files reads well; ~200+ across a deeper graph starts to feel like the tool's fighting you. If your problem looks like a true monorepo task orchestrator with hundreds of commands and rich nesting, perch is the wrong layer.
 
 **Other limits worth knowing:**
 

@@ -18,6 +18,9 @@ name    "PROGRAM_NAME"          # required
 about   "PROGRAM_DESCRIPTION"   # optional but recommended
 version "X.Y.Z"                 # optional but recommended
 
+import "./shared.perch"         # optional — pulls in another file's commands (flat)
+import "./aws.perch" as aws     # optional — namespaced: callable as aws.command_name
+
 globals                          # optional; bindings shared by every command
     KEY = "value"
     NUMERIC = 42
@@ -492,6 +495,33 @@ perch --env --no-shell deploy      # bare --env = no env vars visible at all
 Blocked lookups produce: `env var ${X} is not in --env allowlist (declare with --env X)`.
 
 Full design + the upcoming capability sandbox is at [sandbox.md](https://luowensheng.github.io/perch/sandbox/).
+
+## Multi-file composition
+
+`import "./PATH.perch"` pulls another file's commands into the current program. Use it to share command definitions across projects or to split a large file by concern.
+
+| Form | Effect |
+|---|---|
+| `import "./lib.perch"` | flat — commands callable by their bare names (`run deploy`) |
+| `import "./aws.perch" as aws` | namespaced — commands callable as `aws.deploy` (use `run aws.deploy`) |
+
+**Semantics:**
+
+- **Conflicts** (two flat imports both defining `deploy`, or a flat import defining a name the importer also declares) → static error from `--check` and from `Load`. No silent override.
+- **Globals merge with parent-wins precedence.** Imported globals fill in defaults; the importer can override by declaring the same NAME.
+- **`private` commands** in an imported file are hidden from flat import (keeps them as internal helpers) but accessible via aliased import (`alias.privatename`).
+- **Catch handlers** don't propagate — only the root file's catch is active.
+- **Cycles** are detected and reported, not followed.
+- **Paths** are resolved relative to the *importing* file, not the cwd. `import "./x"` in `/a/b/main.perch` looks for `/a/b/x.perch`.
+
+When to reach for it:
+
+- A team-wide `ops-lib.perch` with shared `notify`, `audit_log`, `acquire_lock` commands → each project's `commands.perch` does `import "/team/ops-lib.perch"` and uses them.
+- Splitting a large file: pull `command build_*` into `build.perch`, `command deploy_*` into `deploy.perch`, then `import` both from the top-level file.
+
+When NOT:
+
+- A 200-command monorepo orchestrator. perch's imports are flat (no nested namespaces, no `import * as deep.path`). Past the small-to-medium range, the tool starts to fight you.
 
 ## When in doubt
 

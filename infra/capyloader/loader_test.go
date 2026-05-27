@@ -1,7 +1,11 @@
 package capyloader
 
 import (
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/luowensheng/perch/domain"
 )
 
 func TestLoadMinimal(t *testing.T) {
@@ -251,4 +255,147 @@ end
 	if _, err := LoadFromString(src); err == nil {
 		t.Error("expected parse error for unknown function")
 	}
+}
+
+func TestImportFlat(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite := func(name, src string) string {
+		p := dir + "/" + name
+		if err := os.WriteFile(p, []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	mustWrite("child.perch", `name "child"
+command imported_cmd
+    description "from child.perch"
+    do
+        print "ok"
+    end
+end
+`)
+	main := mustWrite("main.perch", `name "main"
+import "./child.perch"
+command local_cmd
+    description "from main.perch"
+    do
+        print "local"
+    end
+end
+`)
+	p, err := Load(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := p.Commands["imported_cmd"]; !ok {
+		t.Errorf("flat import: imported_cmd missing; got %v", keysOf(p.Commands))
+	}
+	if _, ok := p.Commands["local_cmd"]; !ok {
+		t.Errorf("local_cmd missing; got %v", keysOf(p.Commands))
+	}
+}
+
+func TestImportAliased(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/aws.perch", []byte(`name "aws"
+command upload
+    description "u"
+    do
+        print "u"
+    end
+end
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := dir + "/main.perch"
+	if err := os.WriteFile(mainPath, []byte(`name "main"
+import "./aws.perch" as aws
+command deploy
+    description "d"
+    do
+        run aws.upload
+    end
+end
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Load(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := p.Commands["aws.upload"]; !ok {
+		t.Errorf("aliased import: aws.upload missing; got %v", keysOf(p.Commands))
+	}
+	if _, ok := p.Commands["upload"]; ok {
+		t.Errorf("aliased import: bare 'upload' should NOT be present")
+	}
+}
+
+func TestImportCycle(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(dir+"/a.perch", []byte(`name "a"
+import "./b.perch"
+command ca
+    description "ca"
+    do
+        print "a"
+    end
+end
+`), 0644)
+	os.WriteFile(dir+"/b.perch", []byte(`name "b"
+import "./a.perch"
+command cb
+    description "cb"
+    do
+        print "b"
+    end
+end
+`), 0644)
+	_, err := Load(dir + "/a.perch")
+	if err == nil {
+		t.Fatal("expected cycle error, got nil")
+	}
+	if !contains(err.Error(), "cycle") {
+		t.Errorf("expected cycle in error; got %v", err)
+	}
+}
+
+func TestImportConflict(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(dir+"/lib.perch", []byte(`name "lib"
+command deploy
+    description "from lib"
+    do
+        print "lib"
+    end
+end
+`), 0644)
+	os.WriteFile(dir+"/main.perch", []byte(`name "main"
+import "./lib.perch"
+command deploy
+    description "from main"
+    do
+        print "main"
+    end
+end
+`), 0644)
+	_, err := Load(dir + "/main.perch")
+	if err == nil {
+		t.Fatal("expected conflict error, got nil")
+	}
+	if !contains(err.Error(), "already declared") {
+		t.Errorf("expected 'already declared' in error; got %v", err)
+	}
+}
+
+func keysOf(m map[string]*domain.Command) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
+func contains(s, sub string) bool {
+	return strings.Contains(s, sub)
 }
