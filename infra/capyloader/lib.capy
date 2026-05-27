@@ -837,6 +837,95 @@ function wasm_allow_host
 `
 end
 
+# ────────────────────────────────────────────────────────────────────────────
+# Error handling — try / catch / finally / throw + match / case / else
+#
+# Section dividers `catch` / `finally` / `case` / `else` are emitted as
+# sentinel ops inside the parent block's body. The interpreter's try /
+# match handlers walk the body splitting on these sentinels.
+# ────────────────────────────────────────────────────────────────────────────
+
+function try_block
+    arg literal "try"
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"try","args":{}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# `rescue BIND` — opens the rescue arm of the surrounding `try`. BIND
+# is the identifier the rescue body uses to access ${BIND.kind} etc.
+# Conventionally `err`.
+#
+# Naming note: perch uses Ruby-style `try / rescue / finally` (rather
+# than `try / catch / finally`) because the keyword `catch` is already
+# used at file scope to declare a catch-all command (`catch unknown
+# ... end`). They're semantically different — file-level `catch` is a
+# fallback verb for unknown CLI commands; this is exception handling.
+# Distinct keywords keep both clear.
+function rescue_arm
+    arg literal "rescue"
+    arg capture bind ident
+    write `{"event":"op","kind":"_catch","args":{"bind":${toJSON bind}}}
+`
+end
+
+# `finally` — opens the finally arm of the surrounding `try`.
+function finally_arm
+    arg literal "finally"
+    write `{"event":"op","kind":"_finally","args":{}}
+`
+end
+
+# `throw "MSG"` — re-raise inside a catch arm. Semantically the same as
+# `fail "MSG"` (both produce ErrUserFail), but spelled `throw` to read
+# clearly as "I caught this and decided to re-raise."
+function throw_op
+    arg literal "throw"
+    arg capture msg string
+    write `{"event":"op","kind":"fail","args":{"msg":${msg}}}
+`
+end
+
+# `match "VALUE" ... case "X" ... case "Y" ... else ... end` —
+# value-driven dispatch. First matching case wins; `else` is the
+# fallback. The target is a string (typically an interpolated
+# reference like `"${err.kind}"` or `"${os}"`); case values are
+# string literals OR bare identifiers (so `case user_fail` works
+# without quotes, matching the error-kind enum spelling).
+function match_block
+    arg literal "match"
+    arg capture target string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"match","args":{"target":${target}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# Two case overloads: `case "literal"` and `case bare_ident` (for enum
+# kinds). The ident form has higher priority so `case user_fail`
+# without quotes is captured as the string "user_fail" automatically.
+function case_arm_ident
+    priority 50
+    arg literal "case"
+    arg capture value ident
+    write `{"event":"op","kind":"_case","args":{"value":${toJSON value}}}
+`
+end
+
+function case_arm
+    arg literal "case"
+    arg capture value string
+    write `{"event":"op","kind":"_case","args":{"value":${value}}}
+`
+end
+
+function else_arm
+    arg literal "else"
+    write `{"event":"op","kind":"_else","args":{}}
+`
+end
+
 # `cache "KEY" "TTL" ... end` — user-keyed body cache. On miss: run the
 # body and persist every `let X = ...` binding produced. On hit within
 # TTL: skip the body and replay the captured bindings into scope.

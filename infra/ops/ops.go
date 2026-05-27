@@ -28,5 +28,6 @@ func AllHandlers() map[string]interpreter.Handler {
 	registerBundle(m)
 	registerPaths(m)
 	registerInstall(m)
+	registerErrorOps(m)
 	return m
 }

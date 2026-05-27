@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/interpreter"
 )
 
@@ -133,15 +134,13 @@ func checkShell(i *interpreter.Interpreter, raw string) error {
 	if i.NoShellMetachars {
 		for _, ch := range []string{"|", ">", "<", "&", ";", "`", "$("} {
 			if strings.Contains(raw, ch) {
-				return fmt.Errorf(
-					"shell metachar %q rejected by --no-shell-metachars (see https://luowensheng.github.io/perch/sandbox/)",
-					ch,
-				)
+				return domain.NewOpError("shell", domain.ErrShellMetacharsDenied,
+					fmt.Sprintf("shell metachar %q rejected by --no-shell-metachars", ch),
+				).WithDetail(raw)
 			}
 		}
 	}
 	if i.AllowedShellBins != nil {
-		// Skip leading env-var assignments (FOO=bar BAZ=qux cmd …).
 		fields := strings.Fields(raw)
 		first := ""
 		for _, f := range fields {
@@ -152,9 +151,9 @@ func checkShell(i *interpreter.Interpreter, raw string) error {
 			break
 		}
 		if first == "" {
-			return fmt.Errorf("shell: empty command rejected by --allow-bin")
+			return domain.NewOpError("shell", domain.ErrShellBinNotAllowed,
+				"empty command rejected by --allow-bin")
 		}
-		// Use the basename (so /usr/local/bin/git matches `git`).
 		base := first
 		if idx := strings.LastIndexAny(base, "/\\"); idx >= 0 {
 			base = base[idx+1:]
@@ -164,10 +163,9 @@ func checkShell(i *interpreter.Interpreter, raw string) error {
 			for n := range i.AllowedShellBins {
 				names = append(names, n)
 			}
-			return fmt.Errorf(
-				"shell: binary %q is not in --allow-bin (allowed: %s)",
-				base, strings.Join(names, ", "),
-			)
+			return domain.NewOpError("shell", domain.ErrShellBinNotAllowed,
+				fmt.Sprintf("binary %q is not in --allow-bin (allowed: %s)",
+					base, strings.Join(names, ", "))).WithDetail(base)
 		}
 	}
 	return nil
@@ -184,7 +182,30 @@ func opShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[strin
 	cmd.Stdin = i.Stdin
 	cmd.Stdout = i.Stdout
 	cmd.Stderr = i.Stderr
-	return nil, cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return nil, tagShellErr(err, raw)
+	}
+	return nil, nil
+}
+
+// tagShellErr wraps a shell exec error with an appropriate ErrorKind so
+// `match err.kind` can discriminate. Exit-code !=0 → shell_exit_nonzero;
+// signal-killed → shell_signal_killed.
+func tagShellErr(err error, cmd string) error {
+	if err == nil {
+		return nil
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		oe := domain.NewOpError("shell", domain.ErrShellExitNonzero, err.Error())
+		oe.Code = strconv.Itoa(exitErr.ExitCode())
+		oe.Detail = cmd
+		// Signal-killed has ExitCode -1 on most platforms.
+		if exitErr.ExitCode() == -1 {
+			oe.Kind = domain.ErrShellSignalKilled
+		}
+		return oe
+	}
+	return domain.NewOpError("shell", domain.ErrShellExitNonzero, err.Error()).WithDetail(cmd)
 }
 
 func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
@@ -199,7 +220,7 @@ func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map
 	cmd.Stdout = &out
 	cmd.Stderr = i.Stderr
 	if err := cmd.Run(); err != nil {
-		return strings.TrimRight(out.String(), "\n"), err
+		return strings.TrimRight(out.String(), "\n"), tagShellErr(err, raw)
 	}
 	return strings.TrimRight(out.String(), "\n"), nil
 }
@@ -216,7 +237,11 @@ func opShellDetached(i *interpreter.Interpreter, b *interpreter.Bindings, args m
 }
 
 func opFail(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-	return nil, errors.New(argString(args, "msg", "_0"))
+	msg := argString(args, "msg", "_0")
+	if msg == "" {
+		msg = "(no message)"
+	}
+	return nil, domain.NewOpError("fail", domain.ErrUserFail, msg)
 }
 
 func opExit(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {

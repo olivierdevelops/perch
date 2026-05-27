@@ -72,6 +72,7 @@ nav:
       - Cross-platform installer: tutorials/03-cross-platform-installer.md
   - Language reference: language.md
   - Templates, contexts &amp; `--report`: execution-contexts.md
+  - "🛟 Error handling (`try/rescue/finally` + `match`)": errors.md
   - Testing (`perch test`): testing.md
   - "🪟 Web UI (`--server`) — for non-devs": web-ui.md
   - "🔒 WASM (`wasm_run`)": wasm.md

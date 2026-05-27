@@ -197,7 +197,8 @@ func (o Op) IsBlock() bool {
 	switch o.Kind {
 	case "if", "if_call", "for_each",
 		"parallel", "timeout", "retry", "with_env", "with_cwd", "sandbox", "cache",
-		"wasm_run":
+		"wasm_run",
+		"try", "match":
 		return true
 	}
 	return false

@@ -6,6 +6,39 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **🛟 Error handling — `try / rescue / finally` + `match` + the error-kind enum.** Until now perch had no general error recovery: any op failure halted the command. `try_shell` covered the shell case, `retry` re-ran whole bodies on failure, but there was no way to discriminate on **what kind of error** happened. This ships full structured error handling:
+
+  ```perch
+  try
+      let body = http_get "${url}"
+  rescue err
+      match "${err.kind}"
+          case http_5xx
+              throw "${err.message}"          # let an outer retry handle it
+          case http_ssrf_blocked
+              run alert msg:"security: ${err.detail}"
+          case http_4xx
+              print "bad request: ${err.code}"
+          else
+              throw "${err.message}"
+      end
+  finally
+      rm "${tmpfile}"
+  end
+  ```
+
+  Inside `rescue err`, five bindings are populated: `${err.kind}` (a value from a 30-member enum), `${err.message}`, `${err.code}` (op-specific, e.g. exit status for shell), `${err.op}` (which op failed), `${err.detail}` (structured extra info). `finally` runs unconditionally — both on success and failure; errors in `finally` override the original. `throw "msg"` re-raises (semantically same as `fail`, spelled differently for clarity).
+
+  **The error-kind enum** is 30 values across 8 groups: shell (`shell_exit_nonzero`, `shell_metachars_denied`, `shell_bin_not_allowed`, `shell_signal_killed`), HTTP (`http_4xx`, `http_5xx`, `http_redirect_refused`, `http_ssrf_blocked`, `http_dns_failed`, `http_timeout`), file (`file_not_found`, `file_permission_denied`, `file_path_disallowed`, `file_already_exists`), capability (`cap_shell_denied`, `cap_network_denied`, `cap_subprocess_denied`, `cap_write_denied`), wasm (`wasm_compile_failed`, `wasm_module_exited`, `wasm_capability_denied`, `wasm_http_refused`), interpolation (`unresolved_var`, `unresolved_template`), runtime (`timeout_exceeded`, `signal_received`, `user_fail`, `assert_failed`), and lookup (`command_not_found`, `bin_not_found`). Plus `unclassified` as the catch-all for ops not yet migrated to tagged errors.
+
+  **`match VALUE / case X / else / end`** is a new general value-driven dispatch block — used here for error-kind discrimination, but works on any string (auto-bound vars, `let` captures, arg values). Bare-identifier `case` values like `case user_fail` are captured as their string spelling, so the enum reads naturally.
+
+  **Naming honesty:** perch uses Ruby-style `rescue` (not `catch`) because `catch unknown ... end` was already the file-scope keyword for catch-all CLI commands. They're structurally different concepts; distinct keywords keep both clear.
+
+  Composes cleanly with `retry`, `parallel`, `timeout`, and every other block op — errors propagate UP through blocks until something catches them. See [docs/errors.md](docs/errors.md) for the full reference (every error kind documented, every composition rule, five worked patterns including retry-with-classified-transients, parallel-with-per-branch-recovery, multi-level match).
+
+  Initial tagged ops: `shell` / `shell_output` (shell_exit_nonzero, shell_metachars_denied, shell_bin_not_allowed, shell_signal_killed), `fail` (user_fail), HTTP runner (http_ssrf_blocked, http_redirect_refused, http_dns_failed, http_timeout). Remaining ~85 ops fall through to `unclassified` for now — migration is mechanical and continues incrementally.
+
 - **HTTP from inside a WASM module — `wasm_allow_host` + host-provided imports.** WASI Preview 1 has no network, which left every `wasm_run` module isolated from the world (good for plugin sandboxing; awkward when the module actually needs to fetch a remote spec/policy/manifest). This adds a `wasm_allow_host "HOST"` declaration inside `wasm_run` bodies plus a `perch` host module exposing `http_get` / `http_status` / `http_body_len` / `http_read_body` / `http_close`. Modules import them via a tiny Go SDK (`wasm-sdk/perchhttp`); call sites look like `body, status, err := perchhttp.Get(url)`. Every call goes through the **same secure HTTP client** the native `http_get` op uses — SSRF guard, redirect policy, `--allow-host` check, all enforced. The module's `wasm_allow_host` list intersects AND-wise with the outer `--allow-host` flag; empty intersection → all calls refused. Modules with NO `wasm_allow_host` declaration get `http_get → -1` for every URL (fail-closed). 32 MB response cap; per-call handles released on `http_close` or runtime teardown. Per-call state (policy + handle table) is threaded through `context.Context` so the shared wazero runtime can host concurrent `wasm_run` calls without cross-talk. See [docs/wasm.md → "HTTP from inside a module"](docs/wasm.md). Smoke-test: a TinyGo-built WASM module fetching `https://api.github.com/zen` and printing the body to stdout. Roadmap: `Post(url, body)`, custom headers, then sockets only if WASI Preview 2 reaches stable in wazero.
 
 - **Declarative `bundle ... end` section — the `.perch` file is now the complete buildable spec.** Previously the only way to embed files into a fat binary was the CLI `--include PATH` flag at `perch --build` time. That meant: the build invocation lived outside the source file, CI configs duplicated the include list, and a fresh contributor had to read README to know what to pass. Now you declare the bundle directly in the `.perch`:

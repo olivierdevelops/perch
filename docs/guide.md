@@ -594,6 +594,35 @@ See [WASM modules](#wasm-modules-sandbox-by-construction) below.
 
 By default, **any op that errors halts the command** and the process exits non-zero. This is the right default for CI gates and deploy scripts. The ladder of "I want different behavior":
 
+### General error handling — `try / rescue / finally` + `match`
+
+```perch
+try
+    let body = http_get "${url}"
+rescue err
+    match "${err.kind}"
+        case http_5xx
+            throw "${err.message}"     # let an outer retry handle it
+        case http_4xx
+            print "bad request: ${err.code}"
+        case http_ssrf_blocked
+            run alert msg:"security: ${err.detail}"
+        else
+            throw "${err.message}"     # unknown — re-raise
+    end
+finally
+    rm "${tmpfile}"
+end
+```
+
+Inside `rescue err`, five bindings are populated: `${err.kind}` (enum), `${err.message}`, `${err.code}`, `${err.op}`, `${err.detail}`. The full enum (30 kinds — `shell_exit_nonzero`, `http_5xx`, `http_ssrf_blocked`, `wasm_module_exited`, `file_not_found`, …) lives in **[docs/errors.md](errors.md)**, which is also the reference for every composition rule and pattern.
+
+`finally` runs **unconditionally** — both on success and failure. Errors in `finally` override the original (so cleanup failures aren't silently swallowed).
+
+Use `throw "msg"` inside `rescue` to re-raise — semantically the same as `fail "msg"` but spelled to read clearly as "I caught this and decided to re-raise."
+
+> **Why `rescue` instead of `catch`?** perch already uses `catch unknown ... end` at file scope for declaring catch-all CLI commands. That's a different concept from exception handling. To keep both clear, perch borrows Ruby's `try / rescue / finally` naming.
+
 ### Recoverable shell calls — `try_shell`
 
 ```perch

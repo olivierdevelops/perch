@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/interpreter"
 )
 
@@ -216,9 +217,32 @@ func privateIPCategory(ip net.IP) string {
 func runHTTP(i *interpreter.Interpreter, req *http.Request) (*http.Response, error) {
 	p := httpPolicy(i)
 	if err := validateRequestURL(req.URL, p); err != nil {
-		return nil, fmt.Errorf("blocked: %w (run `perch help --allow-private-ips` for details)", err)
+		// validateRequestURL returns SSRF / allowlist / scheme errors.
+		// Classify the message so users can match `case http_ssrf_blocked` etc.
+		kind := domain.ErrHTTPRedirectRefused
+		msg := err.Error()
+		if strings.Contains(msg, "private") || strings.Contains(msg, "loopback") ||
+			strings.Contains(msg, "link-local") || strings.Contains(msg, "unspecified") {
+			kind = domain.ErrHTTPSSRFBlocked
+		}
+		return nil, domain.NewOpError("http", kind, msg).WithDetail(req.URL.String())
 	}
-	return newHTTPClient(p).Do(req)
+	resp, err := newHTTPClient(p).Do(req)
+	if err != nil {
+		// Transport-level errors: DNS, timeout, redirect-refused.
+		kind := domain.ErrHTTPDNSFailed
+		msg := err.Error()
+		switch {
+		case strings.Contains(msg, "Timeout") || strings.Contains(msg, "timeout"):
+			kind = domain.ErrHTTPTimeout
+		case strings.Contains(msg, "redirect"):
+			kind = domain.ErrHTTPRedirectRefused
+		case strings.Contains(msg, "no such host") || strings.Contains(msg, "lookup"):
+			kind = domain.ErrHTTPDNSFailed
+		}
+		return nil, domain.NewOpError("http", kind, msg).WithDetail(req.URL.String())
+	}
+	return resp, nil
 }
 
 // ─── ops ─────────────────────────────────────────────────────────────

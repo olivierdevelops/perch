@@ -83,6 +83,7 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 
 <p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
 <strong>Also recently shipped:</strong>
+🛟 <a href="errors/"><strong>Error handling — <code>try/rescue/finally</code> + <code>match</code></strong></a> — 30-kind error enum (<code>shell_exit_nonzero</code>, <code>http_ssrf_blocked</code>, <code>wasm_module_exited</code>, …) for structured recovery + cleanup, no more "halt on any error" ·
 🪟 <a href="web-ui/"><strong>Web UI for non-devs</strong></a> — same <code>.perch</code> file, served as a tabbed localhost web app (Run / Simulate / Scan / Check / About) ·
 📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
 📦 <a href="recipes/"><strong>22 ready-made recipes</strong></a> — Redis / Postgres / devstack / aistack / observe / kafka / modern-unix / gh-flow / docker-mgr / mkcert / backup / scan-secrets · one curl, audit with <code>--scan</code>, run ·
