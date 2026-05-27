@@ -60,9 +60,39 @@ func Run() {
 	restrictions := extractRestrictionFlags()
 	envAllow := extractEnvFlag()
 	allowBins, noMeta := extractShellGuards()
+	allow := extractAllowFlags()
 	auditPath := extractAuditFlag()
 	maxRuntime := extractMaxRuntimeFlag()
 	previewMode := extractPreviewFlags()
+
+	// Stdin input (-f -) is treated as untrusted by default. The user
+	// piped this from somewhere — curl, paste, a sibling process — and
+	// we have no chain of custody. Apply the strictest restrictions
+	// and require explicit --allow-X to grant capabilities. The user
+	// can pass --trust-stdin to skip this entirely (e.g. when piping
+	// their own .perch). Same model Deno uses for `--allow-*` flags.
+	stdinUntrusted := false
+	if isStdinInvocation() && !allow.TrustStdin {
+		stdinUntrusted = true
+		if !allow.Shell {
+			restrictions.NoShell = true
+		}
+		if !allow.Subprocess {
+			restrictions.NoSubprocess = true
+		}
+		if !allow.Network {
+			restrictions.NoNetwork = true
+		}
+		if !allow.Write {
+			restrictions.NoWrite = true
+		}
+		// Empty (non-nil) allowlist blocks all host env-var fallthrough,
+		// unless the user passed --env A,B,C explicitly which already
+		// populated this map.
+		if envAllow == nil {
+			envAllow = map[string]bool{}
+		}
+	}
 
 	if showRestrictionsAndExit() {
 		os.Exit(0)
@@ -72,9 +102,59 @@ func Run() {
 		fmt.Fprintln(os.Stderr, "embedded program:", err)
 		os.Exit(1)
 	} else if ok {
-		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode).Run())
+		os.Exit(buildEmbeddedCLI(bundle, restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode, stdinUntrusted).Run())
 	}
-	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode).Run())
+	os.Exit(buildCLI(restrictions, envAllow, allowBins, noMeta, auditPath, maxRuntime, previewMode, stdinUntrusted).Run())
+}
+
+// allowFlags captures the user's explicit `--allow-*` opt-ins, used to
+// override the stdin-default deny posture. Each flag is purely positive:
+// it can only loosen what stdin-mode would have tightened. It never
+// loosens an explicit `--no-X`.
+type allowFlags struct {
+	Shell      bool
+	Subprocess bool
+	Network    bool
+	Write      bool
+	TrustStdin bool
+}
+
+// extractAllowFlags strips `--allow-shell`, `--allow-subprocess`,
+// `--allow-network`, `--allow-write`, and `--trust-stdin` from os.Args.
+func extractAllowFlags() allowFlags {
+	out := os.Args[:1]
+	var a allowFlags
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--allow-shell":
+			a.Shell = true
+		case "--allow-subprocess":
+			a.Subprocess = true
+		case "--allow-network":
+			a.Network = true
+		case "--allow-write":
+			a.Write = true
+		case "--trust-stdin":
+			a.TrustStdin = true
+		default:
+			out = append(out, arg)
+		}
+	}
+	os.Args = out
+	return a
+}
+
+// isStdinInvocation peeks at the remaining os.Args (after all global
+// flags are stripped) to see if the user passed `-f -`. That signals
+// "load the .perch source from stdin" and triggers the untrusted-by-
+// default posture.
+func isStdinInvocation() bool {
+	for i := 1; i < len(os.Args)-1; i++ {
+		if os.Args[i] == "-f" && os.Args[i+1] == "-" {
+			return true
+		}
+	}
+	return false
 }
 
 // extractAuditFlag peels off `--audit PATH` / `--audit=PATH`. Returns ""
@@ -310,7 +390,7 @@ func extractPreviewFlags() string {
 // announceSecurityPosture prints a one-line banner naming the active
 // restrictions (if any) so users / reviewers see the posture without
 // having to dig. Silent when nothing's restricted.
-func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration) {
+func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, stdinUntrusted bool) {
 	parts := []string{}
 	if r.Active() {
 		parts = append(parts, strings.Join(r.AsFlags(), " "))
@@ -342,7 +422,11 @@ func announceSecurityPosture(r ops.Restrictions, envAllow, allowBins map[string]
 	if maxRuntime > 0 {
 		parts = append(parts, fmt.Sprintf("--max-runtime %ds", int(maxRuntime.Seconds())))
 	}
-	if len(parts) > 0 {
+	if stdinUntrusted {
+		fmt.Fprintf(os.Stderr, "🔒 stdin (untrusted): %s\n", strings.Join(parts, "  "))
+		fmt.Fprintln(os.Stderr, "   → grant capabilities with --allow-shell / --allow-subprocess / --allow-network / --allow-write / --env A,B,C")
+		fmt.Fprintln(os.Stderr, "   → or skip the deny-by-default posture with --trust-stdin")
+	} else if len(parts) > 0 {
 		fmt.Fprintf(os.Stderr, "🔒 security: %s\n", strings.Join(parts, "  "))
 	}
 }
@@ -375,10 +459,10 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 	}
 }
 
-func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string) *cli.CLI {
+func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string, stdinUntrusted bool) *cli.CLI {
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime, stdinUntrusted)
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
@@ -452,11 +536,11 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 
 // buildEmbeddedCLI returns a CLI whose Run/List use-cases ignore the
 // supplied config path and serve the embedded program instead.
-func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string) *cli.CLI {
+func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bool, auditPath string, maxRuntime time.Duration, previewMode string, stdinUntrusted bool) *cli.CLI {
 	p := bundle.Program
 	handlers := ops.AllHandlers()
 	ops.ApplyRestrictions(handlers, r)
-	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime)
+	announceSecurityPosture(r, envAllow, allowBins, noMeta, auditPath, maxRuntime, stdinUntrusted)
 	hook := buildInterpreterHook(previewMode)
 	// Wire the bundle archive into the ops registry so bundle_dir /
 	// bundle_hash / bundle_extract have something to read.

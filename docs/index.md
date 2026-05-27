@@ -500,7 +500,23 @@ curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/samp
   | perch --no-shell --no-network -f - hello
 ```
 
-`-f -` means "read the perch source from stdin." Pipe anything: a `curl`, a `git show`, an editor's stdout. Combine with `--no-shell`, `--no-network`, `--no-write`, `--env`, `--scan` etc. — full security model still applies to piped scripts. Especially useful for **running an untrusted script you don't want to leave on disk** — pipe it through `--no-shell --no-write` and watch what it does without it being able to escape.
+`-f -` means "read the perch source from stdin." **Stdin input is treated as untrusted by default** — shell, subprocess, network, write, and host env-var visibility are all disabled. Grant capabilities explicitly:
+
+```sh
+# default: nothing dangerous can fire
+curl URL | perch -f - run
+
+# I'm okay with this script using shell:
+curl URL | perch -f - --allow-shell run
+
+# I'm okay with shell + network + 2 env vars:
+curl URL | perch -f - --allow-shell --allow-network --env HOME,API_KEY run
+
+# I trust this pipe completely (it's my own .perch):
+cat my.perch | perch -f - --trust-stdin run
+```
+
+Same model Deno uses: deny-by-default, opt-in with `--allow-*`. Banner shows "🔒 stdin (untrusted): ..." with the exact flags blocking each capability. **File input (`-f file.perch`) is unchanged** — the deny-by-default only applies to stdin since that's where untrusted scripts arrive.
 
 **Can I run `.perch` files as scripts (shebang)?** Yes. `perch --init` writes a `#!/usr/bin/env perch` line at the top and sets the file executable. Then `./commands.perch` runs the `main` command; `./commands.perch hello` runs `hello`; everything between just works. Conceptually a `.perch` file is a script *and* a structured CLI surface — both at once.
 

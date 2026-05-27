@@ -23,6 +23,15 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `${files}` becomes a newline-joined string; `${files_count}` is the count (int). `for_each VALUE NAME ... end` iterates over any newline-separated value, restoring the previous binding for `NAME` after the loop. The validator enforces that `rest` is on the last arg, type `string`, no default, with a positional index — and treats `${NAME_count}` as known in body interpolation. Equivalent in shape to Go's `args ...string`.
 
+- **Stdin input is untrusted by default — explicit opt-in for capabilities.** When `-f -` is used, perch applies the strictest posture automatically (`--no-shell --no-subprocess --no-network --no-write` + empty env allowlist) and requires the user to grant capabilities with new positive flags:
+  - **`--allow-shell`** — re-enable shell ops
+  - **`--allow-subprocess`** — re-enable pkg_install/kill_by_name/etc.
+  - **`--allow-network`** — re-enable network ops
+  - **`--allow-write`** — re-enable FS-mutation ops
+  - **`--env A,B,C`** — declare visible host env vars (already existed; now serves the additional role of overriding the empty stdin default)
+  - **`--trust-stdin`** — skip the deny-by-default entirely (when piping a `.perch` file you wrote yourself)
+  - Banner becomes `🔒 stdin (untrusted): ...` and prints the exact `--allow-*` flags the user could pass to unlock each capability.
+  - **File input is unchanged.** `perch -f file.perch` retains the existing "all allowed unless explicitly restricted" posture. The deny-by-default only applies to stdin because that's where untrusted scripts arrive (curl, paste, sibling process). Same model Deno uses: explicit-grant for things the user didn't already save to disk.
 - **Stdin support — `perch -f -` reads from stdin.** Pipe a `.perch` file straight from any source: `curl URL | perch -f - <cmd>`, `cat script.perch | perch -f -`, `git show HEAD:commands.perch | perch -f - --check`. Combines with all restriction flags, so `curl URL | perch -f - --no-shell --no-write run` is a one-liner for safely running an untrusted remote script — never lands on disk, never touches anything outside the declared op set. `${script_path}` is `"-"` in this mode. Single change in `infra/capyloader/loader.go`: when path is `"-"`, read from `os.Stdin` via `io.ReadAll`.
 - **Shebang scripts — `#!/usr/bin/env perch` works.** `.perch` files can now run as standalone scripts on Linux / macOS / WSL the same way Python or bash scripts do. Three new behaviours wire this up:
   - **`perch --init`** writes the shebang line at the top, sets the file `+x`, and includes a `main` command so `./commands.perch` (no args) runs a sensible default. Prints the exact `chmod +x` and `./commands.perch` commands so the user sees the script idiom on day one.

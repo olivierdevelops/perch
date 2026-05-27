@@ -421,11 +421,11 @@ end
 
 ```sh
 cat script.perch | perch -f - hello
-curl -fsSL https://.../script.perch | perch -f - --no-shell --no-network run
+curl -fsSL https://.../script.perch | perch -f - run
 git show HEAD:commands.perch | perch -f - --check
 ```
 
-Useful for running remote scripts without saving them to disk and for combining with restriction flags as a sandbox-on-the-fly. `${script_path}` is `"-"` in this mode.
+**Stdin input is untrusted by default** — shell, subprocess, network, write, and host env vars are all disabled. Grant capabilities with `--allow-shell`, `--allow-subprocess`, `--allow-network`, `--allow-write`, and `--env A,B,C`. Pass `--trust-stdin` to skip the default entirely (when piping a `.perch` file you wrote yourself). File input (`-f file.perch`) is unchanged — the deny-by-default applies only to stdin since that's where untrusted scripts arrive. `${script_path}` is `"-"` in this mode.
 
 ## Preview before running
 
