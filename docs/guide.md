@@ -912,6 +912,23 @@ command setup
 end
 ```
 
+**`os "unix"`** is an umbrella that matches darwin / linux / freebsd / openbsd / netbsd — handy for "any Unix; Windows needs its own":
+
+```perch
+command rm_build
+    do
+        os "unix"
+            shell "rm -rf ./build"
+        end
+        os "windows"
+            shell "rmdir /S /Q .\\build"
+        end
+    end
+end
+```
+
+Supported targets: `"darwin"`, `"linux"`, `"windows"`, `"freebsd"`, `"openbsd"`, `"netbsd"`, and the umbrella `"unix"`. Mirror of the existing `${is_unix}` auto-bound var (true on anything that isn't Windows).
+
 Why prefer `os "X"` over `if os == "X"`?
 
 - **Same runtime semantics** (body runs only when `${os}` matches the declared platform).

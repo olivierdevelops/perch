@@ -21,17 +21,47 @@ func registerFlow(m map[string]interpreter.Handler) {
 // KNOWN OS context, which the simulator + --scan + the UI use to make
 // stronger statements about what the program needs.
 //
-// Runtime semantics: skip body if ${os} != target. That's it. The
-// "stronger statements" live in the static-analysis layers
+// Targets:
+//   "darwin"  | "linux" | "windows"   — exact ${os} match
+//   "unix"    — umbrella: matches darwin, linux, freebsd, openbsd, netbsd
+//               (mirrors the existing ${is_unix} auto-bound var)
+//   "freebsd" / "openbsd" / "netbsd"  — exact ${os} match (rare but works)
+//
+// Runtime semantics: skip body if the target doesn't match. That's it.
+// The "stronger statements" live in the static-analysis layers
 // (--scan, simulate), not in the interpreter.
 func opOsBlock(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	target, _ := args["target"].(string)
 	currentOS, _ := b.Lookup("os")
-	if target == "" || target != currentOS {
+	if !osTargetMatches(target, currentOS) {
 		return nil, nil // wrong OS; skip
 	}
 	body, _ := args["_body"].([]domain.Op)
 	return nil, i.RunOps(body, b)
+}
+
+// OsTargetMatches reports whether the declared target matches the
+// host's ${os}. Exposed (capital) so the simulator + scanner can apply
+// the same rule.
+func OsTargetMatches(target, host string) bool {
+	return osTargetMatches(target, host)
+}
+
+func osTargetMatches(target, host string) bool {
+	if target == "" || host == "" {
+		return false
+	}
+	if target == host {
+		return true
+	}
+	if target == "unix" {
+		// Same set ${is_unix} covers: anything that ISN'T windows.
+		switch host {
+		case "darwin", "linux", "freebsd", "openbsd", "netbsd":
+			return true
+		}
+	}
+	return false
 }
 
 // opForEach iterates over a newline-separated string value, binding each

@@ -370,10 +370,11 @@ func simulateOp(op domain.Op, env SimEnv, depth int, p *domain.Program, cmdName 
 		// declared target, simulate the body in that context.
 		// When it doesn't match, this branch is dead code on the
 		// simulated host — annotate but don't classify children
-		// (they wouldn't fire).
+		// (they wouldn't fire). Matching mirrors ops.OsTargetMatches:
+		// exact OR `os "unix"` matches darwin/linux/BSDs.
 		r.IsBlockEntry = true
 		target, _ := op.Args["target"].(string)
-		if env.OS == "" || env.OS == target {
+		if env.OS == "" || osMatches(target, env.OS) {
 			r.Reasons = append(r.Reasons,
 				fmt.Sprintf("os %q matches sim-os — body will run", target))
 			r.Children = simulateBody(op.Body, env, depth+1, p, cmdName)
@@ -902,6 +903,24 @@ func resolveAutoBound(name string, env SimEnv) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+// osMatches mirrors ops.OsTargetMatches but lives here to avoid a
+// dependency on the ops package from usecases/. Kept in sync by hand.
+func osMatches(target, host string) bool {
+	if target == "" || host == "" {
+		return false
+	}
+	if target == host {
+		return true
+	}
+	if target == "unix" {
+		switch host {
+		case "darwin", "linux", "freebsd", "openbsd", "netbsd":
+			return true
+		}
+	}
+	return false
 }
 
 func boolStr(b bool) string {

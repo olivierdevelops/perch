@@ -6,6 +6,19 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **`os "unix"` umbrella target** for execution-context blocks. Matches darwin, linux, freebsd, openbsd, netbsd — the same set the existing `${is_unix}` auto-bound var covers. Standard "any Unix; Windows is special" pattern is now one block:
+
+  ```perch
+  os "unix"
+      shell "rm -rf ./build"
+  end
+  os "windows"
+      shell "rmdir /S /Q .\\build"
+  end
+  ```
+
+  Supported targets: `"darwin"`, `"linux"`, `"windows"`, `"freebsd"`, `"openbsd"`, `"netbsd"`, `"unix"`. Both the runtime handler (`infra/ops/flow.go:OsTargetMatches`) and the simulator (`usecases/simulate/simulate.go:osMatches`) apply the same matching rules, so `perch simulate ... --sim-os=freebsd` correctly runs an `os "unix"` body.
+
 - **`os "PLATFORM" ... end` — execution-context blocks.** Declares which body is meant for which OS, making cross-platform intent first-class structure rather than hidden inside shell strings. Same runtime semantics as `if os == "X" ... end` (skip body if `${os}` doesn't match), but with three concrete wins downstream: (1) **simulate** prunes mismatched branches as known dead code on the target host — `simulate setup --sim-os=linux` reports "os \"darwin\" does NOT match sim-os \"linux\" — body skipped" instead of treating the darwin shell as uncertainty; (2) the **web UI** can flag "incompatible with your current OS" before the user clicks Run; (3) **agents** reasoning about a `.perch` file have explicit OS metadata to constrain their plan.
 
   ```perch
