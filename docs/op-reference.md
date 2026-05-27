@@ -115,6 +115,33 @@ Each block op wraps a body that runs only when the condition holds.
 | `http_delete URL`           | `(string) → string` |
 | `download URL DST`          | `(string, string)` — saves response body to file |
 
+**Security defaults (always-on, no flag required):**
+
+Every URL — initial request AND every redirect destination — is validated:
+
+- **No private-IP destinations.** Refuses loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16` — the AWS / GCP / Azure metadata service), RFC 1918 private (`10/8`, `172.16/12`, `192.168/16`), IPv6 ULA (`fc00::/7`), and unspecified addresses. Closes SSRF.
+- **No `https → http` redirect downgrade.**
+- **Cap of 5 redirect hops.**
+- **DNS-rebinding defense.** Multi-A responses fail if any record lands in a private range.
+
+Opt-out flags when you genuinely need a private service or legacy endpoint:
+
+- `--allow-private-ips` — permit private/loopback IPs
+- `--allow-scheme-downgrade` — permit https → http redirects
+- `--max-redirects N` / `--no-redirects` — change/disable the cap
+
+**Strict host allowlist** (opt-in, tightest policy):
+
+`--allow-host HOST[,HOST...]` restricts every URL (initial + all redirects) to a list. Patterns: exact (`api.github.com`), single-label wildcard (`*.s3.amazonaws.com` matches one label only — `api.x.com` ✓, `a.b.x.com` ✗), host:port (`localhost:8080`), IP literal. Multiple flags accumulate. Composes AND-wise with the SSRF guard.
+
+```sh
+# Tight HTTP policy for an AI-agent-served .perch
+perch --allow-host api.github.com,*.docker.io,registry.npmjs.org \
+      --no-shell --env GITHUB_TOKEN -f ops.perch
+```
+
+`perch help --allow-host` for the full story.
+
 ## Compression / archives
 
 | Op | Signature |
