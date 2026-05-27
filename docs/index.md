@@ -65,6 +65,97 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer
 </p>
 
+### See them in action
+
+<div class="pterm-pair">
+<div class="pterm" id="t-sim-happy"  data-title="perch simulate — scenario: happy-path"></div>
+<div class="pterm" id="t-sim-broken" data-title="perch simulate — scenario: github-down + kubectl-missing"></div>
+</div>
+<script type="application/json" data-pterm="t-sim-happy">
+[
+  {"k":"in",  "t":"perch simulate release --sim-file fixture.json"},
+  {"k":"dim", "t":"# capabilities + oracles + scenarios from one JSON file"},
+  {"k":"blank","t":""},
+  {"k":"hi",  "t":"═══ Scenario: happy-path ═══"},
+  {"k":"out", "t":"── command release"},
+  {"k":"ok",  "t":"✓ shell_output \"git rev-parse HEAD\""},
+  {"k":"dim", "t":"   ↳ oracle: shell_output(\"git rev-parse HEAD\") = \"1f1db7b\" → ${rev}"},
+  {"k":"ok",  "t":"✓ http_get \"https://api.github.com/health\""},
+  {"k":"dim", "t":"   ↳ oracle: api.github.com/health → 200 OK"},
+  {"k":"ok",  "t":"✓ if has_bin \"kubectl\"  (oracle: true → body runs)"},
+  {"k":"ok",  "t":"  ✓ shell \"kubectl apply -f manifest.yaml\""},
+  {"k":"ok",  "t":"✓ write_file \"/srv/data/release-1f1db7b.json\""},
+  {"k":"dim", "t":"   ↳ state: /srv/data/release-1f1db7b.json now exists"},
+  {"k":"ok",  "t":"✓ if exists \"/srv/data/release-1f1db7b.json\"  (state: true)"},
+  {"k":"ok",  "t":"  ✓ shell \"curl -X POST notify.example.com -d ...\""},
+  {"k":"blank","t":""},
+  {"k":"ok",  "t":"summary: 7 will-run · 0 will-fail · 0 uncertain"},
+  {"k":"dim", "t":"# exit 0 — ship it"}
+]
+</script>
+<script type="application/json" data-pterm="t-sim-broken">
+[
+  {"k":"in",  "t":"perch simulate release --sim-file fixture.json"},
+  {"k":"dim", "t":"# same file, two more scenarios — what if things go wrong?"},
+  {"k":"blank","t":""},
+  {"k":"hi",  "t":"═══ Scenario: github-down ═══"},
+  {"k":"ok",  "t":"✓ shell_output \"git rev-parse HEAD\""},
+  {"k":"err", "t":"✗ http_get \"https://api.github.com/health\""},
+  {"k":"dim", "t":"   ↳ oracle: api.github.com/health → 500 internal error"},
+  {"k":"blank","t":""},
+  {"k":"hi",  "t":"═══ Scenario: kubectl-missing ═══"},
+  {"k":"ok",  "t":"✓ if has_bin \"kubectl\"  (oracle: false → body SKIPPED)"},
+  {"k":"err", "t":"✗ assert_eq deploy_target \"k8s\""},
+  {"k":"dim", "t":"   ↳ no kubectl path, no deploy"},
+  {"k":"blank","t":""},
+  {"k":"hi",  "t":"═══ Scenario: github-redirects-to-evil ═══"},
+  {"k":"err", "t":"✗ http_get \"https://api.github.com/health\""},
+  {"k":"dim", "t":"   ↳ oracle: 302 → https://evil.com/payload"},
+  {"k":"dim", "t":"   ↳ redirect destination NOT in --allow-host allowlist"},
+  {"k":"blank","t":""},
+  {"k":"err", "t":"3 op(s) would fail across simulated scenarios"},
+  {"k":"dim", "t":"# exit 1 — CI rejects the PR"}
+]
+</script>
+
+<div class="pterm-pair">
+<div class="pterm" id="t-wasm-vis"   data-title="wasm_run — the runtime literally doesn't provide escape routes"></div>
+<div class="pterm" id="t-mcp-stream" data-title="perch-mcp — stdout streams live via notifications/progress"></div>
+</div>
+<script type="application/json" data-pterm="t-wasm-vis">
+[
+  {"k":"in",  "t":"perch -f plugins.perch run_plugin --name=malicious"},
+  {"k":"dim", "t":"# plugin tries 5 escape routes — runtime says 'those operations don't exist'"},
+  {"k":"blank","t":""},
+  {"k":"out", "t":"── plugin: malicious.wasm  (under wasm_run, WASI sandbox)"},
+  {"k":"err", "t":"✗ attempt 1: read /etc/passwd        → ENOENT (no host fs access)"},
+  {"k":"err", "t":"✗ attempt 2: read env $AWS_KEY        → \"\" (env not in allowlist)"},
+  {"k":"err", "t":"✗ attempt 3: open TCP socket          → not implemented in WASI P1"},
+  {"k":"err", "t":"✗ attempt 4: write /home/user/.ssh    → ENOENT (not mounted)"},
+  {"k":"err", "t":"✗ attempt 5: exec curl                → no syscall surface"},
+  {"k":"blank","t":""},
+  {"k":"ok",  "t":"✓ plugin produced JSON on stdout (the ONLY thing it can do)"},
+  {"k":"dim", "t":"# Not blocked by policy. Invisible by construction."},
+  {"k":"hi",  "t":"  This is how you let an AI write plugins for your system."}
+]
+</script>
+<script type="application/json" data-pterm="t-mcp-stream">
+[
+  {"k":"in",  "t":"# agent → MCP: tools/call perch_run name=deploy _meta.progressToken=42"},
+  {"k":"blank","t":""},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"▸ build artifact\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"  compiled in 4.2s\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"▸ push to registry\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"  layer 1/4 ↑ 12 MB\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"  layer 2/4 ↑ 28 MB\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"  layer 3/4 ↑ 8 MB\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"  layer 4/4 ↑ 2 MB\" }"},
+  {"k":"out", "t":"← notifications/progress  { token: 42, msg: \"▸ apply k8s manifest\" }"},
+  {"k":"ok",  "t":"← tools/call result      { content: ✓ deployed in 47s }"},
+  {"k":"dim", "t":"# the agent narrates the deploy in real time. no silent waits."}
+]
+</script>
+
 ---
 
 ## What perch replaces
