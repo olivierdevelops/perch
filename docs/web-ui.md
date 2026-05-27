@@ -1,6 +1,42 @@
 # 🪟 Web UI — `perch --server`
 
-> **For teammates who don't live in a terminal.** Same `.perch` file, same interpreter, same restrictions — rendered as a friendly localhost web app.
+> Same `.perch` file, same interpreter, same restrictions — rendered as a friendly localhost web app. **Two products in one binary.**
+
+## Who this is for
+
+`perch --server` serves two distinct audiences with the same code. The pitch is different for each — pick yours:
+
+### 🤖 Audience 1 — "I'm using AI agents and want to *see* what they're doing"
+
+Agents now run operational work on behalf of non-technical teammates ("deploy my app", "restart that pod", "check the build"). The non-dev sees the agent's *summary*, not the actual ops. When something goes sideways, they have no surface to investigate on.
+
+**`perch --server` is the "shows your work" companion to `perch-mcp`:** the same `.perch` file produces both the agent's MCP tool surface AND the human's audit/run UI. Open the UI in a browser tab next to the agent — every op the agent fires through `perch_run` streams into the **Run** tab live. Want to know if the API is even up before letting the agent retry? Open the **🧪 Simulate** tab and find out in a click. Want to know what a verb actually does before granting it to the agent? Open **🔍 Scan** and see every shell call, host, write root with risk findings.
+
+The framing: **agents are great at deciding *what* to do; humans want to see *what's happening*.**
+
+### 🎛️ Audience 2 — "I just want to control my system from a UI"
+
+You operate stuff — Docker containers, Kubernetes clusters, your home server, a small fleet of VMs, a Python project, whatever — and you'd rather **click than type the same `kubectl ... | jq ... | grep ...` for the 400th time**. You don't want to:
+
+- Write a frontend. (Cobra/Click/Typer don't ship one. Building one is a weekend.)
+- Stand up Retool / Backstage / a Next.js dashboard for ten internal verbs.
+- Use the cloud provider's console, which has 200 menu items and doesn't know about your workflow.
+- Run six different self-hosted UIs (Portainer for Docker, Cockpit for the box, …) each with their own auth story.
+
+**Declare your verbs in `commands.perch`. Run `perch --server`. That's the UI.** Add a `command restart_pod`, refresh the page, the form is there. No app to deploy, no admin panel to maintain, no CSS to write. The file *is* the dashboard.
+
+For self-hosters: pair with [the 22 recipes](recipes.md) — Postgres / Redis / mailpit / observe (Prometheus+Grafana+Loki) / aistack (Ollama+ChromaDB+WebUI) / kafka-stack all become one-click verbs in your browser. No `docker-compose ps` followed by squinting at a 12-line table.
+
+### Why both audiences work from the same code
+
+| What you write | Who consumes it | Surface |
+|---|---|---|
+| `command deploy_canary do … end` | An agent via MCP | `perch_run deploy_canary` tool call → JSON in / NDJSON progress out |
+| same line | A human in the browser | Form with `-region`, `-bake_minutes`, Run button → output panel with streamed ✓/✗ |
+| same line | CI | `perch deploy_canary -region=us-east-1` |
+| same line | A future intern | `perch deploy_canary --help` |
+
+One file. Four consumers. Zero duplicate schemas. Adding a verb means changing exactly one line.
 
 ## Why this matters more in 2026 than it did in 2024
 

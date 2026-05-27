@@ -88,11 +88,16 @@ irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1
 # https://github.com/luowensheng/perch/releases
 ```
 
-### 🪟 Web UI — no terminal required (and increasingly *the* answer in the AI-agent era)
+### 🪟 Web UI — no terminal required
 
-**Why this matters more in 2026 than it did in 2024.** AI agents now run operational work on behalf of non-technical teammates ("deploy my app", "restart that pod"). The non-dev sees the agent's summary, not the actual ops — so when something goes sideways, they have no surface to investigate on. **`perch --server` is the "shows your work" companion to `perch-mcp`**: open the UI in a tab alongside the agent, watch every op stream in real time, and run pre-flight `simulate` / `scan` yourself before granting the agent a risky verb. Same `.perch` file, two consumers, zero duplicated schemas.
+**`perch --server` is two products in one file.**
 
-For teammates who don't live in a terminal — support, ops, QA, the new hire on their first day — `perch --server` turns the same `.perch` file into a friendly localhost web app:
+| Use it as… | Who it's for | Why it works |
+|---|---|---|
+| **🤖 The "shows your work" companion to AI agents.** Open the UI in a tab alongside Claude / Cursor / Zed; every op the agent fires through `perch-mcp` streams into the Run tab live. Run pre-flight `🧪 Simulate` / `🔍 Scan` yourself before granting the agent a risky verb. | Anyone whose agent is running ops on production they can't see. ("It said it deployed. Did it?") | One `.perch` file feeds both the agent (MCP) and the human (web UI) — no duplicated schemas, no out-of-sync wrappers. The framing: *agents decide what; humans see what's happening.* |
+| **🎛️ A UI-first ops console you didn't have to write.** A self-hostable, file-defined dashboard for running operational commands from a browser. No FastAPI, no Retool, no Backstage plugin, no clicking through AWS / GCP. Declare your verbs in `commands.perch`; ship the binary; one URL is your team's ops surface. | Support, QA, product, on-call, the new hire on day one — anyone who wants to **operate systems from a UI without anyone building one.** Self-hosters running personal infra. Internal-tool authors who don't want to babysit a frontend. | The UI is **generated from the same file** that defines the verbs. Add a `command restart_pod`, refresh the page, the form is there. No app to deploy, no admin panel to maintain, no CSS to write. |
+
+Same engine for both — same `.perch` file, same interpreter, same capability gates (`--no-shell` / `--no-network` / etc. inherit from launch), same audit trail. Two consumers, zero duplicate code.
 
 ```sh
 perch -f commands.perch --server --port 8080

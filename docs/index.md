@@ -68,11 +68,25 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 ---
 
-## 🪟 No terminal? No problem — *especially* in the AI-agent era.
+## 🪟 The web UI — two products in one binary
 
-> **The honest framing.** As more teams give AI agents access to their infra ("deploy my app", "restart that pod", "check the build"), **non-devs are increasingly downstream of automated work they can't see**. The agent runs, output scrolls in some hidden log, and the human is left guessing what just happened. `perch --server` is the **"shows your work"** companion to `perch-mcp`: the same `.perch` file, but rendered as a tabbed web UI that non-devs can drive themselves, audit before an agent runs it, or open *alongside* the agent to watch each op fire in real time. Same grammar, same capability gates, same audit trail — just clickable.
+`perch --server` is a single feature with **two distinct value props** depending on who you are:
 
-For **support engineers**, **QA**, **product managers**, **ops on-call**, **the new hire on day one** — anyone who'd rather click than memorise CLI flags:
+<div class="perch-features" style="margin-bottom:8px">
+
+<div class="card">
+  <h4>🤖 "I'm using AI agents and want to <em>see</em> what they're doing"</h4>
+  <p>As more teams give AI agents access to their infra ("deploy my app", "restart that pod"), <strong>non-devs are increasingly downstream of automated work they can't see</strong>. <code>perch --server</code> is the <strong>"shows your work"</strong> companion to <code>perch-mcp</code>: same <code>.perch</code> file, agent uses the MCP surface, you watch every op stream live in the <strong>Run</strong> tab. Open <strong>🧪 Simulate</strong> to ask "what would happen if the agent retried?" or <strong>🔍 Scan</strong> to see what a verb actually does before granting it.</p>
+</div>
+
+<div class="card">
+  <h4>🎛️ "I just want to control my system from a UI"</h4>
+  <p>You operate stuff — Docker, K8s, your home server, a small fleet — and you'd rather <strong>click than type the same <code>kubectl … | jq … | grep …</code> for the 400th time</strong>. You don't want to write a frontend, stand up Retool, or maintain Backstage. <strong>Declare your verbs in <code>commands.perch</code>; run <code>perch --server</code>; that's the UI.</strong> Add a <code>command restart_pod</code>, refresh the page, the form is there. No app to deploy. No CSS to write. The file <em>is</em> the dashboard.</p>
+</div>
+
+</div>
+
+**Same engine for both audiences.** Same `.perch` file, same interpreter, same capability gates. Add a verb → it's a CLI command, a web UI form, an MCP tool, a REPL command, and a binary entry point. <strong>Four consumers, zero duplicate schemas.</strong>
 
 ```sh
 perch -f commands.perch --server --port 8080
