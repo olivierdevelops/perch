@@ -85,24 +85,33 @@ TinyGo, Rust (`cargo build --target wasm32-wasi`), Zig, AssemblyScript,
 and C++ via wasi-sdk all target the same ABI. perch doesn't care which
 toolchain produced the `.wasm` — it just loads and runs it under WASI.
 
-## Loading from the embedded bundle (`bundle:` URI)
+## Embedded modules — declare once with `as NAME`, reference by name
 
-Declare the file tree you want embedded directly in the `.perch` file — no CLI flag needed at build time. Then load WASM modules straight from those bytes; they never touch the target machine's disk.
+`wasm_run` accepts two argument shapes, distinguished by syntax:
+
+```perch
+wasm_run "./mod.wasm"     # string literal → load from disk
+wasm_run policy_wasm      # bare identifier → resolve via bundle alias
+```
+
+Aliases come from the file-level `bundle ... end` section:
 
 ```perch
 name "myapp"
 version "1.0.0"
 
 bundle
-    include "./modules"            # whole directory
-    include "./policies/rules.json" # individual file
+    include "./policy.wasm"   as policy_wasm
+    include "./schema.wasm"   as schema
+    include "./policies/rules.json"
 end
 
 command run_plugin
     do
-        # Loaded from bytes already in the binary — no disk write,
-        # no extract step. Works identically on every OS.
-        wasm_run "bundle:modules/policy.wasm"
+        # `policy_wasm` resolves to in-memory bytes from the embedded
+        # archive. Zero disk reads at runtime; works identically on
+        # every OS.
+        wasm_run policy_wasm
             wasm_arg "/ro/deploy"
             wasm_mount_read "./deploy"
         end
@@ -110,18 +119,27 @@ command run_plugin
 end
 ```
 
-Build:
+Build + ship:
 
 ```sh
-perch --build -f myapp.perch -o myapp     # bundle declared in-file, no --include needed
+perch --build -f myapp.perch -o myapp     # bundle declared in-file; no --include
 ./myapp run_plugin                         # .wasm bytes are inside ./myapp
 ```
 
-The `bundle ... end` section is the **source of truth** for what goes in the artifact — the `.perch` file alone tells the build pipeline everything it needs. CLI `--include PATH` still works and is **additive** (useful for CI build steps that want to inject something extra, like a generated config, on top of the declared set).
+**Three pieces, one clean story:**
+
+| Piece | Role |
+|---|---|
+| `bundle ... end` (file-level) | Declares what gets embedded into the binary at `--build` time. The `.perch` is the source of truth — no CLI flag required. `as NAME` registers an alias usable as a bare identifier downstream. |
+| `wasm_run NAME` (bare ident) | At runtime, look up `NAME` in the bundle's alias table and run the matching entry's bytes under WASI. No disk write. |
+| `wasm_run "PATH"` (string) | Unchanged: loads a `.wasm` file from disk. Use during development before deciding what goes in the bundle. |
+
+CLI `--include PATH` still works at `--build` time and is **additive** on top of the declared set — useful for CI steps injecting a generated config:
 
 ```sh
 perch --build -f myapp.perch --include ./build-stamp.txt -o myapp
-# → embeds ./modules + ./policies/rules.json (from the bundle section) + ./build-stamp.txt
+# embeds ./policy.wasm + ./schema.wasm + ./policies/rules.json (declared)
+#       + ./build-stamp.txt (CLI)
 ```
 
 The compiled wazero module is cached keyed by `bundle:<bundleHash>:<entry>`, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, no disk involvement.

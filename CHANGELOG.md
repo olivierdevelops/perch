@@ -17,7 +17,22 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
   `perch --build` (no extra args) reads this and produces the right artifact. Paths in the `bundle` section resolve relative to the `.perch` file's directory. CLI `--include PATH` still works and is **additive** on top of the declarative set — useful for CI steps injecting a generated config. Combined with `wasm_run "bundle:PATH"` (below), the entire build + run story is **one file in, one binary out, zero CLI flags**.
 
-- **`wasm_run "bundle:PATH"` — run WASM modules from the embedded bundle, zero disk writes.** Previously `wasm_run` always loaded modules via `os.Open`, which meant either (a) the user shipped the `.wasm` files on disk alongside the binary, or (b) they used `${bundle_dir}/foo.wasm` which lazy-extracts the bundle to a temp dir. The new `bundle:` URI scheme reads bytes straight out of the embedded tar.gz and hands them to wazero's `CompileModule` — never touches the filesystem. `perch --build --include ./modules -o myapp` produces one executable with every `.wasm` inside; `./myapp run_plugin` compiles and executes the module from in-memory bytes. Compiled-module cache is keyed by `bundle:<bundleHash>:<entry>` so repeated calls (e.g. inside `parallel`) compile once. New `ops.BundleReadFile` + `ops.BundleHash` helpers expose the same capability to other op handlers that want to read embedded files without extraction. See [docs/wasm.md → "Loading from the embedded bundle"](docs/wasm.md). The practical shape: **ship a sandboxed plugin host as one artifact, no install steps on the target machine.**
+- **Bundle aliases: `include "PATH" as NAME`, used as `wasm_run NAME` (bare identifier).** Embedded WASM modules now have a clean, name-based reference syntax. No magic URI strings (no `bundle:foo.wasm`); no separate `wasm_bundle` op. The `bundle ... end` section declares includes with optional `as NAME` aliases; `wasm_run` is grammar-overloaded to accept either a string literal (loads from disk) or a bare identifier (resolves against the bundle alias table and loads bytes straight from the embedded archive). One op, two source forms, zero disk reads at runtime when an alias is used.
+
+  ```perch
+  bundle
+      include "./policy.wasm" as policy_wasm
+      include "./schema.wasm" as schema
+  end
+
+  command run_plugin do
+      wasm_run policy_wasm        # bare ident → bundle bytes
+          wasm_arg "/ro/deploy"
+      end
+  end
+  ```
+
+  Compiled-module cache is keyed by `bundle:<bundleHash>:<entry>` so repeated calls (e.g. inside `parallel`) compile once. New `ops.BundleReadFile` + `ops.BundleHash` Go helpers expose the same capability to other op handlers. See [docs/wasm.md → "Embedded modules — declare once with `as NAME`"](docs/wasm.md). The practical shape: **ship a sandboxed plugin host as one artifact, no install steps on the target machine, no string-URI awkwardness in user code.**
 
 - **🪟 Web UI feature-parity push — for non-devs.** `perch --server` was a thin form-per-command surface; this brings it close to the CLI's pre-flight + run experience. Five tabs (hash-routed): **▶ Run** (live command search/filter, type-aware form inputs — checkbox/number/textarea per arg type, defaults as placeholders so empty submits use runtime defaults, mod badges for `test`/`detached`/`proxy_args`, collapsible globals panel, **Copy as CLI** button that mirrors the form back as a shell command), **🧪 Simulate** (every `--sim-*` flag as a form field plus a JSON fixture textarea — paste v2 fixture with oracles + scenarios, see per-op outcomes per scenario), **🔍 Scan** (full capability + risk audit with severity pills + recommended hardened invocation), **✓ Check** (syntactic validation with issue counts), **ℹ About**. Dark mode toggle (auto-respects `prefers-color-scheme`, persists per browser). Four new JSON endpoints back the panels: `GET /api/program`, `POST /api/check`, `POST /api/scan`, `POST /api/simulate` — embeddable in your dashboard / Slack bot / Backstage plugin. Same interpreter as the CLI; same capability restrictions inherit from launch (`perch --no-shell --no-network --server`). New doc: [docs/web-ui.md](docs/web-ui.md). The framing: *"For teammates who don't live in a terminal."*
 

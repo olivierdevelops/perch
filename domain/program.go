@@ -38,10 +38,36 @@ type Program struct {
 
 // Bundle declares the file tree to embed into the fat binary at
 // `perch --build` time. Each Include is a path relative to the .perch
-// source file (or absolute). Paths in `wasm_run "bundle:PATH"` and
-// `bundle_dir` ops resolve into the resulting embedded tar.gz at runtime.
+// source file (or absolute). At runtime the embedded archive is
+// reachable via aliased identifiers (declared inline via `as NAME`)
+// or directly via `bundle_dir` / `bundle_extract` / the
+// `ops.BundleReadFile` Go helper.
+//
+// Example .perch:
+//
+//   bundle
+//       include "./modules"                       # whole dir, no alias
+//       include "./policy.wasm" as policy_wasm    # one file, aliased
+//   end
+//
+//   command run_plugin do
+//       wasm_run policy_wasm   # bare ident → resolved to bundle bytes
+//           wasm_arg "/ro/deploy"
+//       end
+//   end
 type Bundle struct {
-	Includes []string `json:"includes,omitempty"`
+	Includes []string       `json:"includes,omitempty"`
+	Aliases  []BundleAlias  `json:"aliases,omitempty"`
+}
+
+// BundleAlias is one `include "PATH" as NAME` declaration. Name is the
+// bare identifier the user types in ops (e.g. `wasm_run policy_wasm`);
+// Entry is the bundle-relative path under which the file lives after
+// `--build` archives it (typically the basename, or a dir-relative
+// subpath when the include was a directory).
+type BundleAlias struct {
+	Name  string `json:"name"`
+	Entry string `json:"entry"`
 }
 
 // Template is a parse-time, parameterized op-sequence. Identical structure

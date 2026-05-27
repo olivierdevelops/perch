@@ -446,7 +446,20 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			if state != stBundle {
 				return nil, nil, fmt.Errorf("line %d: 'include' event outside bundle block", lineNum)
 			}
-			prog.Bundle.Includes = append(prog.Bundle.Includes, asString(ev.Value))
+			path := asString(ev.Value)
+			prog.Bundle.Includes = append(prog.Bundle.Includes, path)
+			if ev.Alias != "" {
+				// Default entry: basename of the source path. This is what
+				// `tarballPaths` writes for a file include. For directory
+				// includes the alias points at the dir root; users wanting
+				// to address a specific file inside should alias the file
+				// path directly, e.g. `include "./modules/policy.wasm" as policy_wasm`.
+				entry := filepath.Base(path)
+				prog.Bundle.Aliases = append(prog.Bundle.Aliases, domain.BundleAlias{
+					Name:  ev.Alias,
+					Entry: entry,
+				})
+			}
 		case "global":
 			if state != stGlobals {
 				return nil, nil, fmt.Errorf("line %d: 'global' event outside globals block", lineNum)

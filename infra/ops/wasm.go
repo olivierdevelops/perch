@@ -64,7 +64,7 @@ func registerWasm(m map[string]interpreter.Handler) {
 
 func wasmMarkerErr(name string) interpreter.Handler {
 	return func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		return nil, fmt.Errorf("%s is only valid inside a wasm_run block", name)
+		return nil, fmt.Errorf("%s is only valid inside a wasm_run or wasm_bundle block", name)
 	}
 }
 
@@ -77,47 +77,79 @@ var (
 	wasmCompiled = map[string]wazero.CompiledModule{}
 )
 
-// opWasmRun loads, configures, and runs a WebAssembly module under
-// WASI Preview 1. Capability declarations in the body are the *only*
-// way the module sees the outside world.
+// opWasmRun loads a WebAssembly module and runs it under WASI Preview 1.
+// Capability declarations in the body are the *only* way the module
+// sees the outside world.
+//
+// Two source forms (single op, no URI scheme):
+//
+//   wasm_run "./path/to/mod.wasm"   ← string literal → load from disk
+//
+//   bundle
+//       include "./policy.wasm" as policy_wasm
+//   end
+//   wasm_run policy_wasm            ← bare ident → resolve to bundle bytes
+//
+// The grammar emits `_alias: true` in args when the user passed a bare
+// identifier; we look it up in program.Bundle.Aliases and read straight
+// from the embedded tar.gz. Otherwise the path is treated as a host
+// file path.
 func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	rawPath := argString(args, "path", "_0")
 	if rawPath == "" {
 		return nil, fmt.Errorf("wasm_run: missing module path")
 	}
 
-	// Source resolution. Two schemes:
-	//   bundle:PATH  → load bytes directly from the embedded tar.gz. No
-	//                  disk write. Hash cache key is "bundle:<bundleHash>:PATH".
-	//   PATH (any)   → resolve against script_dir, os.Open the file as
-	//                  before. The traditional path.
-	//
-	// The `bundle:` scheme is what makes `perch --build --include … myapp`
-	// fully self-contained — wasm modules are bytes in the binary, never
-	// touch the disk on the target machine.
 	var (
-		modulePath string
+		modulePath  string
 		moduleBytes []byte
 		cacheKey    string
 	)
-	if strings.HasPrefix(rawPath, "bundle:") {
-		entry := strings.TrimPrefix(rawPath, "bundle:")
+
+	isAlias, _ := args["_alias"].(bool)
+	if isAlias {
+		entry, ok := lookupBundleAlias(i.Program, rawPath)
+		if !ok {
+			return nil, fmt.Errorf("wasm_run: %q is not a declared bundle alias (add `include \"…\" as %s` to your `bundle ... end` section)", rawPath, rawPath)
+		}
 		buf, present, err := BundleReadFile(entry)
 		if err != nil {
-			return nil, fmt.Errorf("wasm_run: %w", err)
+			return nil, fmt.Errorf("wasm_run %s: %w", rawPath, err)
 		}
 		if !present {
-			return nil, fmt.Errorf("wasm_run: %q references the embedded bundle but this binary has no bundle (build with `perch --build --include <dir>`)", rawPath)
+			return nil, fmt.Errorf("wasm_run %s: alias resolves to %q but this binary has no embedded bundle (build with `perch --build`)", rawPath, entry)
 		}
 		moduleBytes = buf
 		cacheKey = "bundle:" + BundleHash() + ":" + entry
+		rawPath = entry // for argv0 / error messages
 	} else {
 		modulePath = resolve(rawPath, b)
 		if _, err := os.Stat(modulePath); err != nil {
 			return nil, fmt.Errorf("wasm_run: module %q: %w", rawPath, err)
 		}
 	}
+	return runWasmModule(i, b, args, rawPath, "wasm_run", modulePath, moduleBytes, cacheKey)
+}
 
+// lookupBundleAlias returns the bundle entry name for a declared alias.
+func lookupBundleAlias(p *domain.Program, name string) (string, bool) {
+	if p == nil {
+		return "", false
+	}
+	for _, a := range p.Bundle.Aliases {
+		if a.Name == name {
+			return a.Entry, true
+		}
+	}
+	return "", false
+}
+
+// runWasmModule is the shared backend. Exactly one of (modulePath,
+// moduleBytes) is non-empty.
+func runWasmModule(
+	i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any,
+	rawPath, opName, modulePath string, moduleBytes []byte, cacheKey string,
+) (any, error) {
 	// Walk the body to collect capability declarations. The body ops
 	// aren't dispatched — they're config-bearers the handler reads
 	// directly. Anything else in the body is an error (keeps the
@@ -128,7 +160,7 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 	for _, op := range body {
 		opArgs, err := interpreter.InterpolateArgs(op.Args, b)
 		if err != nil {
-			return nil, fmt.Errorf("wasm_run: interpolating %s: %w", op.Kind, err)
+			return nil, fmt.Errorf("%s: interpolating %s: %w", opName, op.Kind, err)
 		}
 		switch op.Kind {
 		case "wasm_arg":
@@ -145,7 +177,7 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 				}
 			}
 		default:
-			return nil, fmt.Errorf("wasm_run: %q is not valid inside a wasm_run block (only wasm_arg / wasm_mount_read / wasm_mount_write / wasm_env)", op.Kind)
+			return nil, fmt.Errorf("%s: %q is not valid inside a %s block (only wasm_arg / wasm_mount_read / wasm_mount_write / wasm_env)", opName, op.Kind, opName)
 		}
 	}
 
@@ -158,7 +190,7 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 		compiled, err = compileWasm(modulePath)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("wasm_run: compile %q: %w", rawPath, err)
+		return nil, fmt.Errorf("%s: compile %q: %w", opName, rawPath, err)
 	}
 
 	// Build the WASI configuration with EXACTLY the declared
@@ -169,7 +201,7 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 		WithStdout(i.Stdout).
 		WithStderr(i.Stderr).
 		WithStdin(i.Stdin).
-		WithArgs(append([]string{filepath.Base(modulePath)}, cfg.argv...)...)
+		WithArgs(append([]string{wasmArgv0(modulePath, rawPath)}, cfg.argv...)...)
 
 	// Env allowlist — only declared names pass through, and only their
 	// real values. Anything not in the allowlist is invisible.
@@ -212,12 +244,21 @@ func opWasmRun(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 0 {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("wasm_run %q: %w", rawPath, err)
+		return nil, fmt.Errorf("%s %q: %w", opName, rawPath, err)
 	}
 	if mod != nil {
 		_ = mod.Close(ctx)
 	}
 	return nil, nil
+}
+
+// wasmArgv0 picks the argv[0] the module sees. From disk: basename of
+// the host path. From bundle: basename of the bundle entry name.
+func wasmArgv0(modulePath, rawPath string) string {
+	if modulePath != "" {
+		return filepath.Base(modulePath)
+	}
+	return filepath.Base(rawPath)
 }
 
 type wasmConfig struct {

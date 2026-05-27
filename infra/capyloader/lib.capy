@@ -87,8 +87,26 @@ ${body}{"event":"bundle_end"}
 `
 end
 
-# One path inside a bundle block: `include "PATH"`. Relative paths
-# resolve against the .perch file's directory at --build time.
+# One path inside a bundle block:
+#
+#   include "PATH"            — embed; address at runtime by path
+#   include "PATH" as NAME    — embed AND register NAME as a bare-ident
+#                               alias for the entry (used by ops like
+#                               `wasm_run NAME`)
+#
+# Two grammar functions overloaded by arity. Higher-priority "with alias"
+# tries first; the bare-string form is the fall-through.
+
+function bundle_include_alias
+    priority 50
+    arg literal "include"
+    arg capture path any
+    arg literal "as"
+    arg capture alias ident
+    write `{"event":"bundle_include","value":${path},"alias":${toJSON alias}}
+`
+end
+
 function bundle_include
     arg literal "include"
     arg capture path any
@@ -752,6 +770,24 @@ end
 # executed; the wasm_run handler walks the body to collect config.
 # Anything not declared is denied at module instantiation.
 # ────────────────────────────────────────────────────────────────────────────
+
+# wasm_run has two forms — disambiguated by argument shape:
+#
+#   wasm_run "./mod.wasm"   ← string literal → load from disk
+#   wasm_run policy_wasm    ← bare ident     → resolve via bundle alias
+#
+# Same body shape (wasm_arg / wasm_mount_* / wasm_env), same capability
+# gates. The ident form requires a matching `include "…" as policy_wasm`
+# in the file-level `bundle ... end` section.
+function wasm_run_alias
+    priority 50
+    arg literal "wasm_run"
+    arg capture path ident
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"wasm_run","args":{"path":${toJSON path},"_alias":true}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
 
 function wasm_run
     arg literal "wasm_run"
