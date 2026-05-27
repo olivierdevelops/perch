@@ -26,6 +26,7 @@ via `perch --build --include .` for shipping.
 | [wasm-schema-validator](wasm-schema-validator/) | A 200-line JSON Schema validator. Deterministic CI replacement for `yq`+`jq`+`ajv`. | Validate configs / fixtures / API responses in CI without Python or Node |
 | [wasm-policy-check](wasm-policy-check/) | K8s manifest policy enforcement: registry allowlist, resource limits, no-latest, no-privileged, required labels. | Pre-deploy compliance gate |
 | [wasm-diff-summary](wasm-diff-summary/) | Git-diff → structured JSON summary with risk heuristics. **Designed as an agent-callable tool** via MCP. | Safe LLM agent PR analysis without giving the agent a shell |
+| [**wasm-plugin-host**](wasm-plugin-host/) | **Zero-trust plugin runtime — 4 legit plugins + 1 deliberately malicious one demonstrating EVERY escape attempt fails by construction**. The killer demo. | AI-generated plugins running safely without trusting the AI |
 
 ### Quick start for the WASM demos
 
@@ -56,6 +57,7 @@ If you're new to perch:
 4. Then **wasm-hello** to see the capability boundary in action.
 5. Then **wasm-schema-validator** for the "actually shippable CI tool" pattern.
 6. Then **wasm-diff-summary** for the agent-safety pattern.
+7. Then **wasm-plugin-host** for the architectural punch — AI-generated WASM plugins running under capability gates, with a deliberately malicious plugin demonstrating that every escape attempt fails *by construction*.
 
 ## See also
 

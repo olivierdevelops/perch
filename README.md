@@ -289,6 +289,7 @@ Grouped by what you're trying to do.
 - [docs/testing.md](docs/testing.md) — **`perch test` — sandboxed behavior tests with `assert_*` ops**
 - [**docs/wasm.md**](docs/wasm.md) — **`wasm_run` — load WebAssembly modules with capability gating by construction** (reference)
 - [**docs/wasm-walkthroughs.md**](docs/wasm-walkthroughs.md) — **5 end-to-end real-world workflows: markdown validator, JSON Schema + caching, AI-agent surface via MCP, polyglot pipeline, CI hot loops**
+- [**demos/wasm-plugin-host**](demos/wasm-plugin-host/) — **The killer demo: zero-trust runtime for AI-generated plugins — 4 legit + 1 deliberately malicious proving every escape attempt fails by construction**
 - [docs/lsp.md](docs/lsp.md) — VS Code / Neovim / Helix / Zed integration
 - [docs/applications.md](docs/applications.md) — **22 real applications worth copying**
 

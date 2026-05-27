@@ -1,0 +1,103 @@
+name "wasm-plugin-host"
+about "Zero-trust plugin runtime — runs WASM plugins under capability gates"
+version "1.0.0"
+
+command run_plugin
+    description "Run ONE plugin on the bundled input.json"
+    arg name
+        type string
+        index 0
+        description "Plugin name (tax, discount, shipping, format, evil)"
+    end
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/plugins/${name}.wasm"
+            wasm_mount_read "${assets}/data"
+        end
+    end
+end
+
+command run_all
+    description "Run every legit plugin in parallel — shows them all in one shot"
+    do
+        let assets = bundle_dir
+        parallel
+            wasm_run "${assets}/plugins/tax.wasm"
+                wasm_mount_read "${assets}/data"
+            end
+            wasm_run "${assets}/plugins/discount.wasm"
+                wasm_mount_read "${assets}/data"
+            end
+            wasm_run "${assets}/plugins/shipping.wasm"
+                wasm_mount_read "${assets}/data"
+            end
+            wasm_run "${assets}/plugins/format.wasm"
+                wasm_mount_read "${assets}/data"
+            end
+        end
+    end
+end
+
+command try_evil
+    description "Run the deliberately-malicious plugin — observe every escape attempt fail"
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/plugins/evil.wasm"
+            wasm_mount_read "${assets}/data"
+        end
+    end
+end
+
+command run_cached
+    description "Run a plugin with content-hash caching — second call is instant"
+    arg name
+        type string
+        index 0
+    end
+    do
+        let assets = bundle_dir
+        let plugin_hash = sha256_file "${assets}/plugins/${name}.wasm"
+        let input_hash  = sha256_file "${assets}/data/input.json"
+        cache "plugin-${name}-${plugin_hash}-${input_hash}" "24h"
+            wasm_run "${assets}/plugins/${name}.wasm"
+                wasm_mount_read "${assets}/data"
+            end
+        end
+    end
+end
+
+command demo
+    description "The 90-second pitch: run all legit plugins, then try the evil one"
+    do
+        print "==> Running 4 legitimate AI-generated plugins in parallel"
+        print ""
+        run run_all
+        print ""
+        print "──────────────────────────────────────────────────────"
+        print "==> Now an attacker-controlled plugin tries to escape"
+        print ""
+        run try_evil
+    end
+end
+
+command list_plugins
+    description "List bundled plugins"
+    do
+        let assets = bundle_dir
+        let files = glob "${assets}/plugins/*.wasm"
+        print "Plugins available:"
+        for_each "${files}" f
+            print "  ▸ ${f}"
+        end
+    end
+end
+
+command rebuild
+    description "Recompile every plugin (needs Go 1.21+)"
+    do
+        with_cwd "${script_dir}"
+            shell "for p in tax discount shipping format evil; do (cd plugins-src/$p && GOOS=wasip1 GOARCH=wasm go build -o ../../plugins/$p.wasm .); done"
+        end
+        print "✓ rebuilt 5 plugins"
+    end
+end
