@@ -23,7 +23,7 @@ You write the file once. Which frontend matters depends on who's using it: devel
 
 Most applications below lean on one or both of these.
 
-**Third recurring property: HTTP is hardened by default.** Every application that uses `http_get`, `http_post`, `download`, or `http_status` inherits perch's default-on protections — no SSRF to AWS metadata or local services, no https → http redirect downgrade, max 5 redirect hops, DNS-rebinding defense (multi-A check). Layer `--allow-host api.github.com,*.docker.io,...` to pin which hosts the script can reach (initial URLs AND every redirect target re-validated). Critical for the AI-agent applications below where the agent picks the URL. See [sandbox §0c](sandbox.md#0c-http-redirect--ssrf-protection-shipped-default-on).
+**Third recurring property: HTTP is hardened by default.** Every application that uses `http_get`, `http_post`, `download`, or `http_status` inherits perch's default-on protections — no SSRF to AWS metadata or local services, no https → http redirect downgrade, max 5 redirect hops, DNS-rebinding defense (multi-A check). Layer `--allow-host api.github.com,*.docker.io,...` to pin which hosts the script can reach (initial URLs AND every redirect target re-validated). Critical for the AI-agent applications below where the agent picks the URL. See [sandbox §0c](sandbox.md#0c-http-redirect-ssrf-protection-shipped-default-on).
 
 ---
 
