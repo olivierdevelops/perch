@@ -118,6 +118,35 @@ Plus: live **search/filter** across commands, **dark mode** (auto-detects system
 
 The web UI sits on the same interpreter as the CLI — anything you'd type as `perch -f file.perch CMD -arg=val` works in the UI, and vice versa.
 
+### 📦 Declarative `bundle` + aliases — embed once, reference by name
+
+Ship a sandboxed plugin host as one artifact, no install steps on the target, zero disk reads at runtime. Declare what gets embedded at the top of the file; reference it as a bare identifier in any command.
+
+```perch
+name "myapp"
+version "1.0.0"
+
+bundle
+    include "./policy.wasm" as policy_wasm
+    include "./schema.wasm" as schema
+end
+
+command run_plugin
+    do
+        wasm_run policy_wasm        # ← bare ident, no quotes, no URI
+            wasm_arg "/ro/deploy"
+        end
+    end
+end
+```
+
+```sh
+perch --build -f myapp.perch -o myapp     # bundle declared in-file; no --include needed
+./myapp run_plugin                         # .wasm bytes are inside ./myapp
+```
+
+`wasm_run` accepts both forms — `wasm_run "./mod.wasm"` (string → disk) and `wasm_run mod` (bare ident → bundle). CLI `--include PATH` still works at `--build` time and is **additive** on top of the declared set. The `.perch` file is the complete buildable spec: **one file in, one binary out, zero CLI flags.**
+
 ### AI-agent integration
 
 `perch-mcp` is a Model Context Protocol server that lets Claude Desktop / Claude Code / Cursor / Zed call your commands as tools:

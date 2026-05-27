@@ -142,11 +142,11 @@ perch --build -f myapp.perch --include ./build-stamp.txt -o myapp
 #       + ./build-stamp.txt (CLI)
 ```
 
-The compiled wazero module is cached keyed by `bundle:<bundleHash>:<entry>`, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, no disk involvement.
+The compiled wazero module is cached internally keyed by archive hash + entry, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, with no disk involvement.
 
 **Why this matters.** Recipients of your binary get one executable with every plugin already inside. No `tar -xzf`, no `chmod +x`, no "where did the .wasm files go." Combined with `wasm_run`'s capability gates this is the practical shape of distributing a sandboxed plugin host as one artifact.
 
-The non-`bundle:` form (`wasm_run "./foo.wasm"`) still works — useful during development before you've decided what goes in the bundle.
+The string form (`wasm_run "./foo.wasm"`) still works alongside the alias form — useful during development before you've decided what goes in the bundle.
 
 ## The capability vocabulary
 

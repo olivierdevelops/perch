@@ -81,7 +81,8 @@ hide:
 🪟 <a href="web-ui/"><strong>Web UI for non-devs</strong></a> — same <code>.perch</code> file, served as a tabbed localhost web app (Run / Simulate / Scan / Check / About) ·
 📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
 📦 <a href="recipes/"><strong>22 ready-made recipes</strong></a> — Redis / Postgres / devstack / aistack / observe / kafka / modern-unix / gh-flow / docker-mgr / mkcert / backup / scan-secrets · one curl, audit with <code>--scan</code>, run ·
-🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer
+🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer ·
+📦 <a href="wasm/#embedded-modules-declare-once-with-as-name"><strong>Declarative <code>bundle</code> + aliases</strong></a> — <code>include "./mod.wasm" as mod</code> → <code>wasm_run mod</code> (bare ident, zero disk reads)
 </p>
 
 ---
@@ -1149,7 +1150,32 @@ The shebang line is just a `#` comment to perch's parser, so it has no effect on
 ]
 </script>
 
+<div class="pterm-pair">
+<div class="pterm" id="t-bundle" data-title="bundle ... as NAME — declare once, reference by name"></div>
 <div class="pterm" id="t-wasm" data-title="wasm_run — capability gating by construction"></div>
+</div>
+<script type="application/json" data-pterm="t-bundle">
+[
+  {"k":"dim", "t":"# myapp.perch"},
+  {"k":"hi",  "t":"bundle"},
+  {"k":"dim", "t":"    include \"./policy.wasm\"   as policy_wasm"},
+  {"k":"dim", "t":"    include \"./schema.wasm\"   as schema"},
+  {"k":"dim", "t":"end"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"command run_plugin do"},
+  {"k":"hi",  "t":"    wasm_run policy_wasm        # ← bare ident, no quotes"},
+  {"k":"dim", "t":"        wasm_arg \"/ro/deploy\""},
+  {"k":"dim", "t":"    end"},
+  {"k":"dim", "t":"end"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"perch --build -f myapp.perch -o myapp"},
+  {"k":"ok",  "t":"✓ embedded 1.2 MB from 2 sources"},
+  {"k":"in",  "t":"./myapp run_plugin"},
+  {"k":"out", "t":"── policy.wasm (from in-memory bundle bytes) ──"},
+  {"k":"ok",  "t":"✓ ran under WASI with zero disk reads at runtime"},
+  {"k":"accent","t":"→ one file in, one binary out, zero CLI flags"}
+]
+</script>
 <script type="application/json" data-pterm="t-wasm">
 [
   {"k":"dim", "t":"# A .perch file that runs a WASM module:"},
