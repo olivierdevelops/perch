@@ -84,6 +84,11 @@ type Interpreter struct {
 	// scheme downgrade, max 5 hops). Set by `--max-redirects`,
 	// `--no-redirects`, `--allow-private-ips`, `--allow-scheme-downgrade`.
 	HTTPPolicy *HTTPPolicy
+	// Tracer, when set, receives Before/After events for every op. Used
+	// to build the --report span tree. The Tracer's nesting structure
+	// falls out naturally from RunOp's recursion — a block op's children
+	// emit their Before/After between the block's Before and After.
+	Tracer Tracer
 }
 
 // HTTPPolicy gates which URLs perch's HTTP ops will dial and which
@@ -115,6 +120,16 @@ type HTTPPolicy struct {
 // the audit log (infra/audit) to record a structured trace.
 type AfterOp func(op domain.Op, args map[string]any, b *Bindings, result any, err error, dur time.Duration)
 
+// Tracer is a paired Before/After hook independent of --ask / --dry-run.
+// Block ops naturally nest (their children's Before/After fire between
+// the block's Before and After), so a tracer that maintains a stack
+// builds a span tree for free. Used by --report to produce the post-run
+// tree view.
+type Tracer interface {
+	Before(op domain.Op, args map[string]any)
+	After(op domain.Op, result any, err error, dur time.Duration)
+}
+
 // ErrTimeout is returned when the interpreter exceeds its Deadline.
 var ErrTimeout = fmt.Errorf("interpreter: --max-runtime exceeded")
 
@@ -129,16 +144,32 @@ func New(handlers map[string]Handler, p *domain.Program) *Interpreter {
 	}
 }
 
+// RunPrivate is Run that bypasses the private/test gate. Used by the
+// test runner to invoke `test`-marked commands directly. Otherwise
+// identical to Run.
+func (i *Interpreter) RunPrivate(commandName string, cliArgs []string) error {
+	return i.runCommand(commandName, cliArgs, true)
+}
+
 // Run dispatches to the named command (or the catch handler) with the
 // supplied CLI args. Returns the process-style error.
 func (i *Interpreter) Run(commandName string, cliArgs []string) error {
+	return i.runCommand(commandName, cliArgs, false)
+}
+
+func (i *Interpreter) runCommand(commandName string, cliArgs []string, allowPrivate bool) error {
 	cwd, _ := os.Getwd()
 	b := NewBindings(cwd)
 	b.EnvAllowlist = i.EnvAllowlist
 	i.seedGlobalsAndEnv(b)
 
 	cmd, ok := i.Program.Commands[commandName]
-	if !ok || (cmd != nil && cmd.Modifiers.Private) {
+	// Test-marked commands are only callable via `perch test`. From the
+	// regular run path they look like `private` — treat them the same.
+	// The test runner uses RunPrivate (allowPrivate=true) to invoke
+	// them anyway.
+	gated := cmd != nil && (cmd.Modifiers.Private || cmd.Modifiers.Test) && !allowPrivate
+	if !ok || gated {
 		if i.Program.Catch == nil {
 			return fmt.Errorf("command not found: %q", commandName)
 		}
@@ -247,10 +278,17 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 		argsWithBody["_body"] = op.Body
 		args = argsWithBody
 	}
+	if i.Tracer != nil {
+		i.Tracer.Before(op, args)
+	}
 	start := time.Now()
 	val, err := h(i, b, args)
+	dur := time.Since(start)
 	if i.AfterOp != nil {
-		i.AfterOp(op, args, b, val, err, time.Since(start))
+		i.AfterOp(op, args, b, val, err, dur)
+	}
+	if i.Tracer != nil {
+		i.Tracer.After(op, val, err, dur)
 	}
 	if err != nil {
 		return err

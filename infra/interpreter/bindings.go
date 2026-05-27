@@ -20,6 +20,101 @@ type Bindings struct {
 	// all. Populated via `perch --env A,B,C`. Auto-bound names (home,
 	// cache_dir, …) are NOT env vars and are unaffected.
 	EnvAllowlist map[string]bool
+	// CapMask is the active capability mask. A `sandbox no_shell …` block
+	// pushes a narrower mask onto a stack; on exit the prior mask is
+	// restored. Op handlers (shell, http_*, write_*) consult ActiveCaps
+	// before doing work. nil means "no in-language gate" (the process-
+	// level CLI flags still apply, enforced inside the handlers).
+	//
+	// The intersection rule is enforced on push: an inner block may
+	// disable capabilities, never re-enable them.
+	CapMask *CapMask
+}
+
+// CapMask is one layer of in-language capability restriction. A nil mask
+// means "permit everything (the CLI flags are the only gate)". A non-nil
+// mask carries explicit deny flags + narrowed allowlists.
+//
+// Lookup goes through ActiveCaps which walks the mask chain via Parent.
+type CapMask struct {
+	NoShell      bool
+	NoSubprocess bool
+	NoNetwork    bool
+	NoWrite      bool
+	// AllowedBins, when non-nil, restricts shell to argv[0] in this set.
+	// nil = no in-language narrowing (CLI --allow-bin still applies).
+	AllowedBins map[string]bool
+	// AllowedHosts narrows the network host allowlist further.
+	AllowedHosts []string
+	// EnvAllow narrows the env-var allowlist further. nil = inherit; empty
+	// non-nil set = block all host envs from this layer down.
+	EnvAllow map[string]bool
+	// ReadOnlyRoots, when non-empty, restricts write ops to paths under
+	// these roots. Each is the absolute path of a directory the inner
+	// block may write to; anything outside errors.
+	ReadOnlyRoots []string
+	// Parent is the next mask outward. Lookups walk the chain.
+	Parent *CapMask
+}
+
+// Push returns a new mask whose state is the intersection of `next` and
+// the current chain. Because capabilities can only be narrowed, the
+// returned mask carries every restriction from both layers — never widens.
+func (m *CapMask) Push(next CapMask) *CapMask {
+	next.Parent = m
+	return &next
+}
+
+// AnyNoShell reports whether ANY mask in the chain forbids shell.
+func (m *CapMask) AnyNoShell() bool {
+	for cur := m; cur != nil; cur = cur.Parent {
+		if cur.NoShell {
+			return true
+		}
+	}
+	return false
+}
+
+// AnyNoSubprocess reports the same for subprocess ops.
+func (m *CapMask) AnyNoSubprocess() bool {
+	for cur := m; cur != nil; cur = cur.Parent {
+		if cur.NoSubprocess {
+			return true
+		}
+	}
+	return false
+}
+
+// AnyNoNetwork reports the same for network ops.
+func (m *CapMask) AnyNoNetwork() bool {
+	for cur := m; cur != nil; cur = cur.Parent {
+		if cur.NoNetwork {
+			return true
+		}
+	}
+	return false
+}
+
+// AnyNoWrite reports the same for FS-write ops.
+func (m *CapMask) AnyNoWrite() bool {
+	for cur := m; cur != nil; cur = cur.Parent {
+		if cur.NoWrite {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowedBinPermitted reports whether `bin` may be invoked under the
+// current mask chain. A non-nil AllowedBins anywhere in the chain
+// restricts to that set (intersected across layers).
+func (m *CapMask) AllowedBinPermitted(bin string) bool {
+	for cur := m; cur != nil; cur = cur.Parent {
+		if cur.AllowedBins != nil && !cur.AllowedBins[bin] {
+			return false
+		}
+	}
+	return true
 }
 
 // NewBindings constructs a Bindings with empty maps.

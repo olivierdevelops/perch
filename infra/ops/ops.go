@@ -10,6 +10,10 @@ func AllHandlers() map[string]interpreter.Handler {
 	m := map[string]interpreter.Handler{}
 	registerProcess(m)
 	registerFlow(m)
+	registerContexts(m)
+	registerCache(m)
+	registerAssertions(m)
+	registerWasm(m)
 	registerFiles(m)
 	registerSystem(m)
 	registerCompression(m)

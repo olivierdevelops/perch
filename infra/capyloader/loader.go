@@ -151,7 +151,47 @@ func resolveImports(prog *domain.Program, imports []importDirective, base string
 			return nil, fmt.Errorf("import %q: %w", imp.Path, err)
 		}
 	}
+	// Re-run template expansion now that imported templates are merged
+	// into prog.Templates. parseEventStream did a first pass on the
+	// parent file's own templates; that pass leaves `_template_call`
+	// markers for any template the parent didn't define locally. Now
+	// that imported templates are visible, expand those remaining calls.
+	if len(prog.Templates) > 0 {
+		if err := expandAllTemplates(prog); err != nil {
+			return nil, err
+		}
+	}
 	return prog, nil
+}
+
+// expandAllTemplates re-runs the template expansion pass across every
+// command body, catch body, and template body in `prog`. Idempotent —
+// commands that already had every call resolved by parseEventStream are
+// unchanged. Used after imports merge to resolve `call` markers that
+// referred to imported templates.
+func expandAllTemplates(prog *domain.Program) error {
+	for _, cmd := range prog.Commands {
+		expanded, err := expandTemplateOps(cmd.Ops, prog.Templates, map[string]bool{})
+		if err != nil {
+			return fmt.Errorf("expanding template in command %q: %w", cmd.Name, err)
+		}
+		cmd.Ops = expanded
+	}
+	if prog.Catch != nil {
+		expanded, err := expandTemplateOps(prog.Catch.Ops, prog.Templates, map[string]bool{})
+		if err != nil {
+			return fmt.Errorf("expanding template in catch: %w", err)
+		}
+		prog.Catch.Ops = expanded
+	}
+	for name, tpl := range prog.Templates {
+		expanded, err := expandTemplateOps(tpl.Ops, prog.Templates, map[string]bool{name: true})
+		if err != nil {
+			return fmt.Errorf("expanding template in template %q: %w", name, err)
+		}
+		tpl.Ops = expanded
+	}
+	return nil
 }
 
 // expandImportPath substitutes `${name}` placeholders in an import path
@@ -284,6 +324,23 @@ func mergeProgram(into, from *domain.Program, alias string) error {
 			into.Globals.Bindings = append(into.Globals.Bindings, g)
 		}
 	}
+	// Templates from imports are merged into the parent's template map
+	// flat (no alias prefix — templates are inlined at parse time, so
+	// there's no namespace at runtime to worry about). Importer-defined
+	// templates win on conflict because the importer is the "more
+	// specific" definition; an imported template can't shadow one the
+	// caller already wrote.
+	if from.Templates != nil {
+		if into.Templates == nil {
+			into.Templates = map[string]*domain.Template{}
+		}
+		for name, tpl := range from.Templates {
+			if _, exists := into.Templates[name]; exists {
+				continue
+			}
+			into.Templates[name] = tpl
+		}
+	}
 	// Catch handlers don't propagate via import — only the root file's
 	// catch (if any) is active. Imported catches would race with the
 	// importer's, and there's no clear right answer for what wins.
@@ -320,18 +377,23 @@ const (
 	stCatch
 	stCatchArg
 	stCatchDo
+	stTemplate
+	stTemplateArg
+	stTemplateDo
 )
 
 func parseEventStream(stream string) (*domain.Program, []importDirective, error) {
 	prog := &domain.Program{
-		Commands: map[string]*domain.Command{},
-		Globals:  domain.Globals{Bindings: nil},
+		Commands:  map[string]*domain.Command{},
+		Templates: map[string]*domain.Template{},
+		Globals:   domain.Globals{Bindings: nil},
 	}
 	var imports []importDirective
 
 	state := stTop
 	var curCmd *domain.Command
 	var curCatch *domain.Catch
+	var curTpl *domain.Template
 	var curArg *domain.ArgSpec
 	// opStack[0] is the destination slice for the next op (either a
 	// command's Ops or a block op's Body). Push on _enter, pop on _leave.
@@ -417,6 +479,26 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			state = stTop
 			opStack = nil
 
+		case "template_begin":
+			if state != stTop {
+				return nil, nil, fmt.Errorf("line %d: template must be at top level", lineNum)
+			}
+			if _, dup := prog.Templates[ev.Name]; dup {
+				return nil, nil, fmt.Errorf("line %d: template %q redeclared", lineNum, ev.Name)
+			}
+			curTpl = &domain.Template{Name: ev.Name}
+			prog.Templates[ev.Name] = curTpl
+			state = stTemplate
+			opStack = nil
+
+		case "template_end":
+			if state != stTemplate && state != stTemplateDo {
+				return nil, nil, fmt.Errorf("line %d: template_end while not in template", lineNum)
+			}
+			curTpl = nil
+			state = stTop
+			opStack = nil
+
 		case "do_begin":
 			switch state {
 			case stCommand:
@@ -425,8 +507,11 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			case stCatch:
 				state = stCatchDo
 				opStack = []*[]domain.Op{&curCatch.Ops}
+			case stTemplate:
+				state = stTemplateDo
+				opStack = []*[]domain.Op{&curTpl.Ops}
 			default:
-				return nil, nil, fmt.Errorf("line %d: 'do' outside command/catch", lineNum)
+				return nil, nil, fmt.Errorf("line %d: 'do' outside command/catch/template", lineNum)
 			}
 
 		case "do_end":
@@ -435,6 +520,8 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 				state = stCommand
 			case stCatchDo:
 				state = stCatch
+			case stTemplateDo:
+				state = stTemplate
 			default:
 				return nil, nil, fmt.Errorf("line %d: 'do_end' without matching do_begin", lineNum)
 			}
@@ -448,8 +535,11 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			case stCatch:
 				curArg = &domain.ArgSpec{Name: ev.Name}
 				state = stCatchArg
+			case stTemplate:
+				curArg = &domain.ArgSpec{Name: ev.Name}
+				state = stTemplateArg
 			default:
-				return nil, nil, fmt.Errorf("line %d: 'arg' outside command/catch config region", lineNum)
+				return nil, nil, fmt.Errorf("line %d: 'arg' outside command/catch/template config region", lineNum)
 			}
 
 		case "arg_end":
@@ -466,6 +556,9 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			case stCatchArg:
 				// Catch doesn't currently track its own arg list; ignore.
 				state = stCatch
+			case stTemplateArg:
+				curTpl.Args = append(curTpl.Args, *curArg)
+				state = stTemplate
 			}
 			curArg = nil
 
@@ -496,6 +589,16 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 				curArg.Description = asString(ev.Value)
 				break
 			}
+			// Templates support `description` as their only config statement.
+			// Anything else (private, env, on_signal …) is meaningless on a
+			// parse-time stamp and is rejected here so it surfaces early.
+			if curTpl != nil {
+				if ev.Kind != "description" {
+					return nil, nil, fmt.Errorf("line %d: config %q not allowed inside a template", lineNum, ev.Kind)
+				}
+				curTpl.Description = asString(ev.Value)
+				break
+			}
 			if err := applyConfig(curCmd, curCatch, ev); err != nil {
 				return nil, nil, fmt.Errorf("line %d: %w", lineNum, err)
 			}
@@ -503,6 +606,20 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 		case "op":
 			if len(opStack) == 0 {
 				return nil, nil, fmt.Errorf("line %d: op '%s' outside a do block", lineNum, ev.Kind)
+			}
+			// `_template_call` is a placeholder the expansion pass replaces
+			// with the template's body, after positional args are bound.
+			// Templates can be defined later in the file than they're
+			// called, so we collect markers here and resolve after the full
+			// stream is parsed.
+			if ev.Kind == "_template_call" {
+				op := domain.Op{
+					Kind: "_template_call",
+					Args: ev.Args,
+					Line: lineNum,
+				}
+				*opStack[len(opStack)-1] = append(*opStack[len(opStack)-1], op)
+				break
 			}
 			if ev.Kind == "_enter" {
 				// Push a new nested op whose body becomes the active target.
@@ -537,7 +654,193 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 		return nil, nil, fmt.Errorf("scan: %w", err)
 	}
 
+	// Expand `_template_call` markers inline. Templates are pure parse-
+	// time stamps: every call is replaced with the template's body, with
+	// positional args bound as ${argname} substitutions in string args.
+	// Done AFTER the stream is parsed so templates can be defined later
+	// in the file than they're called. Recursion is rejected (visited
+	// set); declaration-emitting templates were already prevented at
+	// parse time (templates can't contain command_begin or import).
+	if len(prog.Templates) > 0 {
+		for _, cmd := range prog.Commands {
+			expanded, err := expandTemplateOps(cmd.Ops, prog.Templates, map[string]bool{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("expanding template in command %q: %w", cmd.Name, err)
+			}
+			cmd.Ops = expanded
+		}
+		if prog.Catch != nil {
+			expanded, err := expandTemplateOps(prog.Catch.Ops, prog.Templates, map[string]bool{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("expanding template in catch: %w", err)
+			}
+			prog.Catch.Ops = expanded
+		}
+		// Templates may also reference each other. Expand their own bodies
+		// so a later-spliced call already has nested calls resolved.
+		for name, tpl := range prog.Templates {
+			expanded, err := expandTemplateOps(tpl.Ops, prog.Templates, map[string]bool{name: true})
+			if err != nil {
+				return nil, nil, fmt.Errorf("expanding template in template %q: %w", name, err)
+			}
+			tpl.Ops = expanded
+		}
+	}
+
 	return prog, imports, nil
+}
+
+// expandTemplateOps walks `ops`, replacing every `_template_call` op with
+// the named template's body. Positional args (`_0`, `_1`, …) are bound to
+// the template's declared arg names and substituted into string Args
+// values via the same ${NAME} convention the runtime uses for bindings.
+// `expanding` tracks the names currently mid-expansion — re-entering one
+// is recursion and rejected with a clear error.
+//
+// Unknown templates are LEFT IN PLACE as `_template_call` markers (no
+// error). The post-import pass (expandAllTemplates) re-runs this with
+// the full template map after imports merge, then the final --check
+// pass rejects any remaining unresolved markers as "unknown template".
+func expandTemplateOps(ops []domain.Op, templates map[string]*domain.Template, expanding map[string]bool) ([]domain.Op, error) {
+	out := make([]domain.Op, 0, len(ops))
+	for _, op := range ops {
+		// Block ops carry a Body. Recurse into it whether or not this
+		// op is itself a template call so nested calls inside a `retry`
+		// / `parallel` / `if` block also resolve.
+		if len(op.Body) > 0 && op.Kind != "_template_call" {
+			inner, err := expandTemplateOps(op.Body, templates, expanding)
+			if err != nil {
+				return nil, err
+			}
+			op.Body = inner
+		}
+		if op.Kind != "_template_call" {
+			out = append(out, op)
+			continue
+		}
+		// Resolve the call. If the template isn't visible yet (an
+		// imported one not merged in), pass through unchanged so the
+		// post-import expansion pass can resolve it.
+		name, _ := op.Args["name"].(string)
+		tpl, ok := templates[name]
+		if !ok {
+			out = append(out, op)
+			continue
+		}
+		if expanding[name] {
+			return nil, fmt.Errorf("line %d: template %q calls itself (recursion is not allowed)", op.Line, name)
+		}
+		// Bind positional args to declared template args.
+		bindings := map[string]string{}
+		for idx, spec := range tpl.Args {
+			key := fmt.Sprintf("_%d", idx)
+			val, has := op.Args[key]
+			if !has {
+				if spec.HasDefault {
+					val = spec.Default
+				} else if spec.Optional {
+					val = ""
+				} else {
+					return nil, fmt.Errorf("line %d: template %q missing positional arg #%d (%s)", op.Line, name, idx, spec.Name)
+				}
+			}
+			bindings[spec.Name] = stringifyArg(val)
+		}
+		// Expand the template body, then substitute bindings into every
+		// string Args entry. The body might contain its own template calls
+		// — recurse first.
+		nextExpanding := map[string]bool{}
+		for k, v := range expanding {
+			nextExpanding[k] = v
+		}
+		nextExpanding[name] = true
+		body, err := expandTemplateOps(tpl.Ops, templates, nextExpanding)
+		if err != nil {
+			return nil, err
+		}
+		spliced := substituteOps(body, bindings, name)
+		out = append(out, spliced...)
+	}
+	return out, nil
+}
+
+// substituteOps deep-clones a slice of ops, replacing ${NAME} occurrences
+// in every string-valued Args entry with the bound value, and tagging
+// each emitted op with ExpandedFrom for diagnostics.
+func substituteOps(ops []domain.Op, bindings map[string]string, templateName string) []domain.Op {
+	out := make([]domain.Op, len(ops))
+	for i, op := range ops {
+		out[i] = op
+		out[i].ExpandedFrom = templateName
+		if len(op.Args) > 0 {
+			newArgs := make(map[string]any, len(op.Args))
+			for k, v := range op.Args {
+				if s, ok := v.(string); ok {
+					newArgs[k] = substituteString(s, bindings)
+				} else {
+					newArgs[k] = v
+				}
+			}
+			out[i].Args = newArgs
+		}
+		if len(op.Body) > 0 {
+			out[i].Body = substituteOps(op.Body, bindings, templateName)
+		}
+	}
+	return out
+}
+
+// substituteString replaces every ${NAME} in s with bindings[NAME].
+// Unknown names are left as literal ${...} so the runtime interpolation
+// step can still complain about them in the post-expansion error path
+// (which already knows about user-scope bindings).
+func substituteString(s string, bindings map[string]string) string {
+	if !strings.Contains(s, "${") {
+		return s
+	}
+	var b strings.Builder
+	i := 0
+	for i < len(s) {
+		if i+1 < len(s) && s[i] == '$' && s[i+1] == '{' {
+			end := strings.IndexByte(s[i+2:], '}')
+			if end < 0 {
+				b.WriteString(s[i:])
+				return b.String()
+			}
+			name := s[i+2 : i+2+end]
+			if v, ok := bindings[name]; ok {
+				b.WriteString(v)
+			} else {
+				b.WriteString(s[i : i+2+end+1])
+			}
+			i += 2 + end + 1
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
+// stringifyArg renders a positional template-call arg to the string form
+// the substitution model expects. Strings come through unquoted; numbers
+// and bools render with %v.
+func stringifyArg(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return x
+	case float64:
+		// Integer-valued floats render without trailing zero, matching
+		// the interpreter's ToStringValue behaviour.
+		if x == float64(int64(x)) {
+			return fmt.Sprintf("%d", int64(x))
+		}
+		return fmt.Sprintf("%v", x)
+	default:
+		return fmt.Sprintf("%v", x)
+	}
 }
 
 func applyConfig(cmd *domain.Command, catch *domain.Catch, ev event) error {
@@ -575,6 +878,20 @@ func applyConfigToCommand(c *domain.Command, ev event) error {
 		c.Modifiers.OnSignal = asString(ev.Value)
 	case "env":
 		c.Env[ev.Name] = asString(ev.Value)
+	case "test":
+		c.Modifiers.Test = true
+	case "test_allow_network":
+		c.Modifiers.TestAllowNetwork = true
+	case "test_allow_shell":
+		c.Modifiers.TestAllowShell = true
+	case "test_allow_write":
+		c.Modifiers.TestAllowWrite = true
+	case "test_allow_subprocess":
+		c.Modifiers.TestAllowSubprocess = true
+	case "test_keep_cwd":
+		c.Modifiers.TestKeepCwd = true
+	case "test_timeout":
+		c.Modifiers.TestTimeoutSecs = int(asFloatish(ev.Value))
 	default:
 		return fmt.Errorf("unknown config kind: %q", ev.Kind)
 	}

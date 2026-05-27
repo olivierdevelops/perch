@@ -173,3 +173,85 @@ func SummariseRestrictions(r Restrictions) string {
 	}
 	return strings.Join(flags, ", ")
 }
+
+// opCategory maps an op kind back to the restriction category that
+// governs it ("no-shell" / "no-network" / etc.). Built once from
+// restrictBlocks. Lets a `sandbox` block check whether a kind is gated
+// without replicating the catalogue.
+var opCategory = func() map[string]string {
+	out := map[string]string{}
+	for cat, ops := range restrictBlocks {
+		for _, op := range ops {
+			out[op] = cat
+		}
+	}
+	return out
+}()
+
+// ApplyMaskGating wraps every restrictable handler with a runtime check
+// against b.CapMask. This is what makes `sandbox no_shell ... end` work:
+// the CLI restrictions block ops at the handler registration layer (the
+// outermost, never-narrowed gate), and on top of that this wrapping pass
+// adds an inner check that consults the dynamic mask each call.
+//
+// Call AFTER ApplyRestrictions so CLI-blocked handlers are already
+// sentinels — wrapping them is harmless (the mask check runs first and
+// if both gates would block, the user sees the sandbox-flavored message
+// pointing at the file rather than the CLI flag).
+func ApplyMaskGating(handlers map[string]interpreter.Handler) {
+	for kind, cat := range opCategory {
+		h, ok := handlers[kind]
+		if !ok {
+			continue
+		}
+		category := cat
+		opName := kind
+		inner := h
+		handlers[kind] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+			if b.CapMask != nil {
+				blocked := false
+				switch category {
+				case RestrictNoShell:
+					blocked = b.CapMask.AnyNoShell()
+				case RestrictNoSubprocess:
+					blocked = b.CapMask.AnyNoSubprocess()
+				case RestrictNoNetwork:
+					blocked = b.CapMask.AnyNoNetwork()
+				case RestrictNoWrite:
+					blocked = b.CapMask.AnyNoWrite()
+				}
+				if blocked {
+					return nil, fmt.Errorf(
+						"op %q forbidden by sandbox (%s scope) — narrow the body or move the call outside the sandbox block",
+						opName, category,
+					)
+				}
+				// allow_bin narrowing: applies only to shell ops.
+				if category == RestrictNoShell && b.CapMask.AllowedBins != nil {
+					if cmd, ok := args["cmd"].(string); ok {
+						first := firstToken(cmd)
+						if first != "" && !b.CapMask.AllowedBinPermitted(first) {
+							return nil, fmt.Errorf(
+								"shell binary %q forbidden by sandbox allow_bin",
+								first,
+							)
+						}
+					}
+				}
+			}
+			return inner(i, b, args)
+		}
+	}
+}
+
+// firstToken returns the first whitespace-separated word of s. Used for
+// argv[0] checks against allow_bin allowlists.
+func firstToken(s string) string {
+	s = strings.TrimSpace(s)
+	for i := 0; i < len(s); i++ {
+		if s[i] == ' ' || s[i] == '\t' {
+			return s[:i]
+		}
+	}
+	return s
+}

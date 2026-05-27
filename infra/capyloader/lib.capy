@@ -104,6 +104,20 @@ ${body}{"event":"catch_end"}
 `
 end
 
+# `template NAME ... end` — a parse-time stamp with the same arg-block
+# syntax as `command`. Templates expand inline at each `call NAME ...`
+# site, with positional args substituted as ${NAME} bindings in the
+# expanded ops. Templates don't appear in --help, can't be invoked from
+# the CLI, and don't show up in MCP.
+function template
+    arg literal "template"
+    arg capture name ident
+    block_closer end
+    write `{"event":"template_begin","name":${toJSON name}}
+${body}{"event":"template_end"}
+`
+end
+
 # ────────────────────────────────────────────────────────────────────────────
 # Inside a command body: config statements (before `do`)
 # ────────────────────────────────────────────────────────────────────────────
@@ -179,6 +193,54 @@ end
 function private
     arg literal "private"
     write `{"event":"config","kind":"private"}
+`
+end
+
+# ── Test modifiers ───────────────────────────────────────────────────────
+# `test` marks a command as a test, discovered by `perch test`. Sandboxed
+# by default (temp cwd, --no-network, --no-shell, --no-subprocess on,
+# write-root pinned to the temp cwd). Opt-outs follow.
+
+function test_mod
+    arg literal "test"
+    write `{"event":"config","kind":"test"}
+`
+end
+
+function test_allow_network
+    arg literal "test_allow_network"
+    write `{"event":"config","kind":"test_allow_network"}
+`
+end
+
+function test_allow_shell
+    arg literal "test_allow_shell"
+    write `{"event":"config","kind":"test_allow_shell"}
+`
+end
+
+function test_allow_write
+    arg literal "test_allow_write"
+    write `{"event":"config","kind":"test_allow_write"}
+`
+end
+
+function test_allow_subprocess
+    arg literal "test_allow_subprocess"
+    write `{"event":"config","kind":"test_allow_subprocess"}
+`
+end
+
+function test_keep_cwd
+    arg literal "test_keep_cwd"
+    write `{"event":"config","kind":"test_keep_cwd"}
+`
+end
+
+function test_timeout
+    arg literal "test_timeout"
+    arg capture secs int
+    write `{"event":"config","kind":"test_timeout","value":${secs}}
 `
 end
 
@@ -573,6 +635,154 @@ ${body}{"event":"op","kind":"_leave"}
 end
 
 # ────────────────────────────────────────────────────────────────────────────
+# Execution contexts — block ops that wrap a body and change *how* it runs.
+#
+#   parallel ... end                          # children run concurrently
+#   timeout "30s" ... end                     # wall-clock cap on the body
+#   retry attempts:3 backoff:"exponential" ... end
+#   with_env "GOOS=linux,CGO_ENABLED=0" ... end
+#   with_cwd "./subproject" ... end
+#   sandbox no_shell no_network ... end       # narrow capability mask
+#
+# Each is a block-op marker pair (_enter / _leave). The Go handler reads
+# args and recurses into the body.
+# ────────────────────────────────────────────────────────────────────────────
+
+function parallel
+    arg literal "parallel"
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"parallel","args":{}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function timeout
+    arg literal "timeout"
+    arg capture duration string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"timeout","args":{"duration":${duration}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# retry takes optional `attempts:N backoff:"S" base:"D" max_delay:"D"`
+# modifiers on the opening line. Each modifier is a single token; the
+# arg block below captures them as a single trailing string and the
+# Go-side opRetry parser pulls them apart. For now we keep the form
+# simple: one optional `attempts:N` is the most common case.
+function retry
+    priority 50
+    arg literal "retry"
+    arg capture attempts int
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"retry","args":{"attempts":${attempts}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function with_env
+    arg literal "with_env"
+    arg capture env string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"with_env","args":{"env":${env}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function with_cwd
+    arg literal "with_cwd"
+    arg capture path string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"with_cwd","args":{"path":${path}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# `sandbox FLAGS ... end` — narrow the in-language capability mask for
+# the body. Flags is a single comma-joined string (no_shell,no_network,
+# no_write,no_subprocess). The opening line accepts a single string
+# argument for the flag list; future revisions may add named modifiers
+# for allow_bin / allow_host / env / read_only / max_runtime.
+function sandbox
+    arg literal "sandbox"
+    arg capture flags string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"sandbox","args":{"flags":${flags}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# WASM execution — the constrained execution lane.
+#
+#   wasm_run "module.wasm"
+#       wasm_arg         "--target=linux"
+#       wasm_arg         "value1"
+#       wasm_mount_read  "./src"
+#       wasm_mount_write "./bin"
+#       wasm_env         "GOOS,GOARCH"
+#   end
+#
+# wasm_run loads a WebAssembly module via wazero and runs its `_start`
+# function under WASI Preview 1. The body's marker ops (wasm_arg /
+# wasm_mount_* / wasm_env) configure WASI capabilities — they're not
+# executed; the wasm_run handler walks the body to collect config.
+# Anything not declared is denied at module instantiation.
+# ────────────────────────────────────────────────────────────────────────────
+
+function wasm_run
+    arg literal "wasm_run"
+    arg capture path string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"wasm_run","args":{"path":${path}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+function wasm_arg
+    arg literal "wasm_arg"
+    arg capture v string
+    write `{"event":"op","kind":"wasm_arg","args":{"value":${v}}}
+`
+end
+
+function wasm_mount_read
+    arg literal "wasm_mount_read"
+    arg capture v string
+    write `{"event":"op","kind":"wasm_mount_read","args":{"path":${v}}}
+`
+end
+
+function wasm_mount_write
+    arg literal "wasm_mount_write"
+    arg capture v string
+    write `{"event":"op","kind":"wasm_mount_write","args":{"path":${v}}}
+`
+end
+
+function wasm_env
+    arg literal "wasm_env"
+    arg capture v string
+    write `{"event":"op","kind":"wasm_env","args":{"names":${v}}}
+`
+end
+
+# `cache "KEY" "TTL" ... end` — user-keyed body cache. On miss: run the
+# body and persist every `let X = ...` binding produced. On hit within
+# TTL: skip the body and replay the captured bindings into scope.
+# Honest framing: the user chooses what goes into the key — perch does
+# NOT hash the body's transitive inputs (see ideas/05 for why).
+function cache
+    arg literal "cache"
+    arg capture key string
+    arg capture ttl string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"cache","args":{"key":${key},"ttl":${ttl}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
 # `let NAME = OP_KIND ARG [ARG]` — capture an op's output into a variable.
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -605,6 +815,110 @@ function let_2args
     arg capture a0 any
     arg capture a1 any
     write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Assertion ops — thin sugar for tests. Each is 2-arg (or 1-arg for the
+# existence checks) and fails the surrounding test on mismatch.
+
+function assert_eq
+    arg literal "assert_eq"
+    arg capture actual string
+    arg capture expected string
+    write `{"event":"op","kind":"assert_eq","args":{"_0":${actual},"_1":${expected}}}
+`
+end
+
+function assert_neq
+    arg literal "assert_neq"
+    arg capture actual string
+    arg capture not_expected string
+    write `{"event":"op","kind":"assert_neq","args":{"_0":${actual},"_1":${not_expected}}}
+`
+end
+
+function assert_contains
+    arg literal "assert_contains"
+    arg capture haystack string
+    arg capture needle string
+    write `{"event":"op","kind":"assert_contains","args":{"_0":${haystack},"_1":${needle}}}
+`
+end
+
+function assert_not_contains
+    arg literal "assert_not_contains"
+    arg capture haystack string
+    arg capture needle string
+    write `{"event":"op","kind":"assert_not_contains","args":{"_0":${haystack},"_1":${needle}}}
+`
+end
+
+function assert_exists
+    arg literal "assert_exists"
+    arg capture path string
+    write `{"event":"op","kind":"assert_exists","args":{"_0":${path}}}
+`
+end
+
+function assert_not_exists
+    arg literal "assert_not_exists"
+    arg capture path string
+    write `{"event":"op","kind":"assert_not_exists","args":{"_0":${path}}}
+`
+end
+
+function assert_match
+    arg literal "assert_match"
+    arg capture actual string
+    arg capture pattern string
+    write `{"event":"op","kind":"assert_match","args":{"_0":${actual},"_1":${pattern}}}
+`
+end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Template invocation — `call NAME [arg [arg [arg]]]`
+#
+# Invocations are arity-distinguished at parse time, like let_Nargs above.
+# Args are captured as `any` (string literals come quoted; idents come
+# bare) and the loader binds them positionally to the template's declared
+# arg names.
+# ────────────────────────────────────────────────────────────────────────────
+
+function call_0args
+    arg literal "call"
+    arg capture name ident
+    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name}}}
+`
+end
+
+function call_1arg
+    priority 50
+    arg literal "call"
+    arg capture name ident
+    arg capture a0 any
+    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0}}}
+`
+end
+
+function call_2args
+    priority 100
+    arg literal "call"
+    arg capture name ident
+    arg capture a0 any
+    arg capture a1 any
+    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0},"_1":${a1}}}
+`
+end
+
+function call_3args
+    priority 150
+    arg literal "call"
+    arg capture name ident
+    arg capture a0 any
+    arg capture a1 any
+    arg capture a2 any
+    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0},"_1":${a1},"_2":${a2}}}
 `
 end
 

@@ -221,6 +221,157 @@ end
 
 With that catch in place, `./mywrapper status` calls `git status`, `./mywrapper log --oneline -10` calls `git log --oneline -10`, and any custom commands you declare above the catch still take precedence over the underlying tool.
 
+## Templates — parse-time stamps
+
+A `template NAME … end` block is a **parse-time stamp** with the same `arg NAME … end` block syntax as `command`. Every `call NAME args…` site is expanded inline before the program ever reaches the interpreter, with positional args substituted as `${argname}` bindings in the spliced body.
+
+```capy
+template check_bin
+    description "Fail unless the named binary is on PATH"
+    arg name
+        type string
+    end
+    do
+        if not_exists "${name}"
+            fail "${name} is required but not installed"
+        end
+    end
+end
+
+template install_pkg
+    arg pkg
+        type string
+    end
+    arg version
+        type string
+        default "latest"
+    end
+    do
+        shell "brew install ${pkg}@${version}"
+    end
+end
+
+command setup
+    do
+        call check_bin "docker"
+        call check_bin "kubectl"
+        call install_pkg "jq"
+        call install_pkg "ripgrep" "13.0"
+    end
+end
+```
+
+**A template is a command that expands at parse time instead of running at execution time.** Same arg-block syntax, same call by positional arguments, same `--check` validation. The only difference is *when* the body's ops materialize — at parse time, inline at every call site (template), or at run time, when the command is invoked (command).
+
+**Guardrails the validator enforces:**
+
+- No recursion. A template cannot call itself (directly or via another template).
+- Templates may only emit ops, never declarations. No `command`, `import`, or `globals` inside a template.
+- Templates do not appear in `--help`, are not callable from the CLI, and do not show up in MCP.
+- Positional args only. Optional / default values are honored from the arg-block spec.
+
+**When to use a template vs. an execution context** — see [the section below](#execution-contexts-block-ops-that-wrap-a-body): templates eliminate *repetition*; execution contexts wrap a body to change *how* it runs. They do different jobs. Don't conflate them.
+
+## Execution contexts (block ops that wrap a body)
+
+Six block-shaped ops modify *how* the inner body executes without changing *what* it can express. They compose by nesting and read top-to-bottom.
+
+### `parallel`
+
+```capy
+parallel
+    run build_darwin
+    run build_linux
+    run build_windows
+end
+```
+
+Each direct child of `parallel` runs in its own goroutine; the block exits when ALL goroutines have completed. The first error becomes the block's error; siblings finish regardless. Each branch sees its own `Bindings` copy — `let X = …` captures inside parallel are local to the branch and do not survive the block.
+
+### `timeout`
+
+```capy
+timeout "30s"
+    shell "kubectl apply -f manifest.yaml"
+end
+```
+
+Caps wall-clock for the body. A long-running op can't be interrupted mid-call; the *next* op after the deadline trips returns `ErrTimeout`. The interpreter's outer `--max-runtime` is the upper bound that any inner `timeout` block can only narrow.
+
+### `retry`
+
+```capy
+retry 3
+    shell "curl -fsSL https://flaky.example.com/"
+end
+```
+
+Runs the body up to N times. On non-nil error, sleeps with exponential backoff (base 1s, capped at 5m) and retries. Default attempts is 3 when not specified. Never retries past the outer command's deadline.
+
+### `with_env`
+
+```capy
+with_env "GOOS=linux,CGO_ENABLED=0"
+    shell "go build ./cmd"
+end
+```
+
+Overlays per-block environment variables onto the bindings for the body, then restores prior values on exit. Comma-joined `KEY=value` pairs. More readable than the per-command `env` modifier when the override is scoped to a few ops.
+
+### `with_cwd`
+
+```capy
+with_cwd "./subproject"
+    shell "npm install"
+    shell "npm run build"
+end
+```
+
+Temporarily switches `cwd` for the body, restoring even on error. Unlike `cd` (which persists for the rest of the command), `with_cwd` is bracketed.
+
+### `sandbox`
+
+```capy
+sandbox "no_shell,no_network"
+    run vendor.update_check
+end
+```
+
+Narrows the active capability mask for the body. Available flags inside the string: `no_shell`, `no_subprocess`, `no_network`, `no_write`. **Intersection rule:** masks can only be narrowed, never widened — an inner block can't re-enable what an outer mask (or the CLI flags) blocked. Same Android-style trust model perch's process-level flags use, with finer granularity. Runtime enforcement is shipped today; full static enforcement walking the call graph at `--check` time is on the roadmap.
+
+### `cache`
+
+```capy
+cache "build-${target}-${sha256_file('go.sum')}" "24h"
+    shell "go build -o bin/${target} ./cmd"
+    let size = file_size "bin/${target}"
+end
+```
+
+User-keyed body cache. First arg = cache key. Second = TTL duration. On miss: runs the body and persists every `let X = …` binding produced. On hit within TTL: skips the body entirely and replays the captured bindings into scope. Stored at `~/.cache/perch/blocks/<sha256(key)>.json`.
+
+**Honest framing:** perch does NOT hash the body's transitive inputs. The user picks the key, and the key is the contract. If a stale input is left out of the key, you get stale cache. This is intentional — perch lacks the hermeticity needed for content-addressed caching (see [ideas/05](https://github.com/luowensheng/perch/blob/main/ideas/05-build-system-direction.md)). The user-keyed model matches how every practical caching layer (GitHub Actions cache, Earthly `--cache-id`, etc.) actually works.
+
+### `--report` — see what ran, in what order, for how long
+
+When any of these contexts are in play, `--report` renders the execution as a tree. Each block produces a span containing its children; durations, errors, and template provenance are shown inline:
+
+```sh
+$ perch --report release
+── perch trace ─────────────────────────────────
+✓ release (4.21s)
+└─ ✓ sandbox "no_network,env=KUBECONFIG" (4.20s)
+   ├─ ✓ with_lock "prod-deploy" (4.18s) [from template with_lock]
+   │  ├─ ✓ acquire_lock "prod-deploy" (12ms)
+   │  ├─ ✓ retry attempts=3 (4.10s)
+   │  │  └─ ✗ shell "kubectl apply ..." (5.00s)
+   │  │     ↳ error: timeout after 5m
+   │  └─ ✓ release_lock "prod-deploy" (8ms)
+   └─ ✓ swap_traffic (4ms)
+```
+
+`--report=PATH` writes the tree to a file (`--report=-` for stdout). The audit NDJSON (`--audit FILE.ndjson`) remains the canonical machine-readable artifact; `--report` is the human-readable renderer derived from the same hook order.
+
 ## String literals
 
 Three interchangeable delimiters: **`"..."`**, **`'...'`**, **`` `...` ``**. All three are *raw* — no backslash escapes are interpreted — and `${name}` interpolation is active in all three. Pick whichever delimiter doesn't appear in your content.

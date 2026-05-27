@@ -17,10 +17,28 @@ type Program struct {
 	Globals     Globals             `json:"globals"`
 	Commands    map[string]*Command `json:"commands"`
 	Catch       *Catch              `json:"catch,omitempty"`
+	// Templates are parse-time stamps — `template NAME ... end` blocks.
+	// Their bodies are spliced inline at each call site (`call NAME a b`)
+	// during loading, with positional args substituted as ${NAME}
+	// bindings. By the time the interpreter sees the Program, templates
+	// have already been expanded — they exist here purely so `perch
+	// --check` and the LSP can introspect them.
+	Templates map[string]*Template `json:"templates,omitempty"`
 	// ScriptPath is the absolute path of the .perch source the program
 	// was loaded from. Empty when the program was embedded in a binary.
 	// Surfaces as ${script_path} / ${script_dir} auto-bindings.
 	ScriptPath string `json:"-"`
+}
+
+// Template is a parse-time, parameterized op-sequence. Identical structure
+// to Command — same arg-block syntax, same body — but expanded inline at
+// every call site rather than executed as a top-level verb. The validator
+// rejects recursion and templates that emit declaration events.
+type Template struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Args        []ArgSpec `json:"args,omitempty"`
+	Ops         []Op      `json:"ops"`
 }
 
 // Globals holds bindings shared by every command invocation.
@@ -74,6 +92,33 @@ type Modifiers struct {
 	Dir                  string   `json:"dir,omitempty"`
 	OnSignal             string   `json:"on_signal,omitempty"`
 	PostStartDelaySecs   int      `json:"post_start_delay_secs,omitempty"`
+
+	// ── Test modifiers ────────────────────────────────────────────────
+	//
+	// `test` marks a command as a test. It's hidden from `perch --help`
+	// (like `private`) but discovered by `perch test` and run in a
+	// sandboxed environment. A test passes unless any op errors (the
+	// usual `fail "msg"` model). Tests are real commands — same ops,
+	// same templates, same execution contexts.
+
+	// Test marks this command as a test discovered by `perch test`.
+	Test bool `json:"test,omitempty"`
+	// TestAllowNetwork opts out of the default --no-network sandbox.
+	TestAllowNetwork bool `json:"test_allow_network,omitempty"`
+	// TestAllowShell opts out of the default --no-shell sandbox.
+	TestAllowShell bool `json:"test_allow_shell,omitempty"`
+	// TestAllowWrite opts out of write-roots restriction to the temp cwd.
+	TestAllowWrite bool `json:"test_allow_write,omitempty"`
+	// TestAllowSubprocess opts out of --no-subprocess.
+	TestAllowSubprocess bool `json:"test_allow_subprocess,omitempty"`
+	// TestKeepCwd disables the auto temp-cwd switch; the test runs in
+	// the file's directory. Useful when the test reads fixtures relative
+	// to the .perch file.
+	TestKeepCwd bool `json:"test_keep_cwd,omitempty"`
+	// TestTimeoutSecs caps wall-clock for this test. 0 means use the
+	// global default (30s per test). The flag --test-timeout=N
+	// overrides this at the runner level.
+	TestTimeoutSecs int `json:"test_timeout_secs,omitempty"`
 }
 
 // Catch is the optional catch-all handler for unknown command names.
@@ -92,12 +137,27 @@ type Op struct {
 	Args        map[string]any `json:"args,omitempty"`
 	Body        []Op           `json:"body,omitempty"`
 	CaptureInto string         `json:"capture_into,omitempty"`
+	// ExpandedFrom, when non-empty, names the template this op was
+	// expanded from. Set by the loader during the template-expansion
+	// pass; carried in error messages and audit traces so users see
+	// `failed at print (from template `check_bin` line 4)` instead of
+	// just the post-expansion location.
+	ExpandedFrom string `json:"expanded_from,omitempty"`
 }
 
 // IsBlock reports whether this op kind contains a nested body.
+//
+// Block ops fall into two groups:
+//   - control flow: `if`, `if_call`, `for_each`
+//   - execution contexts: `parallel`, `timeout`, `retry`, `with_env`,
+//     `with_cwd`, `sandbox` — wrap a body to change *how* it runs
+//     (concurrency, deadline, retry policy, env overlay, cwd, capability
+//     gate) without changing what ops it can express.
 func (o Op) IsBlock() bool {
 	switch o.Kind {
-	case "if", "if_call", "for_each":
+	case "if", "if_call", "for_each",
+		"parallel", "timeout", "retry", "with_env", "with_cwd", "sandbox", "cache",
+		"wasm_run":
 		return true
 	}
 	return false
