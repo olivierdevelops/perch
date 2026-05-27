@@ -5,13 +5,15 @@ hide:
 
 # perch
 
-> **The operating system you can `scp`.** One Go binary, ~140 cross-platform ops, capability-style restrictions, structured audit log, and five frontends (CLI / web / REPL / MCP / portable binary) over the same op catalog.
-> One `.perch` file becomes all of them. Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
-> **→ [Read the OS analogy](os-in-a-program.md)** for the full mapping of OS concepts to perch features.
+> **perch is a cross-platform task runner.** Declare your project's commands in one small file; run them on macOS / Linux / Windows; or `perch --build` once to ship them as a single portable binary.
+
+That's the one-sentence answer. The longer one: a `.perch` file *also* serves as a web UI (`--server`), a REPL (`--shell`), an MCP tool surface for AI agents (`perch-mcp`), and a `#!/usr/bin/env perch` script. Those extra frontends are **downstream consequences** of having a typed-CLI representation in one file, not separate systems. The primary abstraction is the file; everything else is rendering. Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
+
+The deeper claim — that perch is "the operating system you can `scp`" — has its own page: **[Read the OS analogy](os-in-a-program.md)**.
 
 <div id="perch-demo" class="perch-demo"></div>
 
-The animated demo above cycles through the same `redis.perch` file driving five different frontends. **You write one file. perch produces every surface:**
+The animated demo above cycles through the same `redis.perch` file in five rendering modes. **You write one file. perch renders every surface:**
 
 <div id="perch-fanout"></div>
 

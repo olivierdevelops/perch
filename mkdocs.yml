@@ -64,9 +64,6 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Migrating from shell scripts: migrating-from-shell.md
-  - perch as an OS-in-a-program: os-in-a-program.md
-  - UX roadmap (report): user-experience.md
-  - AI-assisted authoring (design): ai-assisted-authoring.md
   - Tutorials:
       - Replace your Makefile: tutorials/01-replace-your-makefile.md
       - Ship a tool: tutorials/02-ship-a-tool.md
@@ -80,3 +77,7 @@ nav:
   - Editor integration (LSP): lsp.md
   - What perch is for: applications.md
   - FAQ: faq.md
+  # ─── deeper claims / design notes (after the reference docs) ───
+  - The OS analogy: os-in-a-program.md
+  - UX roadmap (design): user-experience.md
+  - AI-assisted authoring (design): ai-assisted-authoring.md
