@@ -30,6 +30,9 @@ Thumbs.db
 /coverage.html
 /_site/
 
+# mkdocs build output (gh-pages workflow builds fresh)
+/site/
+
 # go
 vendor/
 

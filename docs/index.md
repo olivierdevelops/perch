@@ -5,9 +5,13 @@ hide:
 
 # perch
 
-> **perch is a cross-platform task runner.** Declare your project's commands in one small file; run them on macOS / Linux / Windows; or `perch --build` once to ship them as a single portable binary.
+> **perch is a cross-platform command runtime for defining, running, and shipping operational tools in a single structured file.**
+
+Declare your commands once; run them consistently on macOS / Linux / Windows; expose them through a CLI, REPL, web UI, or AI-agent surface; and `perch --build` once to ship them as a single portable binary. **Replaces shell scripts + Makefiles + ad-hoc CLI wrappers + internal ops tools + "one-off automation repos"** with one declarative file that humans, CI, and agents all execute.
 
 That's the one-sentence answer. The longer one: a `.perch` file *also* serves as a web UI (`--server`), a REPL (`--shell`), an MCP tool surface for AI agents (`perch-mcp`), and a `#!/usr/bin/env perch` script. Those extra frontends are **downstream consequences** of having a typed-CLI representation in one file, not separate systems. The primary abstraction is the file; everything else is rendering. Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
+
+**Mental model:** *A structured way to define and ship operational commands that can run everywhere, with optional safety controls and multiple interfaces.* This enables a small but real pattern — **operational workflows as distributable products**: what used to be a folder of scripts plus a wiki page becomes one binary you can `scp` and run.
 
 The deeper claim — that perch is "the operating system you can `scp`" — has its own page: **[Read the OS analogy](os-in-a-program.md)**.
 
@@ -29,6 +33,100 @@ The animated demo above cycles through the same `redis.perch` file in five rende
   <a class="perch-cta__primary" href="getting-started/">Get started in 5 minutes →</a>
   <a class="perch-cta__secondary" href="applications/">See 22 real applications</a>
   <a class="perch-cta__secondary" href="https://github.com/luowensheng/perch">GitHub</a>
+</div>
+
+---
+
+## What perch replaces
+
+| Today | Tomorrow with perch |
+|---|---|
+| 📜 `bin/` of bash scripts + a Makefile + a CI YAML duplicating both | 🪶 **One `commands.perch` file** that local dev, CI, and on-call all execute |
+| 🛠️ A bespoke Cobra / Click / Typer CLI with hand-rolled arg parsing | 🪶 **Typed args in declared verbs** with per-command `--help` for free |
+| 🤖 A FastAPI service exposing safe ops to an LLM agent | 🪶 **`perch-mcp` reads the same file** — typed tools, capability gates, audit |
+| 📋 A wiki page telling new hires which scripts to run | 🪶 **`perch --help`** + an optional **`perch --server`** web UI |
+| 📦 "First install Python 3.11, then a venv, then pip install …" | 🪶 **`perch --build`** ships one binary with the project embedded |
+| 🪵 ad-hoc `echo`-style logging + manual screenshot of CI output | 🪶 **`--audit FILE.ndjson`** structured trace + **`--report`** span tree |
+| 🧪 "Run it and see" as the only test strategy | 🪶 **`perch test`** sandboxed behavior tests with `assert_*` ops |
+
+**Adoption is incremental.** Wrap your existing `.sh` files in a `shell` op; gain typed args + `--help` + audit + MCP in minutes. Promote to native ops over time. [Migration guide →](migrating-from-shell.md)
+
+---
+
+## 📦 Ready-made recipes — install in one curl
+
+22 curated `.perch` files that solve real problems. Local Redis, the
+whole AI/observability/Kafka stack, cross-platform tool installers, daily
+Docker/kubectl wrappers. Download one, audit with `perch --scan`, run it.
+
+```sh
+# Pick one. Run it.
+curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
+curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
+perch --scan -f redis.perch        # audit before running
+perch -f redis.perch up             # 8 verbs ready: up / down / cli / flush / monitor / logs / backup / status
+```
+
+| Pain | Recipe | One command |
+|---|---|---|
+| "I need Postgres + Redis + S3 locally for my web app" | **devstack** | `perch -f devstack.perch up` (Postgres + Redis + MinIO in parallel) |
+| "I want to play with local LLMs" | **aistack** | `perch -f aistack.perch up` (Ollama + ChromaDB + Open WebUI) |
+| "I need local metrics + logs + dashboards" | **observe** | `perch -f observe.perch up` (Prometheus + Grafana + Loki) |
+| "I keep typing 12 docker flags wrong" | **docker-mgr** | `perch -f docker-mgr.perch prune_safe` |
+| "Three teammates wrote three different `git pr` aliases" | **gh-flow** | `perch -f gh-flow.perch pr / land / sync / cleanup` |
+| "I want every modern CLI tool installed cross-platform" | **modern-unix** | `perch -f modern-unix.perch install` (ripgrep, fd, bat, fzf, jq, yq, eza, zoxide) |
+| "Set up local HTTPS for dev" | **mkcert-local** | `perch -f mkcert-local.perch install_ca && perch -f mkcert-local.perch cert localhost dev.local` |
+| "Encrypted backups, no SaaS" | **backup** | `perch -f backup.perch snapshot ~/Documents` (restic wrapper) |
+
+[**Browse all 22 recipes →**](recipes.md)
+
+The full catalog: single services (redis, postgres, mongodb, mysql, mailpit,
+minio, rabbitmq, localstack), stacks (devstack, aistack, observe,
+kafka-stack), tool installers (modern-unix, clouds, node-stack,
+python-stack), CLI wrappers (gh-flow, docker-mgr, kube-helpers),
+ops/security (mkcert-local, backup, scan-secrets).
+
+---
+
+## Why teams adopt perch
+
+<div class="perch-features">
+
+<div class="card">
+  <h4>🎯 One file, every surface</h4>
+  <p>The same <code>commands.perch</code> is callable as a CLI, served as a web UI, steppable in a REPL, exposed to AI agents over MCP, and bundled into a portable binary. Everything else is rendering.</p>
+</div>
+
+<div class="card">
+  <h4>🛡️ Safe by composition</h4>
+  <p>Restriction flags compose — <code>--no-shell --no-network --env HOME,PATH</code>. Default-on SSRF and redirect guards. <code>--scan</code> audits a file before you run it. The grammar is the security boundary.</p>
+</div>
+
+<div class="card">
+  <h4>🔒 <code>wasm_run</code> — the constrained execution lane</h4>
+  <p>For when "capability-gated shell" isn't enough. Load a WebAssembly module under WASI; the module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is invisible <em>by construction</em>, not policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <a href="wasm/">Details →</a></p>
+</div>
+
+<div class="card">
+  <h4>🤖 Agent-native, no backend</h4>
+  <p>Replace your LLM-tool backend with a <code>.perch</code> file. <code>perch-mcp --no-shell --no-network -f ops.perch</code> is the whole stack. Typed verbs, declared schemas, capability gates, audit log — what you'd otherwise build from scratch.</p>
+</div>
+
+<div class="card">
+  <h4>🚀 Zero-install recipients</h4>
+  <p><code>perch --build -o myapp</code> produces a single executable. Recipients run one file — no Go, no perch, no source clone. <code>--include ./src</code> embeds an entire Python / Node project alongside.</p>
+</div>
+
+<div class="card">
+  <h4>🧪 Behavior tests built in</h4>
+  <p>Mark a command <code>test</code>. <code>perch test</code> runs it in a sandboxed temp cwd with <code>--no-shell</code> / <code>--no-network</code> / <code>--no-subprocess</code> on by default. Seven <code>assert_*</code> ops. Drop into pre-commit + CI. <a href="testing/">Details →</a></p>
+</div>
+
+<div class="card">
+  <h4>📊 Full visibility — <code>--trace</code> · <code>--audit</code> · <code>--report</code></h4>
+  <p><code>--trace</code> streams every op to stderr <strong>as it fires</strong> (live, indented for block nesting). <code>--audit FILE.ndjson</code> writes the same events as JSON for downstream ingest. <code>--report</code> renders the span tree after the run with full error context. Same hook order, three audiences.</p>
+</div>
+
 </div>
 
 ---
@@ -91,6 +189,8 @@ perch --init
 perch --help          # list commands
 perch <cmd> --help    # per-command help (args, defaults, examples)
 perch --check         # static validation
+perch test            # run every command marked `test` (sandboxed)
+perch --report cmd    # execute + render the span tree
 ```
 
 ---
@@ -101,23 +201,25 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 
 <div id="perch-bindings"></div>
 
-## What you get (outcomes, not features)
+## What's in the box
+
+The technical details that don't fit on the marketing panel above:
 
 <div class="perch-features">
 
 <div class="card">
-  <h4>One source of truth</h4>
-  <p>Local dev, CI, production runbook, and the support team's UI all execute the same <code>commands.perch</code>. No more "works on the build server, fails on Karen's laptop."</p>
+  <h4>~140 cross-platform ops</h4>
+  <p><code>cp</code>, <code>mkdir</code>, <code>gzip</code>, <code>tar_create</code>, <code>http_get</code>, <code>download</code>, <code>sha256_file</code>, <code>regex_replace</code>, <code>json_get</code>, <code>bundle_extract</code>, … all implemented in Go, identical on macOS / Linux / Windows. Skip the bash tax. <a href="op-reference/">Catalog →</a></p>
 </div>
 
 <div class="card">
-  <h4>Drop-in distribution</h4>
-  <p><code>perch --build -o myapp</code> produces a self-extracting binary. <code>--include ./src</code> embeds an entire project. Recipients run one file — no Go, no perch, no source clone.</p>
+  <h4>Static <code>--check</code> validator</h4>
+  <p>Catches typo'd arg types, mismatched defaults, duplicate args, colliding positional indexes, missing <code>run TARGET</code>, unknown ops, unresolved <code>${name}</code> placeholders — before any command runs. Wire it into pre-commit.</p>
 </div>
 
 <div class="card">
-  <h4>Cross-platform without bash tax</h4>
-  <p>~140 first-class ops — <code>cp</code>, <code>mkdir</code>, <code>gzip</code>, <code>tar_create</code>, <code>http_get</code>, <code>download</code>, <code>sha256_file</code>, <code>regex_replace</code>, <code>json_get</code>, … — implemented in Go, identical on macOS / Linux / Windows.</p>
+  <h4>Templates &amp; execution contexts</h4>
+  <p>Wrap any body in <code>parallel</code>, <code>timeout</code>, <code>retry</code>, <code>with_env</code>, <code>with_cwd</code>, <code>sandbox</code>, or <code>cache</code>. Lift repetition into <code>template NAME ... end</code> parameter-substitution stamps. <a href="execution-contexts/">Details →</a></p>
 </div>
 
 <div class="card">
@@ -126,83 +228,23 @@ Every command starts with ~30 variables already bound. **No declaration, no `let
 </div>
 
 <div class="card">
-  <h4>Static <code>--check</code> validator</h4>
-  <p>Catches typo'd arg types, mismatched defaults, duplicate args, colliding positional indexes, missing <code>run TARGET</code>, unknown op kinds, unresolved <code>${name}</code> placeholders — before the command runs. Wire it into pre-commit.</p>
-</div>
-
-<div class="card">
-  <h4>Per-command <code>--help</code></h4>
-  <p><code>perch &lt;cmd&gt; --help</code> shows usage, an arguments table with types + defaults + required/optional flags, env vars, modifiers, examples, and the source file path. Help is free.</p>
-</div>
-
-<div class="card">
-  <h4>Fuzzy "Did you mean…?"</h4>
-  <p>Levenshtein-based suggestions when an unknown command is typed. Up to three candidates ranked by distance. Newcomers stop staring at "unknown command" errors.</p>
-</div>
-
-<div class="card">
-  <h4>Catch passthrough</h4>
-  <p>Inside <code>catch</code>, the full unknown invocation is bound as <code>${proxy_args}</code>. <code>shell "git ${proxy_args}"</code> turns perch into a drop-in superset of any tool you'd like to extend.</p>
-</div>
-
-<div class="card">
-  <h4>LSP server (<code>perch-lsp</code>)</h4>
-  <p>Diagnostics, context-aware completion, hover docs, document outline. Auto-spawned by the VS Code extension; Neovim/Helix/Zed setup is a one-screen snippet.</p>
-</div>
-
-<div class="card">
-  <h4>LLM control plane — no backend needed</h4>
-  <p>One <code>.perch</code> file + <code>perch-mcp</code> replaces the FastAPI service you'd otherwise build to give an agent a fixed set of typed actions. The grammar is the security boundary; <code>--no-shell --no-network --env A,B</code> is the policy. <a href="llm-control-plane/">Deep dive →</a></p>
-</div>
-
-<div class="card">
-  <h4>MCP server (<code>perch-mcp</code>)</h4>
-  <p>JSON-RPC over stdio. Agents call <code>perch_list</code> / <code>perch_run</code> with typed args. Schema auto-derived from your file. Reference: <a href="mcp/">mcp.md</a>.</p>
-</div>
-
-<div class="card">
-  <h4>One-command install</h4>
-  <p><code>perch --install-lsp</code> installs the LSP via <code>go install</code>. <code>perch --install-vscode</code> bundles the extension (embedded in the binary) and installs it via <code>code --install-extension</code>.</p>
-</div>
-
-<div class="card">
-  <h4>Shell completions</h4>
-  <p><code>perch --completions bash|zsh|fish</code> emits the completion script. Includes command-name completion from your current <code>commands.perch</code>.</p>
-</div>
-
-<div class="card">
-  <h4>Web UI streams NDJSON</h4>
-  <p><code>perch --server</code> renders a button-per-command UI with typed arg forms. Stdout streams as NDJSON over <code>/api/exec</code> — pipe it to your observability stack for a free audit log.</p>
-</div>
-
-<div class="card">
-  <h4>Auto-bound <code>os</code> / <code>arch</code></h4>
-  <p>Every command starts with <code>os</code> and <code>arch</code> already bound to <code>runtime.GOOS</code> / <code>runtime.GOARCH</code> — no declaration. <code>if os == "darwin"</code> just works.</p>
-</div>
-
-<div class="card">
-  <h4>Block-shaped args</h4>
-  <p><code>arg NAME ... end</code> with labelled inner fields (<code>type</code>, <code>default</code>, <code>description</code>, <code>optional</code>, <code>index</code>) — readable, no positional gotchas, validated by <code>--check</code>.</p>
-</div>
-
-<div class="card">
   <h4>Preview before running</h4>
-  <p><code>perch --dry-run cmd</code> prints every op (with interpolated args) and skips execution. <code>perch --ask cmd</code> prompts y/n/a/q per op — accept, skip, run-all, or quit. The args you see are what the handler receives; no surprises.</p>
+  <p><code>--dry-run</code> prints every op with interpolated args and skips execution. <code>--ask</code> prompts y/n/a/q per op. <code>--scan</code> walks the program statically and reports needed capabilities + risk findings. No surprises in CI.</p>
 </div>
 
 <div class="card">
-  <h4>SSRF / redirect protection (default-on)</h4>
-  <p><code>http_get</code>, <code>http_post</code>, <code>download</code>, <code>http_status</code> refuse to dial <strong>loopback / link-local / RFC 1918 / IPv6 ULA / unspecified</strong> addresses by default — closes the AWS-metadata SSRF (<code>169.254.169.254</code>), the localhost pivot, internal-network pivots. Also refuses <strong>https → http redirect downgrades</strong>, caps at <strong>5 hops</strong>, re-validates every redirect target (DNS-rebinding defense — multi-A responses get ALL records checked). Layer <code>--allow-host api.github.com,*.s3.amazonaws.com</code> for a strict host allowlist. <a href="sandbox/">More →</a></p>
+  <h4>Editor integration</h4>
+  <p><code>perch-lsp</code> provides diagnostics, completion, hover, document outline. <code>perch --install-vscode</code> bundles the VS Code extension; <code>--install-lsp</code> alone for Neovim / Helix / Zed. Tree-sitter grammar for syntax beyond LSP. <a href="lsp/">Setup →</a></p>
 </div>
 
 <div class="card">
-  <h4>Composable restrictions</h4>
-  <p><code>perch --no-shell --no-network --no-write deploy</code> — each flag says exactly what it disables, and they compose. <code>perch --env HOME,PATH</code> restricts which host env vars resolve via <code>${…}</code>. The banner <code>🔒 security: --no-shell --env HOME,PATH</code> shows posture at a glance. See <a href="sandbox/">sandbox.md</a>.</p>
+  <h4>Catch passthrough &amp; fuzzy suggestions</h4>
+  <p>Levenshtein-based "Did you mean…?" for typo'd command names. Inside <code>catch</code>, <code>${proxy_args}</code> holds the full unknown invocation — <code>shell "git ${proxy_args}"</code> makes perch a drop-in superset of any tool.</p>
 </div>
 
 <div class="card">
-  <h4>Bundle ops for installers</h4>
-  <p><code>bundle_hash</code> / <code>bundle_extract</code> / <code>bundle_dir</code> let your binary install itself into a content-addressable cache. Multiple versions coexist; pruning is <code>rm -rf</code> by hash.</p>
+  <h4>Block-shaped args + per-command <code>--help</code></h4>
+  <p><code>arg NAME ... end</code> with labelled inner fields (<code>type</code>, <code>default</code>, <code>description</code>, <code>optional</code>, <code>index</code>, <code>rest</code>). <code>perch &lt;cmd&gt; --help</code> renders usage + table from the spec. No manual doc-strings.</p>
 </div>
 
 </div>
@@ -429,6 +471,61 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 
 ---
 
+## For platform / SRE / security teams
+
+The questions enterprise teams ask up-front, answered in one place:
+
+<div class="perch-features">
+
+<div class="card">
+  <h4>🛡️ Security model</h4>
+  <p><strong>Capability gating, not kernel sandboxing.</strong> Composable <code>--no-shell</code> / <code>--no-network</code> / <code>--no-write</code> / <code>--no-subprocess</code> flags. <code>--env A,B,C</code> restricts host-env visibility. <code>--allow-bin git,docker</code> narrows shell to argv[0]. <code>--allow-host api.github.com</code> restricts network. Layer with <code>firejail</code> / <code>sandbox-exec</code> / <code>AppContainer</code> for genuinely adversarial input. <a href="sandbox/">sandbox.md →</a></p>
+</div>
+
+<div class="card">
+  <h4>🧾 Audit + replay</h4>
+  <p><code>--audit FILE.ndjson</code> records every op call with timestamp, args, duration, error, exit code, and bound-variable state. Same shape as Linux auditd but at the op level. Pipe to Loki / Datadog / CloudWatch. <code>--report</code> renders the same stream as a human-readable span tree after the run.</p>
+</div>
+
+<div class="card">
+  <h4>🤖 AI agent safety</h4>
+  <p>The MCP boundary is the file's grammar. Agents call <em>declared verbs</em> with <em>typed args</em> — anything else is a typed error. <code>perch-mcp --no-shell --no-network --env KUBECONFIG -f ops.perch</code> is the full policy. No FastAPI scaffolding, no manual JSON-Schema, no agent-readable shell escape. <a href="llm-control-plane/">LLM control plane →</a></p>
+</div>
+
+<div class="card">
+  <h4>🔒 SSRF + redirect protection (default-on)</h4>
+  <p>HTTP ops refuse loopback / link-local / RFC 1918 / IPv6 ULA destinations by default — closes the AWS metadata SSRF (<code>169.254.169.254</code>). https→http downgrades refused. Max 5 redirect hops, each re-validated (DNS-rebinding defense via multi-A check). Layer <code>--allow-host</code> for a strict allowlist.</p>
+</div>
+
+<div class="card">
+  <h4>🪟 Cross-platform parity</h4>
+  <p>The ~140 ops are identical Go implementations across macOS / Linux / Windows. With <code>--no-shell</code> the boundary is airtight (no subprocess can fire). Real "works on my machine" elimination, not aspiration.</p>
+</div>
+
+<div class="card">
+  <h4>📜 License + dependencies</h4>
+  <p>Apache-2.0. <strong>One Go binary, no SaaS, no telemetry, no phone-home.</strong> Self-host or `go install`. Bundle into your own distribution. No license fees, no per-seat costs, no cloud account required. Source: <a href="https://github.com/luowensheng/perch">github.com/luowensheng/perch</a>.</p>
+</div>
+
+<div class="card">
+  <h4>🧪 Pre-commit + CI integration</h4>
+  <p><code>perch --check</code> for static validation, <code>perch test</code> for behavior. Both exit non-zero on failure — wire into any CI. Per-test sandboxes prevent state leakage. The same <code>.perch</code> drives local dev, CI, and production. <a href="testing/">testing.md →</a></p>
+</div>
+
+<div class="card">
+  <h4>🔍 Static audit of unknown scripts</h4>
+  <p><code>perch --scan FILE</code> walks a program WITHOUT executing it and reports: capabilities needed, env vars referenced, risk findings (sudo, catch passthrough to shell, unvalidated <code>${var}</code> in shell args), and the tightest CLI invocation that should still let it run. Review third-party <code>.perch</code> files before adopting them.</p>
+</div>
+
+<div class="card">
+  <h4>📊 Status &amp; maturity</h4>
+  <p><strong>Pre-1.0 (v0.x).</strong> DSL surface is stable; op catalog continues to grow. SemVer applies once v1.0 is tagged. CI runs the full test suite on every commit. The repo eats its own dog food — <a href="https://github.com/luowensheng/perch/blob/main/commands.perch"><code>commands.perch</code></a> is what builds / tests / cleans perch itself.</p>
+</div>
+
+</div>
+
+---
+
 ## How it compares
 
 <div class="perch-compare-wrap" markdown="1">
@@ -438,6 +535,9 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
 | Cross-platform without `if uname` | ✅ | ⚠️ | ⚠️ | ✅ | ❌ | ✅ |
 | Typed args + per-command `--help` | ✅ | ❌ | ❌ | ⚠️ | ❌ | ✅ |
 | Static validator (`--check`) | ✅ | ❌ | ❌ | ❌ | ❌ | ⚠️ |
+| Sandboxed behavior tests (`perch test`) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `parallel` / `retry` / `timeout` / `cache` blocks | ✅ | ⚠️ | ❌ | ⚠️ | ❌ | ❌ |
+| Span-tree execution report (`--report`) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Built-in web UI | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | MCP server for AI agents | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Single-binary distribution | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
@@ -464,6 +564,18 @@ One binary. Onboarding goes from "read this 6-page doc" to "run `dev up`."
   {"k":"ok",  "t":"Hello, world!"},
   {"k":"in",  "t":"perch --check"},
   {"k":"ok",  "t":"✓ commands.perch: 1 command — no issues"},
+  {"k":"in",  "t":"perch test"},
+  {"k":"ok",  "t":"✓ test_hello_says_hello                     (412µs)"},
+  {"k":"ok",  "t":"1 passed, 0 failed in 412µs."},
+  {"k":"in",  "t":"perch --trace hello"},
+  {"k":"dim", "t":"▸ print                \"Hello, world!\""},
+  {"k":"ok",  "t":"Hello, world!"},
+  {"k":"dim", "t":"✓                                (45µs)"},
+  {"k":"in",  "t":"perch --report hello"},
+  {"k":"ok",  "t":"Hello, world!"},
+  {"k":"dim", "t":"── perch trace ─────────────────────────────────"},
+  {"k":"dim", "t":"✓ hello (2ms)"},
+  {"k":"dim", "t":"└─ ✓ print \"Hello, world!\" (45µs)"},
   {"k":"in",  "t":"perch --build -o ./greet"},
   {"k":"ok",  "t":"✓ Built binary: ./greet  (12 MB)"},
   {"k":"in",  "t":"./greet hello"},
@@ -663,6 +775,55 @@ The shebang line is just a `#` comment to perch's parser, so it has no effect on
 ]
 </script>
 
+<div class="pterm" id="t-trace" data-title="perch --trace deploy — live op stream as it runs"></div>
+<script type="application/json" data-pterm="t-trace">
+[
+  {"k":"in",  "t":"perch --trace -f release.perch deploy"},
+  {"k":"dim", "t":"▸ sandbox              flags=\"no_network\""},
+  {"k":"dim", "t":"  ▸ with_lock            \"prod-deploy\""},
+  {"k":"dim", "t":"    ▸ acquire_lock         \"prod-deploy\""},
+  {"k":"dim", "t":"    ✓                            (12ms)"},
+  {"k":"dim", "t":"    ▸ retry                attempts=3"},
+  {"k":"dim", "t":"      ▸ shell                \"kubectl apply -f manifest.yaml\""},
+  {"k":"out", "t":"configmap/api-config configured"},
+  {"k":"out", "t":"deployment.apps/api configured"},
+  {"k":"dim", "t":"      ✓                            (1.20s)"},
+  {"k":"dim", "t":"    ✓                              (1.20s)"},
+  {"k":"dim", "t":"    ▸ release_lock         \"prod-deploy\""},
+  {"k":"dim", "t":"    ✓                            (8ms)"},
+  {"k":"dim", "t":"  ✓                              (1.22s)"},
+  {"k":"dim", "t":"✓                                (1.22s)"},
+  {"k":"accent","t":"→ each op prints the moment it fires; kubectl output appears in line"},
+  {"k":"accent","t":"  → no waiting for the whole run to finish to see what's happening"}
+]
+</script>
+
+<div class="pterm" id="t-wasm" data-title="wasm_run — capability gating by construction"></div>
+<script type="application/json" data-pterm="t-wasm">
+[
+  {"k":"dim", "t":"# A .perch file that runs a WASM module:"},
+  {"k":"dim", "t":"wasm_run \"./hello.wasm\""},
+  {"k":"dim", "t":"    wasm_arg  \"alice\""},
+  {"k":"dim", "t":"    wasm_env  \"GREETING,HOME\"     # only these env vars pass"},
+  {"k":"dim", "t":"    wasm_mount_read  \"./src\"      # mounted /ro/src"},
+  {"k":"dim", "t":"    wasm_mount_write \"./bin\"      # mounted /rw/bin"},
+  {"k":"dim", "t":"end"},
+  {"k":"blank","t":""},
+  {"k":"in",  "t":"SECRET=leak GREETING=hi perch -f demo demo"},
+  {"k":"out", "t":"── hello.wasm ────────────────────────────────"},
+  {"k":"out", "t":"argv: [hello.wasm alice bob]"},
+  {"k":"ok",  "t":"env GREETING: hi"},
+  {"k":"ok",  "t":"env HOME: /Users/you"},
+  {"k":"err", "t":"env SECRET: (not visible — not in allowlist)"},
+  {"k":"err", "t":"env PATH:   (not visible — not in allowlist)"},
+  {"k":"ok",  "t":"fs /ro/src:    visible"},
+  {"k":"ok",  "t":"fs /rw/bin:    visible"},
+  {"k":"err", "t":"fs /etc/passwd: (not visible — not mounted)"},
+  {"k":"accent","t":"→ host SECRET set but invisible to module — enforced by the WASM runtime"},
+  {"k":"accent","t":"  → no syscall escape; nothing not declared exists"}
+]
+</script>
+
 <div class="pterm" id="t-audit" data-title="--audit FILE.ndjson — structured trace"></div>
 <script type="application/json" data-pterm="t-audit">
 [
@@ -784,20 +945,52 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 
 ## Full documentation
 
-| Reading order | What it covers |
+Grouped by what you're trying to do. Each row is one page.
+
+### 🚀 Get started in 30 minutes
+
+| | |
 |---|---|
+| [**recipes.md**](recipes.md) | **22 ready-to-run `.perch` files — Redis, Postgres, devstack, aistack, observe, kubectl helpers, …** |
 | [getting-started.md](getting-started.md) | Five-minute hands-on tour |
+| [migrating-from-shell.md](migrating-from-shell.md) | Wrap your existing `.sh` files — three migration strategies |
 | [tutorials/01-replace-your-makefile.md](tutorials/01-replace-your-makefile.md) | Convert a real Makefile to perch |
-| [tutorials/02-ship-a-tool.md](tutorials/02-ship-a-tool.md) | `perch --build` deep-dive |
-| [tutorials/03-cross-platform-installer.md](tutorials/03-cross-platform-installer.md) | One installer for three OSes |
+| [faq.md](faq.md) | vs Make / Just / Task / Cobra; the common questions |
+
+### 🛠️ Author commands (developers)
+
+| | |
+|---|---|
 | [language.md](language.md) | Every keyword, modifier, and operator |
 | [op-reference.md](op-reference.md) | The built-in op catalog (~140 ops) |
-| [embedding.md](embedding.md) | Fat-binary format spec |
-| [mcp.md](mcp.md) | AI agent integration (reference) |
-| [llm-control-plane.md](llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
-| [sandbox.md](sandbox.md) | **Sandboxing design — env / FS / net / shell scopes, `--untrusted`** |
-| [lsp.md](lsp.md) | Editor integration |
-| [applications.md](applications.md) | **What perch is for — 22 real applications** |
-| [faq.md](faq.md) | vs Make / Just / Task / etc. |
+| [execution-contexts.md](execution-contexts.md) | **`parallel` / `retry` / `timeout` / `sandbox` / `cache` blocks + templates + `--report`** |
+| [testing.md](testing.md) | **`perch test` — sandboxed behavior tests with `assert_*` ops** |
+| [lsp.md](lsp.md) | VS Code / Neovim / Helix / Zed integration |
+| [applications.md](applications.md) | **22 real applications worth copying** |
 
-Source on GitHub: [luowensheng/perch](https://github.com/luowensheng/perch). Apache-2.0.
+### 📦 Ship as a product
+
+| | |
+|---|---|
+| [tutorials/02-ship-a-tool.md](tutorials/02-ship-a-tool.md) | `perch --build` deep-dive |
+| [tutorials/03-cross-platform-installer.md](tutorials/03-cross-platform-installer.md) | One installer for three OSes |
+| [embedding.md](embedding.md) | Fat-binary format spec — what's inside, how to verify it |
+
+### 🛡️ Adopt at scale (platform / SRE / security)
+
+| | |
+|---|---|
+| [sandbox.md](sandbox.md) | **Capability model — env / FS / net / shell scopes, `--untrusted`, file-side `sandbox` blocks** |
+| [llm-control-plane.md](llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
+| [mcp.md](mcp.md) | MCP server reference (JSON-RPC over stdio) |
+| [applications.md](applications.md) | 22 patterns; many are SRE / platform-team shaped |
+
+### 🪞 Background reading (design intent)
+
+| | |
+|---|---|
+| [os-in-a-program.md](os-in-a-program.md) | The "operating system you can `scp`" framing |
+| [user-experience.md](user-experience.md) | UX roadmap |
+| [ai-assisted-authoring.md](ai-assisted-authoring.md) | Notes on agent-authored `.perch` files |
+
+Source on GitHub: [**luowensheng/perch**](https://github.com/luowensheng/perch). Apache-2.0. One Go binary, no SaaS, no telemetry.

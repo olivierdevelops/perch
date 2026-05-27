@@ -37,29 +37,50 @@ For now: copy-paste. The files are small.
 
 ## How do I test my commands.perch?
 
-Three approaches:
+**Built-in: `perch test`.** Mark a command with the `test` modifier; `perch test` discovers and runs it in a sandboxed temp cwd with `--no-shell` / `--no-network` / `--no-subprocess` on by default. Pass unless any op errors. Seven `assert_*` ops produce readable failure messages.
 
-1. **`perch --shell`** — interactively run each command and watch the output.
-2. **`if_*` block ops** — assert outcomes in a `test` command and `fail` if they don't hold:
-
-    ```capy
-    command test_build
-        do
-            run build
-            if exists "./bin/myapp"
-                print "✓ build produced an artifact"
-            end
-            let s = file_size "./bin/myapp"
-            if s == 0
-                fail "binary is empty"
-            end
-        end
+```capy
+command build
+    do
+        mkdir "bin"
+        write_file "bin/app" "fake binary"
     end
-    ```
+end
 
-3. **CI integration** — call `perch test` from `.github/workflows/ci.yml`. Same file drives both local dev and CI.
+command test_build_produces_binary
+    test
+    do
+        run build
+        assert_exists "bin/app"
+    end
+end
 
-First-class `perch test` (with assertions, mocks, golden files) is on the roadmap.
+command test_against_real_api
+    test
+    test_allow_network         # opt out of the default --no-network
+    test_timeout 10            # cap at 10s
+    do
+        let body = http_get "https://api.staging.example.com/health"
+        assert_contains "${body}" "ok"
+    end
+end
+```
+
+```sh
+$ perch test
+── perch test ─────────────────────────────────
+✓ test_build_produces_binary               (2ms)
+
+1 passed, 0 failed in 2ms.
+```
+
+Drop `perch test` into pre-commit and `.github/workflows/ci.yml` — exits non-zero on any failure. Filter with `--filter PATTERN`, surface output with `-v`. The full reference: **[testing.md](testing.md)**.
+
+Other knobs that pair with testing:
+
+- **`perch --check`** — static validator. Catches syntax / arg-type / unknown-op bugs without executing anything. Wire it into pre-commit alongside `perch test`.
+- **`perch --report cmd`** — execute the command and render a span tree of every op that fired (with timing, errors, template provenance). Useful for debugging which inner op inside a `parallel` / `retry` actually failed. See [execution-contexts.md](execution-contexts.md).
+- **`perch --shell`** — REPL for interactively poking at a single command without writing a test for it.
 
 ## Can ops fail silently?
 

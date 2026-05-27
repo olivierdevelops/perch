@@ -1,6 +1,10 @@
 # perch
 
-> **perch is a cross-platform task runner.** Declare your project's commands in one small file; run them on macOS / Linux / Windows; or `perch --build` once to ship them as a single portable binary.
+> **perch is a cross-platform command runtime for defining, running, and shipping operational tools in a single structured file.** Declare your commands once; run them consistently on macOS / Linux / Windows; expose them through a CLI, REPL, web UI, or MCP agent surface; and `perch --build` once to ship them as a single portable binary.
+
+**Replaces the usual combination of:** shell scripts · Makefiles · ad-hoc CLI wrappers · internal ops tools · "one-off automation repos" — with one declarative file that humans, CI, and agents all execute.
+
+📦 **[Browse the recipes →](recipes/)** — 22 ready-to-run `.perch` files for Redis, Postgres, MongoDB, the whole AI / observability / Kafka stacks, cross-platform tool installers, and daily Docker/kubectl wrappers. One `curl` + one `perch` invocation away from a working local environment.
 
 [![CI](https://github.com/luowensheng/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/luowensheng/perch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/luowensheng/perch?include_prereleases)](https://github.com/luowensheng/perch/releases)
@@ -59,6 +63,8 @@ perch build                    # → run from CLI
 perch build -target=linux      # → with args
 perch build --help             # → per-command help (args, defaults, examples)
 perch --check                  # → statically validate commands.perch
+perch test                     # → run every command marked `test` (sandboxed)
+perch --report build           # → execute + render the span tree of what ran
 perch --server                 # → same file, web UI
 perch --shell                  # → same file, REPL
 perch --build -o myapp         # → same file, portable binary
@@ -115,6 +121,16 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 ---
 
+## Mental model
+
+> A structured way to **define and ship operational commands** that can run everywhere, with optional safety controls and multiple interfaces.
+
+A `commands.perch` file is the single source of truth for an operational tool. It is **structured** (typed args, declared verbs, no string templating), **portable** (one runtime, identical built-ins across OSes), **optionally constrained** (capability flags + audit), **easy to distribute** (one binary), and **usable by both humans and agents** (CLI, web UI, REPL, MCP — same file). This enables a small but real pattern:
+
+> **Operational workflows as distributable products.** What used to be a folder of scripts plus a wiki page becomes one binary you can `scp` and run.
+
+---
+
 ## What perch gives you
 
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
@@ -129,7 +145,9 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
     - **Limits:** ~50 MB for the embedded archive (`--include`) before performance noticeably degrades; the binary loads everything into memory at startup.
 
     Full spec: [docs/embedding.md](docs/embedding.md).
-5. **Controlled scripting** — not sandboxing. perch lets you declare what an invocation may do: `--no-shell`, `--no-network`, `--no-write`, `--no-subprocess`, `--env A,B,C`, `--allow-bin git,docker`, `--allow-host api.github.com`, `--max-runtime 300`, `--audit FILE.ndjson`. With `--no-shell` the boundary is airtight (perch never spawns a subprocess). With `shell` allowed, perch enforces *its own* op dispatch — the subprocess can still talk to the kernel, so adversarial input still needs an OS-level sandbox (`firejail` / `sandbox-exec` / `AppContainer`) layered underneath. HTTP ops have additional default-on protections: no private-IP destinations, no https→http downgrade, max 5 redirect hops, DNS-rebinding defense via multi-A validation.
+5. **Composable execution + testable behavior.** Wrap any body in `parallel`, `timeout "30s"`, `retry 3`, `with_env`, `with_cwd`, `sandbox "no_shell,no_network"`, or `cache "KEY" "1h"` — block ops that change *how* the body runs without changing what it can express. Lift repeated op-sequences into `template NAME ... end` parameterized stamps, expanded inline at every `call NAME ...` site. Verify behavior with `perch test` — commands marked `test` run in a sandboxed temp cwd, fail-on-error semantics, seven `assert_*` ops for readable failures. Visualize a run with `perch --report` for a span tree of every op that fired. See [docs/execution-contexts.md](docs/execution-contexts.md) and [docs/testing.md](docs/testing.md).
+
+6. **Controlled scripting** — not sandboxing. perch lets you declare what an invocation may do: `--no-shell`, `--no-network`, `--no-write`, `--no-subprocess`, `--env A,B,C`, `--allow-bin git,docker`, `--allow-host api.github.com`, `--max-runtime 300`, `--audit FILE.ndjson`. With `--no-shell` the boundary is airtight (perch never spawns a subprocess). With `shell` allowed, perch enforces *its own* op dispatch — the subprocess can still talk to the kernel, so adversarial input still needs an OS-level sandbox (`firejail` / `sandbox-exec` / `AppContainer`) layered underneath. HTTP ops have additional default-on protections: no private-IP destinations, no https→http downgrade, max 5 redirect hops, DNS-rebinding defense via multi-A validation.
 
 > **Sweet spot.** A structured task runner for small-to-medium projects, plus an MCP tool surface for AI agents over the same file. Outside that range — a 200-command monorepo task system, a CI orchestrator, a public multi-tenant service, anything needing functions/modules — you'll outgrow perch's composability primitives. See "Where it breaks down" below.
 >
@@ -141,7 +159,7 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 
 Perch is deliberately narrow. It is not:
 
-- **A general-purpose programming language.** No closures, objects, modules, or user-defined functions beyond `command`. If your script needs those, it should call out to a language that has them.
+- **A general-purpose programming language.** No closures, objects, modules, or user-defined runtime functions. (`template` blocks give you parse-time parameter substitution — paste-with-args, not closures — and that's the line.) If your script needs more, call out to a language that has it.
 - **A CI system.** It can be *invoked from* one (`perch ci` in a GitHub-Actions step) and replace shell glue *inside* a job. It doesn't schedule, queue, retry, or manage resources across machines.
 - **A Kubernetes / container orchestrator.** It drives `kubectl` / `docker` / `helm` from the host side. It doesn't reimplement them.
 - **A package manager.** `pkg_install` wraps `brew` / `apt` / `winget` etc. — perch doesn't host a registry or resolve dependencies.
@@ -228,7 +246,7 @@ Honest about the limits — useful for deciding whether perch fits your problem:
 **Composability.** Improved in v0.2; still bounded:
 
 - **Multi-file imports work.** `import "./shared.perch"` (flat) or `import "./aws.perch" as aws` (namespaced — `run aws.cmd`) pull in another file's commands. Cycles detected, conflicts erroring statically. Globals merge parent-wins; `private` commands hidden from flat import. Good enough to split a 100-command program into a few files of related concerns, or share a team-wide `ops-lib.perch` across projects.
-- **No user-defined functions, closures, or higher-order ops.** `command NAME ... end` is the only abstraction unit; `run other_command` calls another command (with `let` bindings flowing through). You can't pass a command as an argument, return one from another, or write a one-line helper inside a body. Repeated patterns get repeated literally — no macros, no `define`, no `defn`.
+- **No user-defined runtime functions, closures, or higher-order ops.** Two abstraction units exist: `command NAME ... end` (runtime verb) and `template NAME ... end` (parse-time stamp — paste-with-args, expanded inline at every `call NAME ...` site). You can't pass a command as an argument, return one from another, or close over state. If you reach for closures or return values, you've outgrown perch — call out to a real language via `shell`. See [docs/execution-contexts.md](docs/execution-contexts.md) for what templates can and can't do.
 - **Scale ceiling.** ~50 commands across a few imported files reads well; ~200+ across a deeper graph starts to feel like the tool's fighting you. If your problem looks like a true monorepo task orchestrator with hundreds of commands and rich nesting, perch is the wrong layer.
 
 **Other limits worth knowing:**
@@ -253,19 +271,37 @@ Capybaras famously let other animals — birds, monkeys, turtles — sit on thei
 
 ## Documentation
 
-| Reading order | What it covers |
-|---|---|
-| [docs/getting-started.md](docs/getting-started.md) | Five-minute tour |
-| [docs/tutorials/01-replace-your-makefile.md](docs/tutorials/01-replace-your-makefile.md) | Convert a Makefile to perch |
-| [docs/tutorials/02-ship-a-tool.md](docs/tutorials/02-ship-a-tool.md) | Bundle a commands.perch into a portable binary |
-| [docs/tutorials/03-cross-platform-installer.md](docs/tutorials/03-cross-platform-installer.md) | One installer for macOS/Linux/Windows |
-| [docs/language.md](docs/language.md) | Every keyword and modifier |
-| [docs/op-reference.md](docs/op-reference.md) | The built-in op catalog (the "stdlib") |
-| [docs/embedding.md](docs/embedding.md) | The `--build` fat-binary format |
-| [docs/mcp.md](docs/mcp.md) | MCP server for AI agents (reference) |
-| [docs/llm-control-plane.md](docs/llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
-| [docs/applications.md](docs/applications.md) | **What perch is *for* — 23 real applications with worked examples** |
-| [docs/faq.md](docs/faq.md) | vs Make / Just / Task / etc. |
+Grouped by what you're trying to do.
+
+**🚀 Get started in 30 minutes**
+
+- [**recipes/**](recipes/) — **22 ready-to-run `.perch` files** for Redis, Postgres, MongoDB, the AI / observability / Kafka stacks, tool installers, and daily Docker/kubectl wrappers
+- [docs/getting-started.md](docs/getting-started.md) — Five-minute tour
+- [docs/migrating-from-shell.md](docs/migrating-from-shell.md) — Wrap your existing `.sh` files; three migration strategies
+- [docs/tutorials/01-replace-your-makefile.md](docs/tutorials/01-replace-your-makefile.md) — Convert a Makefile to perch
+- [docs/faq.md](docs/faq.md) — vs Make / Just / Task / Cobra; common questions
+
+**🛠️ Author commands** (developers)
+
+- [docs/language.md](docs/language.md) — Every keyword and modifier
+- [docs/op-reference.md](docs/op-reference.md) — The built-in op catalog (~140 ops)
+- [docs/execution-contexts.md](docs/execution-contexts.md) — **Templates + `parallel` / `retry` / `timeout` / `sandbox` / `cache` blocks + `--report`**
+- [docs/testing.md](docs/testing.md) — **`perch test` — sandboxed behavior tests with `assert_*` ops**
+- [**docs/wasm.md**](docs/wasm.md) — **`wasm_run` — load WebAssembly modules with capability gating by construction**
+- [docs/lsp.md](docs/lsp.md) — VS Code / Neovim / Helix / Zed integration
+- [docs/applications.md](docs/applications.md) — **22 real applications worth copying**
+
+**📦 Ship as a product**
+
+- [docs/tutorials/02-ship-a-tool.md](docs/tutorials/02-ship-a-tool.md) — `perch --build` deep-dive
+- [docs/tutorials/03-cross-platform-installer.md](docs/tutorials/03-cross-platform-installer.md) — One installer for three OSes
+- [docs/embedding.md](docs/embedding.md) — Fat-binary format spec
+
+**🛡️ Adopt at scale** (platform / SRE / security)
+
+- [docs/sandbox.md](docs/sandbox.md) — **Capability model: env / FS / net / shell scopes, `--untrusted`, file-side `sandbox` blocks**
+- [docs/llm-control-plane.md](docs/llm-control-plane.md) — **Replace your LLM-tool backend with a `.perch` file**
+- [docs/mcp.md](docs/mcp.md) — MCP server reference (JSON-RPC over stdio)
 
 Four worked examples live under [demos/](demos) — each a complete `commands.perch` you can run.
 

@@ -6,6 +6,43 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **`wasm_run` — the constrained execution lane.** New block op that loads a WebAssembly module via [wazero](https://github.com/tetratelabs/wazero) and runs its `_start` function under WASI Preview 1. Capabilities are declared in the body: `wasm_arg "VAL"` appends to argv; `wasm_env "K1,K2"` is the env allowlist (nothing else passes through, even if set on the host); `wasm_mount_read "PATH"` mounts a host dir read-only at `/ro/<basename>`; `wasm_mount_write "PATH"` does the same read-write at `/rw/<basename>`. Anything not declared **does not exist** in the module's environment — enforced by the WASM runtime by construction, not perch's policy layer. Composes with every execution context (`parallel`, `retry`, `timeout`, `cache`, `sandbox`) and with `--trace` / `--audit` / `--report`. Pure Go (no CGO); adds ~3 MB to the binary. Demo: [`demos/wasm-hello/`](demos/wasm-hello/). Full reference: [`docs/wasm.md`](docs/wasm.md). **Roadmap (called out in the docs): sockets/network (WASI Preview 2), URL-loaded modules with sha256 pinning, named-export typed calls, persistent on-disk cache, module signature verification.**
+
+- **`recipes/` — 22 ready-to-run `.perch` files for real problems.** A curated library people can `curl` + `perch --scan` + run. Covers single-service local stacks (redis, postgres, mongodb, mysql, mailpit, minio, rabbitmq, localstack), 3-in-1 stacks via `parallel` (devstack = postgres+redis+minio, aistack = ollama+chromadb+open-webui, observe = prometheus+grafana+loki, kafka-stack), cross-platform tool installers (modern-unix, clouds, node-stack, python-stack), CLI workflow wrappers (gh-flow, docker-mgr, kube-helpers), and ops/security (mkcert-local, backup via restic, scan-secrets via gitleaks). Each recipe imports `recipes/_lib.perch` for shared templates (`require_docker`, `ok`, `say`, …) — showcases the import + template + parallel + sandbox systems in one place. See [docs/recipes.md](docs/recipes.md) and [recipes/README.md](recipes/README.md).
+
+- **Imports now propagate templates.** When a file imports another that declares `template NAME ... end` blocks, those templates are visible at every `call NAME ...` site in the importer. The expansion pass runs twice: once in `parseEventStream` (resolves locally-defined templates), then again in `resolveImports` after merging (resolves imported ones). Recursion and unresolved calls still fail loudly at `--check` time.
+
+- **`--trace` — live human-readable op stream while running.** Prints `▸ kind args…` to stderr the moment each op fires and `✓ (duration)` (or `✗ error`) when it completes. Block ops (`if`, `parallel`, `retry`, `cache`, `sandbox`, …) indent their children under the block header so the live tree shape mirrors what `--report` shows after the run. Bare `--trace` streams to stderr; `--trace=PATH` to a file (`--trace=-` for stdout). Pairs with the existing `--audit FILE.ndjson` (machine-readable) and `--report` (post-run human tree) — all three derive from the same hook order. Mutually exclusive with `--report` (they share the Tracer slot).
+
+- **`--dry-run` now expands block bodies inline.** Previously `if` / `parallel` / `retry` / `cache` / `sandbox` printed as summary counts (`{5 body ops}`); now the body is rendered as an indented sub-tree so what you see is every op that could fire. The top-level args remain interpolated; nested ops show their literal `${var}` placeholders (since interpolation only runs at dispatch time).
+
+- **`perch test` — discover and run behavior tests.** A test is a regular `command` with the `test` modifier; `perch test` discovers them, runs each in a sandboxed temp cwd with `--no-shell` / `--no-network` / `--no-subprocess` on by default, and reports pass/fail. Opt-out modifiers (`test_allow_shell`, `test_allow_network`, `test_allow_subprocess`, `test_keep_cwd`, `test_timeout N`) loosen the sandbox per-test. Hidden from `--help`, MCP, and `did you mean…?` suggestions. Seven new assertion ops (`assert_eq`, `assert_neq`, `assert_contains`, `assert_not_contains`, `assert_exists`, `assert_not_exists`, `assert_match`) make failure messages readable. CLI: `perch test [--filter PATTERN] [-v|--verbose]`. Exit code non-zero if any test failed — wire into pre-commit and CI. See [docs/testing.md](docs/testing.md). The framing: **a test is a command that fails when something's wrong.** No mocking framework, no expectations DSL — same ops, same templates, same execution contexts.
+
+- **Templates — parse-time stamps for boilerplate elimination.** New `template NAME … end` declaration with the same `arg NAME … end` block syntax as `command`. Every `call NAME args…` site is expanded inline before the program reaches the interpreter; positional args are substituted as `${argname}` bindings in the spliced body. Templates can't recurse, can't define commands/imports, and don't appear in `--help` / MCP. **The framing: a template is a command that expands at parse time instead of running at execution time.** See [docs/language.md → Templates](docs/language.md#templates--parse-time-stamps).
+
+- **Execution contexts — six block ops that wrap a body.** Each modifies *how* the inner ops run without changing what they can express; they compose by nesting.
+  - **`parallel … end`** — every direct child runs concurrently in its own goroutine; block exits when all complete. Each branch gets its own Bindings copy.
+  - **`timeout "30s" … end`** — wall-clock cap on the body. Inner deadline can only narrow the outer one.
+  - **`retry N … end`** — retry the body up to N times with exponential backoff (capped at 5m).
+  - **`with_env "K1=v,K2=v" … end`** — bracketed env overlay; auto-restored on exit.
+  - **`with_cwd "./path" … end`** — bracketed `cd` that auto-restores even on error.
+  - **`sandbox "no_shell,no_network" … end`** — narrows the active capability mask for the body. Intersection rule: masks only narrow, never widen. Runtime enforcement shipped; static enforcement at `--check` time is the follow-up.
+  - **`cache "KEY" "TTL" … end`** — user-keyed body cache. On miss, runs body and persists captured `let` bindings. On hit, replays bindings and skips the body. Honest framing: perch does NOT content-address the body's inputs — the user picks the key.
+
+- **`--report` — span-tree renderer for a run.** Block ops nest naturally (children's spans live between their block's Before and After), so a tree falls out for free. Each node shows status, kind, key arg, wall-clock, optional template provenance:
+
+  ```
+  ── perch trace ─────────────────────────────────
+  ✓ nested (2ms)
+  ├─ ✓ retry attempts=2 (65µs)
+  │  └─ ✓ print "==> Attempt" (63µs) [from template log_step]
+  └─ ✓ parallel (143µs)
+     ├─ ✓ print "==> Branch A" (20µs) [from template log_step]
+     └─ ✓ print "==> Branch B" (19µs) [from template log_step]
+  ```
+
+  `--report` writes to stderr; `--report=PATH` to a file (`--report=-` = stdout). The audit NDJSON stream remains the canonical machine artifact; `--report` is the human renderer over the same hook order.
+
 - **Variadic args — `rest` modifier + `for_each` block op.** Declare the last positional arg with `rest` to make it capture every remaining argv:
 
   ```capy
