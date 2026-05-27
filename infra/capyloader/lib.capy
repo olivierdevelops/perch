@@ -1050,6 +1050,80 @@ end
 # if the comparison fails — composes with try/rescue.
 # ────────────────────────────────────────────────────────────────────────────
 
+# Ident form — `assert_version v >= "1.28.0"`. The lhs is a binding
+# name resolved at runtime (args._lhs_var carries the name; handler
+# does the lookup). Higher priority than the string form so a bare
+# ident captures cleanly.
+function assert_version_ge_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal ">="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"ge","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_gt_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal ">"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"gt","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_le_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal "<="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"le","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_lt_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal "<"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"lt","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_eq_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal "=="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"eq","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_ne_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal "!="
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"ne","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
+function assert_version_compat_ident
+    priority 50
+    arg literal "assert_version"
+    arg capture lhs ident
+    arg literal "~"
+    arg capture rhs string
+    write `{"event":"op","kind":"assert_version","args":{"op":"compat","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+`
+end
+
 function assert_version_ge_infix
     arg literal "assert_version"
     arg capture lhs string

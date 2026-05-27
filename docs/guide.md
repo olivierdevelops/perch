@@ -975,7 +975,22 @@ rescue err
 end
 ```
 
-For programmatic boolean checks (e.g. inside an `if`), use the prefix `version_ge` / `version_gt` / etc. ops, which return `"true"` / `"false"` strings.
+### Inside an `if`
+
+The standard `if X OP Y ... end` block does **semver-aware comparison** when both sides look like version strings (optional `v` prefix, dot-separated digit segments). No special keyword required:
+
+```perch
+let v = version_extract "${raw}"
+
+assert_version v >= "1.28.0"   # hard gate
+if v >= "1.28.0"                # soft branch
+    shell "kubectl rollout restart deployment/api"
+end
+```
+
+Crucially `1.29.3 > 1.9.0` is now true (semver order), where float comparison would say false (`1.29 < 1.9` numerically). Plain numeric comparisons (file sizes, counts, etc.) still use float — the auto-detection only flips when both operands look like versions.
+
+For programmatic boolean checks where you want to capture the result, the prefix `version_ge` / `version_gt` / etc. ops also work and return `"true"` / `"false"` strings.
 
 **Ordering rules** — best-effort, no library dependency:
 

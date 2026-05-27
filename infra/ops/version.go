@@ -89,7 +89,17 @@ func registerVersion(m map[string]interpreter.Handler) {
 
 func opAssertVersionInfix(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	op, _ := args["op"].(string)
-	lhs := argString(args, "lhs")
+	// lhs can be either:
+	//   - args.lhs       (string form: `assert_version "${v}" >= "1.28.0"`)
+	//   - args._lhs_var  (ident form:  `assert_version v >= "1.28.0"` → look up
+	//                     "v" in bindings at runtime)
+	var lhs string
+	if lhsVar, ok := args["_lhs_var"].(string); ok && lhsVar != "" {
+		val, _ := b.Lookup(lhsVar)
+		lhs = val
+	} else {
+		lhs = argString(args, "lhs")
+	}
 	rhs := argString(args, "rhs")
 	cmp := versionCompare(lhs, rhs)
 

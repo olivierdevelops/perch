@@ -27,6 +27,20 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **Bare-ident lhs for `assert_version` + version-aware `if X >= Y`.** Two ergonomic upgrades to version gating: the lhs can now be a bare binding name (no `${...}` interpolation needed), and the existing `if X OP Y` block does semver-aware comparison when both sides look like version strings.
+
+  ```perch
+  let v = version_extract "${raw}"
+  assert_version v >= "1.28.0"        ← bare ident, no ${v}
+  if v >= "1.28.0"                    ← same; semver comparison, not float
+      shell "kubectl rollout restart deployment/api"
+  end
+  ```
+
+  `1.29.3 > 1.9.0` now returns true in `if` blocks — the previous numeric (float) comparison got this wrong because `1.29 < 1.9` as floats. `if X OP Y` auto-detects: both sides shaped like a version (optional `v` prefix, dot-separated all-digit segments) → semver compare; otherwise → numeric. Plain numeric comparisons (file sizes, counts) unaffected.
+
+  Grammar: seven new `assert_version_X_ident` overloads at priority 50 (matched alongside the existing `_infix` string forms — string-literal lhs uses the infix form, bare ident uses the new ident form). `opAssertVersionInfix` resolves `args._lhs_var` when present by looking up the binding at runtime. Handler change in `opIf` replaces hardcoded `toFloat` for `gt`/`lt`/`ge`/`le` with `compareValues` that detects the version case.
+
 - **Infix `assert_version "X" OP "Y"` — version gates that read like math.** Supplements the prefix `version_ge "X" "Y"` shape with a much more readable infix form:
 
   ```perch

@@ -153,13 +153,13 @@ func opIf(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]a
 	case "neq":
 		matched = lhsVal != interpreter.ToStringValue(rhs)
 	case "gt":
-		matched = toFloat(lhsVal) > toFloat(rhs)
+		matched = compareValues(lhsVal, rhs) > 0
 	case "lt":
-		matched = toFloat(lhsVal) < toFloat(rhs)
+		matched = compareValues(lhsVal, rhs) < 0
 	case "ge":
-		matched = toFloat(lhsVal) >= toFloat(rhs)
+		matched = compareValues(lhsVal, rhs) >= 0
 	case "le":
-		matched = toFloat(lhsVal) <= toFloat(rhs)
+		matched = compareValues(lhsVal, rhs) <= 0
 	case "truthy":
 		matched = truthy(lhsVal)
 	case "falsy":
@@ -170,6 +170,64 @@ func opIf(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]a
 	}
 	return nil, nil
 }
+
+// compareValues is the ordering used by `if X >= Y` / `if X > Y` / etc.
+// Auto-detects two regimes:
+//
+//   - Both sides parse as versions (start with optional 'v', contain a
+//     dot, segments are all digits) → semver-aware comparison.
+//     ("1.10.0" > "1.9.0", which plain-float would get wrong.)
+//   - Otherwise → numeric (toFloat).
+//
+// The same `if v >= "1.28.0"` users would write for version checks
+// stays correct WITHOUT requiring a separate `if_version` keyword.
+// Plain numeric comparisons (file sizes, counts) unaffected.
+func compareValues(lhs, rhs any) int {
+	ls := interpreter.ToStringValue(lhs)
+	rs := interpreter.ToStringValue(rhs)
+	if looksLikeVersion(ls) && looksLikeVersion(rs) {
+		return versionCompare(ls, rs)
+	}
+	lf := toFloat(lhs)
+	rf := toFloat(rhs)
+	switch {
+	case lf < rf:
+		return -1
+	case lf > rf:
+		return +1
+	}
+	return 0
+}
+
+// looksLikeVersion returns true if s is shaped like a dotted-number
+// version string (e.g. "1.28.0", "v1.29.3", "20.10.0-rc.1"). The
+// heuristic: optional leading 'v', then at least one '.', and the
+// segments before any '-' / '+' tail must be all digits.
+func looksLikeVersion(s string) bool {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "v")
+	if !strings.Contains(s, ".") {
+		return false
+	}
+	// Strip pre-release/build tail.
+	if i := strings.IndexAny(s, "-+"); i >= 0 {
+		s = s[:i]
+	}
+	for _, part := range strings.Split(s, ".") {
+		if part == "" {
+			return false
+		}
+		for _, c := range part {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// versionCompare lives in version.go; declared here for go-doc proximity.
+// (No re-declaration needed — same package.)
 
 // opIfCall evaluates `if FUNC ARG ... end` by invoking the named op
 // with one argument and running the body if the return value is truthy.
