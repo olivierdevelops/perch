@@ -75,6 +75,21 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - everything else → `shell` op with the original line preserved verbatim
   - The "pick whichever delimiter doesn't appear in your content" rule is applied automatically per line, so JSON / SQL / mixed-quote bodies get the right wrapper without manual escaping. Three-or-more-quote-types lines get a `# TODO: fix quoting` flag.
 - **New doc: [docs/migrating-from-shell.md](docs/migrating-from-shell.md)** — three-option migration guide (Wrap / Translate / Rewrite) with a rewriting checklist mapping common bash idioms to perch ops.
+- **Import-path variable expansion.** `${name}` placeholders in import paths are substituted at load time. Vocabulary matches the runtime auto-bound vars:
+
+  ```capy
+  import "${file_dir}/shared/aws.perch" as aws    # directory of THIS file
+  import "${HOME}/.perch/team-ops.perch"           # user home
+  import "${cache_dir}/perch/lib.perch"            # OS cache dir
+  import "${PERCH_LIB_PATH}/utils.perch"           # env-var fallthrough
+  ```
+
+  Recognised names: `file_dir` / `script_dir` (alias) → directory of the importing file; `home` / `HOME`; `cache_dir`; `config_dir`; `temp_dir`; `exe_dir`; `user` / `USER`; any other `${NAME}` falls through to `os.LookupEnv`. Unknown names error at load time (not silently expanded to empty), so typos surface as `unknown placeholder ${X} in import path` rather than a confusing "file not found" later.
+
+  Why this matters: relative imports already worked, but explicit `${file_dir}` makes the anchor visible to readers, and absolute forms (via `${HOME}` / `${cache_dir}`) unlock the team-wide-shared-library pattern (e.g. `${HOME}/.perch/team-ops.perch`) without depending on the user's cwd at invocation time.
+
+  Three new unit tests cover `${file_dir}`, env-var fallthrough, and unknown-placeholder errors. ~70 LOC added; same callback-shape expander pattern as the interpreter's `${...}` interpolation (no cross-package dependency).
+
 - **Multi-file imports** — `.perch` files can now compose. The most-named missing feature across all third-party reviews; ships in this release.
 
   ```capy

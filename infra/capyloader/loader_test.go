@@ -399,3 +399,83 @@ func keysOf(m map[string]*domain.Command) []string {
 func contains(s, sub string) bool {
 	return strings.Contains(s, sub)
 }
+
+func TestImportFileDir(t *testing.T) {
+	dir := t.TempDir()
+	subDir := dir + "/shared"
+	os.MkdirAll(subDir, 0755)
+	os.WriteFile(subDir+"/lib.perch", []byte(`name "lib"
+command from_lib
+    description "from shared/lib.perch"
+    do
+        print "lib"
+    end
+end
+`), 0644)
+	os.WriteFile(dir+"/main.perch", []byte(`name "main"
+import "${file_dir}/shared/lib.perch"
+command main_cmd
+    description "main"
+    do
+        run from_lib
+    end
+end
+`), 0644)
+	p, err := Load(dir + "/main.perch")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := p.Commands["from_lib"]; !ok {
+		t.Errorf("from_lib missing after ${file_dir} expansion; got %v", keysOf(p.Commands))
+	}
+}
+
+func TestImportEnvVar(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(dir+"/lib.perch", []byte(`name "lib"
+command e
+    description "e"
+    do
+        print "e"
+    end
+end
+`), 0644)
+	t.Setenv("PERCH_TEST_DIR", dir)
+	mainPath := dir + "/main.perch"
+	os.WriteFile(mainPath, []byte(`name "main"
+import "${PERCH_TEST_DIR}/lib.perch"
+command m
+    description "m"
+    do
+        run e
+    end
+end
+`), 0644)
+	p, err := Load(mainPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := p.Commands["e"]; !ok {
+		t.Errorf("e missing after env-var expansion; got %v", keysOf(p.Commands))
+	}
+}
+
+func TestImportUnknownVar(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(dir+"/main.perch", []byte(`name "main"
+import "${this_var_does_not_exist}/lib.perch"
+command m
+    description "m"
+    do
+        print "m"
+    end
+end
+`), 0644)
+	_, err := Load(dir + "/main.perch")
+	if err == nil {
+		t.Fatal("expected error for unknown placeholder, got nil")
+	}
+	if !contains(err.Error(), "this_var_does_not_exist") {
+		t.Errorf("expected error to name the placeholder; got %v", err)
+	}
+}

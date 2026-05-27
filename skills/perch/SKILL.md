@@ -504,6 +504,19 @@ Full design + the upcoming capability sandbox is at [sandbox.md](https://luowens
 |---|---|
 | `import "./lib.perch"` | flat — commands callable by their bare names (`run deploy`) |
 | `import "./aws.perch" as aws` | namespaced — commands callable as `aws.deploy` (use `run aws.deploy`) |
+| `import "${file_dir}/shared/k8s.perch"` | same as relative — `${file_dir}` is the directory of THIS file |
+| `import "${HOME}/.perch/team-ops.perch"` | absolute via env / auto-bound var (see below) |
+
+**Path expansion.** `${name}` placeholders are substituted in import paths before the file is opened. Recognised names (same vocabulary as runtime auto-bound vars):
+
+- `${file_dir}` / `${script_dir}` — directory of THIS file (the importing file)
+- `${home}` / `${HOME}` — user's home dir
+- `${cache_dir}` / `${config_dir}` / `${temp_dir}` — OS dirs
+- `${exe_dir}` — directory of the running perch binary
+- `${user}` / `${USER}` — username
+- any other `${NAME}` — falls through to the host env
+
+Unknown names error at load time (not silently expanded to empty), so a typo in the import path surfaces immediately.
 
 **Semantics:**
 

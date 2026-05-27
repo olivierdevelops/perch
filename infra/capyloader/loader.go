@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -124,9 +125,21 @@ func parseOnce(scriptSrc string) (*domain.Program, []importDirective, error) {
 // globals into `prog`. Errors carry the importing file's directive so
 // debugging an "import not found" error doesn't require git-bisecting
 // the import graph.
+//
+// The raw path string supports `${name}` substitution before filesystem
+// resolution — see expandImportPath. This is what makes
+//
+//	import "${file_dir}/shared/aws.perch" as aws
+//
+// portable across machines and machine-independent of the cwd at
+// invocation time.
 func resolveImports(prog *domain.Program, imports []importDirective, base string, visited map[string]bool) (*domain.Program, error) {
 	for _, imp := range imports {
-		target := imp.Path
+		expanded, err := expandImportPath(imp.Path, base)
+		if err != nil {
+			return nil, fmt.Errorf("import %q: %w", imp.Path, err)
+		}
+		target := expanded
 		if !filepath.IsAbs(target) && base != "" {
 			target = filepath.Join(base, target)
 		}
@@ -139,6 +152,97 @@ func resolveImports(prog *domain.Program, imports []importDirective, base string
 		}
 	}
 	return prog, nil
+}
+
+// expandImportPath substitutes `${name}` placeholders in an import path
+// before filesystem resolution. Recognised names:
+//
+//	${file_dir} / ${script_dir} — directory of the importing file
+//	${home} / ${HOME}           — user's home directory
+//	${cache_dir}                — OS user cache dir
+//	${config_dir}               — OS user config dir
+//	${temp_dir}                 — OS temp dir
+//	${exe_dir}                  — directory of the running perch binary
+//	${user} / ${USER}           — current username
+//	${ANY_OTHER}                — falls through to os.LookupEnv
+//
+// Unknown names fail with a clear error rather than expanding to
+// empty (which would silently produce a wrong path like `/shared/aws.perch`
+// instead of the intended `${HOME}/shared/aws.perch`).
+//
+// This is the same set perch auto-binds at runtime — kept aligned so
+// users don't have to learn a separate vocabulary for import-time vs
+// command-time interpolation.
+func expandImportPath(raw, fileDir string) (string, error) {
+	return expandTemplate(raw, func(name string) (string, bool) {
+		switch name {
+		case "file_dir", "script_dir":
+			if fileDir == "" {
+				if cwd, err := os.Getwd(); err == nil {
+					return cwd, true
+				}
+			}
+			return fileDir, true
+		case "home", "HOME":
+			if h, err := os.UserHomeDir(); err == nil {
+				return h, true
+			}
+		case "cache_dir":
+			if d, err := os.UserCacheDir(); err == nil {
+				return d, true
+			}
+		case "config_dir":
+			if d, err := os.UserConfigDir(); err == nil {
+				return d, true
+			}
+		case "temp_dir":
+			return os.TempDir(), true
+		case "exe_dir":
+			if exe, err := os.Executable(); err == nil {
+				if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+					exe = resolved
+				}
+				return filepath.Dir(exe), true
+			}
+		case "user", "USER":
+			if u, err := user.Current(); err == nil {
+				return u.Username, true
+			}
+		}
+		// Fall through to host env. ${ANYTHING_ELSE} reads the live env.
+		if v, ok := os.LookupEnv(name); ok {
+			return v, true
+		}
+		return "", false
+	})
+}
+
+// expandTemplate is a tiny `${name}` scanner. It mirrors the interpreter's
+// interpolation rules at the surface (same syntax) but lives in this
+// package to avoid a loader→interpreter import cycle, and uses a
+// resolver callback so the caller decides what each name means.
+func expandTemplate(s string, resolve func(name string) (string, bool)) (string, error) {
+	var out strings.Builder
+	i := 0
+	for i < len(s) {
+		if i+1 < len(s) && s[i] == '$' && s[i+1] == '{' {
+			end := strings.IndexByte(s[i+2:], '}')
+			if end < 0 {
+				return "", fmt.Errorf("unterminated ${ in %q", s)
+			}
+			name := strings.TrimSpace(s[i+2 : i+2+end])
+			v, ok := resolve(name)
+			if !ok {
+				return "", fmt.Errorf("unknown placeholder ${%s} in import path", name)
+			}
+			out.WriteString(v)
+			i += 2 + end + 1
+			continue
+		}
+		out.WriteByte(s[i])
+		i++
+	}
+	return out.String(), nil
 }
 
 // mergeProgram folds `from`'s commands into `into`. Flat imports merge
