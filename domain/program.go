@@ -28,6 +28,20 @@ type Program struct {
 	// was loaded from. Empty when the program was embedded in a binary.
 	// Surfaces as ${script_path} / ${script_dir} auto-bindings.
 	ScriptPath string `json:"-"`
+	// Bundle declares what files/directories should be embedded into the
+	// fat binary at `perch --build` time. Lifts the on-CLI `--include`
+	// flag into the source file so the .perch is the complete buildable
+	// spec — `perch --build` alone (no extra args) produces the right
+	// artifact. CLI `--include` is additive on top of this.
+	Bundle Bundle `json:"bundle,omitempty"`
+}
+
+// Bundle declares the file tree to embed into the fat binary at
+// `perch --build` time. Each Include is a path relative to the .perch
+// source file (or absolute). Paths in `wasm_run "bundle:PATH"` and
+// `bundle_dir` ops resolve into the resulting embedded tar.gz at runtime.
+type Bundle struct {
+	Includes []string `json:"includes,omitempty"`
 }
 
 // Template is a parse-time, parameterized op-sequence. Identical structure

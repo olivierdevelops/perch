@@ -55,14 +55,34 @@ func (i *Impl) Execute(configPath string, args []string) error {
 		return fmt.Errorf("locate self: %w", err)
 	}
 
-	var archive []byte
-	if *include != "" {
-		fmt.Printf("Bundling %s …\n", *include)
-		archive, err = tarballPath(*include)
-		if err != nil {
-			return fmt.Errorf("tar %q: %w", *include, err)
+	// Collect the include set from two sources:
+	//   1. The .perch file's `bundle ... end` section (declarative).
+	//   2. The CLI `--include PATH` flag (additive).
+	// Relative paths in the bundle section resolve against the .perch
+	// file's directory; CLI paths resolve against $cwd as ever.
+	var includes []string
+	if len(p.Bundle.Includes) > 0 {
+		scriptDir := filepath.Dir(p.ScriptPath)
+		for _, rel := range p.Bundle.Includes {
+			abs := rel
+			if !filepath.IsAbs(abs) {
+				abs = filepath.Join(scriptDir, abs)
+			}
+			includes = append(includes, abs)
 		}
-		fmt.Printf("✓ embedded %d bytes\n", len(archive))
+	}
+	if *include != "" {
+		includes = append(includes, *include)
+	}
+
+	var archive []byte
+	if len(includes) > 0 {
+		archive, err = tarballPaths(includes)
+		if err != nil {
+			return fmt.Errorf("tar bundle: %w", err)
+		}
+		fmt.Printf("✓ embedded %d bytes from %d source%s\n",
+			len(archive), len(includes), plural(len(includes)))
 	}
 
 	if err := i.Embed(self, p, archive, outPath); err != nil {
@@ -72,6 +92,83 @@ func (i *Impl) Execute(configPath string, args []string) error {
 	abs, _ := filepath.Abs(outPath)
 	fmt.Println("Built binary:", abs)
 	return nil
+}
+
+// tarballPaths is the multi-root variant of tarballPath. Each root is
+// added to one combined gzipped tar; later roots can shadow earlier
+// ones (CLI --include is listed after the declarative bundle section,
+// so a CLI flag wins on collision). Used by `bundle ... end` plus
+// `--include`.
+func tarballPaths(roots []string) ([]byte, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	seen := map[string]bool{}
+	for _, root := range roots {
+		fmt.Printf("Bundling %s …\n", root)
+		if err := tarAddRoot(tw, root, seen); err != nil {
+			return nil, fmt.Errorf("%s: %w", root, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// tarAddRoot adds one root (file or directory) to an open tar writer.
+// `seen` deduplicates by tar entry name so the last-write-wins semantics
+// of multiple roots stay clean.
+func tarAddRoot(tw *tar.Writer, root string, seen map[string]bool) error {
+	info, err := os.Stat(root)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		name := filepath.Base(root)
+		if seen[name] {
+			return nil
+		}
+		seen[name] = true
+		return tarAddFile(tw, root, name, info)
+	}
+	return filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		if fi.IsDir() {
+			switch fi.Name() {
+			case ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", "dist", ".cache":
+				return filepath.SkipDir
+			}
+		}
+		if fi.Name() == ".DS_Store" {
+			return nil
+		}
+		name := filepath.ToSlash(rel)
+		if seen[name] {
+			return nil
+		}
+		seen[name] = true
+		return tarAddFile(tw, path, rel, fi)
+	})
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 // tarballPath produces a gzipped tar of `root`. If `root` is a file

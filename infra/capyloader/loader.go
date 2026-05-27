@@ -380,6 +380,7 @@ const (
 	stTemplate
 	stTemplateArg
 	stTemplateDo
+	stBundle
 )
 
 func parseEventStream(stream string) (*domain.Program, []importDirective, error) {
@@ -434,6 +435,18 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			state = stGlobals
 		case "globals_end":
 			state = stTop
+		case "bundle_begin":
+			if state != stTop {
+				return nil, nil, fmt.Errorf("line %d: bundle block must be at top level", lineNum)
+			}
+			state = stBundle
+		case "bundle_end":
+			state = stTop
+		case "bundle_include":
+			if state != stBundle {
+				return nil, nil, fmt.Errorf("line %d: 'include' event outside bundle block", lineNum)
+			}
+			prog.Bundle.Includes = append(prog.Bundle.Includes, asString(ev.Value))
 		case "global":
 			if state != stGlobals {
 				return nil, nil, fmt.Errorf("line %d: 'global' event outside globals block", lineNum)

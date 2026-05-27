@@ -6,6 +6,17 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **Declarative `bundle ... end` section — the `.perch` file is now the complete buildable spec.** Previously the only way to embed files into a fat binary was the CLI `--include PATH` flag at `perch --build` time. That meant: the build invocation lived outside the source file, CI configs duplicated the include list, and a fresh contributor had to read README to know what to pass. Now you declare the bundle directly in the `.perch`:
+
+  ```perch
+  bundle
+      include "./modules"
+      include "./policies/rules.json"
+  end
+  ```
+
+  `perch --build` (no extra args) reads this and produces the right artifact. Paths in the `bundle` section resolve relative to the `.perch` file's directory. CLI `--include PATH` still works and is **additive** on top of the declarative set — useful for CI steps injecting a generated config. Combined with `wasm_run "bundle:PATH"` (below), the entire build + run story is **one file in, one binary out, zero CLI flags**.
+
 - **`wasm_run "bundle:PATH"` — run WASM modules from the embedded bundle, zero disk writes.** Previously `wasm_run` always loaded modules via `os.Open`, which meant either (a) the user shipped the `.wasm` files on disk alongside the binary, or (b) they used `${bundle_dir}/foo.wasm` which lazy-extracts the bundle to a temp dir. The new `bundle:` URI scheme reads bytes straight out of the embedded tar.gz and hands them to wazero's `CompileModule` — never touches the filesystem. `perch --build --include ./modules -o myapp` produces one executable with every `.wasm` inside; `./myapp run_plugin` compiles and executes the module from in-memory bytes. Compiled-module cache is keyed by `bundle:<bundleHash>:<entry>` so repeated calls (e.g. inside `parallel`) compile once. New `ops.BundleReadFile` + `ops.BundleHash` helpers expose the same capability to other op handlers that want to read embedded files without extraction. See [docs/wasm.md → "Loading from the embedded bundle"](docs/wasm.md). The practical shape: **ship a sandboxed plugin host as one artifact, no install steps on the target machine.**
 
 - **🪟 Web UI feature-parity push — for non-devs.** `perch --server` was a thin form-per-command surface; this brings it close to the CLI's pre-flight + run experience. Five tabs (hash-routed): **▶ Run** (live command search/filter, type-aware form inputs — checkbox/number/textarea per arg type, defaults as placeholders so empty submits use runtime defaults, mod badges for `test`/`detached`/`proxy_args`, collapsible globals panel, **Copy as CLI** button that mirrors the form back as a shell command), **🧪 Simulate** (every `--sim-*` flag as a form field plus a JSON fixture textarea — paste v2 fixture with oracles + scenarios, see per-op outcomes per scenario), **🔍 Scan** (full capability + risk audit with severity pills + recommended hardened invocation), **✓ Check** (syntactic validation with issue counts), **ℹ About**. Dark mode toggle (auto-respects `prefers-color-scheme`, persists per browser). Four new JSON endpoints back the panels: `GET /api/program`, `POST /api/check`, `POST /api/scan`, `POST /api/simulate` — embeddable in your dashboard / Slack bot / Backstage plugin. Same interpreter as the CLI; same capability restrictions inherit from launch (`perch --no-shell --no-network --server`). New doc: [docs/web-ui.md](docs/web-ui.md). The framing: *"For teammates who don't live in a terminal."*

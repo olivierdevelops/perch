@@ -73,6 +73,29 @@ ${body}{"event":"globals_end"}
 `
 end
 
+# ────────────────────────────────────────────────────────────────────────────
+# bundle ... end — declarative file-tree embedding for `perch --build`.
+# Lifts the `--include CLI` flag into the source file. CLI --include
+# remains additive on top of the declared set.
+# ────────────────────────────────────────────────────────────────────────────
+
+function bundle
+    arg literal "bundle"
+    block_closer end
+    write `{"event":"bundle_begin"}
+${body}{"event":"bundle_end"}
+`
+end
+
+# One path inside a bundle block: `include "PATH"`. Relative paths
+# resolve against the .perch file's directory at --build time.
+function bundle_include
+    arg literal "include"
+    arg capture path any
+    write `{"event":"bundle_include","value":${path}}
+`
+end
+
 # One assignment line: NAME = LITERAL. The Go side reads the JSON type.
 function global_assign
     arg capture k ident

@@ -87,14 +87,22 @@ toolchain produced the `.wasm` — it just loads and runs it under WASI.
 
 ## Loading from the embedded bundle (`bundle:` URI)
 
-When you ship your perch binary with `perch --build --include modules/`, the WASM files live as bytes inside the binary — they never need to land on the target machine's disk. Prefix the module path with `bundle:` to load straight from the embedded archive:
+Declare the file tree you want embedded directly in the `.perch` file — no CLI flag needed at build time. Then load WASM modules straight from those bytes; they never touch the target machine's disk.
 
 ```perch
+name "myapp"
+version "1.0.0"
+
+bundle
+    include "./modules"            # whole directory
+    include "./policies/rules.json" # individual file
+end
+
 command run_plugin
     do
         # Loaded from bytes already in the binary — no disk write,
         # no extract step. Works identically on every OS.
-        wasm_run "bundle:plugins/policy.wasm"
+        wasm_run "bundle:modules/policy.wasm"
             wasm_arg "/ro/deploy"
             wasm_mount_read "./deploy"
         end
@@ -102,11 +110,18 @@ command run_plugin
 end
 ```
 
-Build + ship the result as a single executable:
+Build:
 
 ```sh
-perch --build -f commands.perch --include ./modules -o myapp
-./myapp run_plugin        # the .wasm bytes are inside ./myapp
+perch --build -f myapp.perch -o myapp     # bundle declared in-file, no --include needed
+./myapp run_plugin                         # .wasm bytes are inside ./myapp
+```
+
+The `bundle ... end` section is the **source of truth** for what goes in the artifact — the `.perch` file alone tells the build pipeline everything it needs. CLI `--include PATH` still works and is **additive** (useful for CI build steps that want to inject something extra, like a generated config, on top of the declared set).
+
+```sh
+perch --build -f myapp.perch --include ./build-stamp.txt -o myapp
+# → embeds ./modules + ./policies/rules.json (from the bundle section) + ./build-stamp.txt
 ```
 
 The compiled wazero module is cached keyed by `bundle:<bundleHash>:<entry>`, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, no disk involvement.
