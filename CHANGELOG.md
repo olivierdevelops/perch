@@ -6,6 +6,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+### Design notes (planned, not yet shipped)
+
+- **Unified `with ... then ... end` context block** — replace `os "X" ... end` / `with_env` / `with_cwd` / `sandbox` with a single block carrying any combination of context attributes (os, cwd, env, no_tty, allow_host, max_runtime, …). Composability win: adding a new context kind never requires a new block construct, just a new attribute line. **Status: blocked.** Attempted in two commits this session (`with` and `using` keywords); capy's grammar engine doesn't currently support the "header (attribute lines) → separator (`then`) → body" shape inside a `block_closer end` block — body-parser doesn't recognise the attribute lines as valid body content. Documented here as a planned design pending a capy grammar capability bump; in the meantime `os "X" ... end` (below) covers the OS-context piece and the existing `with_env` / `with_cwd` / `sandbox` blocks cover the rest.
+
+### Added
+
 - **`os "unix"` umbrella target** for execution-context blocks. Matches darwin, linux, freebsd, openbsd, netbsd — the same set the existing `${is_unix}` auto-bound var covers. Standard "any Unix; Windows is special" pattern is now one block:
 
   ```perch

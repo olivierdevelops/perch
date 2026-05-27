@@ -15,34 +15,31 @@ func registerFlow(m map[string]interpreter.Handler) {
 	m["os"] = opOsBlock
 }
 
-// opOsBlock — execution context block. `os "linux" ... end` runs its
-// body only when the host's ${os} matches the declared target.
-// Semantically richer than `if os == "linux" ... end`: the body has a
-// KNOWN OS context, which the simulator + --scan + the UI use to make
-// stronger statements about what the program needs.
+// opOsBlock — OS execution context block. `os "linux" ... end` runs
+// its body only when the host's ${os} matches the declared target.
 //
 // Targets:
-//   "darwin"  | "linux" | "windows"   — exact ${os} match
-//   "unix"    — umbrella: matches darwin, linux, freebsd, openbsd, netbsd
-//               (mirrors the existing ${is_unix} auto-bound var)
-//   "freebsd" / "openbsd" / "netbsd"  — exact ${os} match (rare but works)
+//   "darwin" | "linux" | "windows"     — exact ${os} match
+//   "freebsd" | "openbsd" | "netbsd"   — exact ${os} match
+//   "unix"                              — umbrella matching the same
+//                                         set as ${is_unix}
 //
-// Runtime semantics: skip body if the target doesn't match. That's it.
-// The "stronger statements" live in the static-analysis layers
-// (--scan, simulate), not in the interpreter.
+// Design note: a future revision will fold this into a unified
+// `with ... then ... end` block that carries any combination of
+// context attributes. That refactor is blocked on a capy grammar
+// capability that isn't in the current engine.
 func opOsBlock(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	target, _ := args["target"].(string)
 	currentOS, _ := b.Lookup("os")
 	if !osTargetMatches(target, currentOS) {
-		return nil, nil // wrong OS; skip
+		return nil, nil
 	}
 	body, _ := args["_body"].([]domain.Op)
 	return nil, i.RunOps(body, b)
 }
 
 // OsTargetMatches reports whether the declared target matches the
-// host's ${os}. Exposed (capital) so the simulator + scanner can apply
-// the same rule.
+// host's ${os}. Exposed for the simulator + scanner.
 func OsTargetMatches(target, host string) bool {
 	return osTargetMatches(target, host)
 }
@@ -55,7 +52,6 @@ func osTargetMatches(target, host string) bool {
 		return true
 	}
 	if target == "unix" {
-		// Same set ${is_unix} covers: anything that ISN'T windows.
 		switch host {
 		case "darwin", "linux", "freebsd", "openbsd", "netbsd":
 			return true

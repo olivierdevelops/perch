@@ -366,12 +366,7 @@ func simulateOp(op domain.Op, env SimEnv, depth int, p *domain.Program, cmdName 
 		return r
 
 	case "os":
-		// OS execution context block. When --sim-os matches the
-		// declared target, simulate the body in that context.
-		// When it doesn't match, this branch is dead code on the
-		// simulated host — annotate but don't classify children
-		// (they wouldn't fire). Matching mirrors ops.OsTargetMatches:
-		// exact OR `os "unix"` matches darwin/linux/BSDs.
+		// OS execution context block. Prune by --sim-os.
 		r.IsBlockEntry = true
 		target, _ := op.Args["target"].(string)
 		if env.OS == "" || osMatches(target, env.OS) {
