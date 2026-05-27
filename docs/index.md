@@ -485,6 +485,23 @@ Try it: <code>perch --scan -f deploy.perch</code>. See the animated demo above.
 
 **Is it a build tool or a CLI framework?** Both. Same file becomes a Make-style task runner *and* a Cobra-style typed CLI. Pick the surface (CLI / web / REPL / MCP / binary) that fits the caller.
 
+**How do I install it / how do I run a remote `.perch` file?** Two one-liners.
+
+Install (macOS / Linux / WSL — picks the right binary for your platform):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
+```
+
+Run a `.perch` file straight from a URL (no save-to-disk step), with restrictions you choose:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/sample.perch \
+  | perch --no-shell --no-network -f - hello
+```
+
+`-f -` means "read the perch source from stdin." Pipe anything: a `curl`, a `git show`, an editor's stdout. Combine with `--no-shell`, `--no-network`, `--no-write`, `--env`, `--scan` etc. — full security model still applies to piped scripts. Especially useful for **running an untrusted script you don't want to leave on disk** — pipe it through `--no-shell --no-write` and watch what it does without it being able to escape.
+
 **Can I run `.perch` files as scripts (shebang)?** Yes. `perch --init` writes a `#!/usr/bin/env perch` line at the top and sets the file executable. Then `./commands.perch` runs the `main` command; `./commands.perch hello` runs `hello`; everything between just works. Conceptually a `.perch` file is a script *and* a structured CLI surface — both at once.
 
 ```sh
@@ -500,6 +517,22 @@ The shebang line is just a `#` comment to perch's parser, so it has no effect on
 **Is it a cross-platform shell?** Yes — and that's the point. With ~140 built-in ops (cp, mkdir, gzip, tar_create, http_get, sha256_file, regex_replace, …) you can write a script that runs identically on macOS / Linux / Windows without falling back to bash or cmd. Disable the `shell` op and you have a *pure* portable script. See [sandbox.md](sandbox.md) for the "pure" mode design.
 
 **Can I see what a command will do before running it?** Yes — `perch --dry-run cmd` prints every op with its interpolated args and skips execution; `perch --ask cmd` is the same plan interactively (`y` = run, `n` = skip, `a` = run all remaining, `q` = quit). See it in the terminal below.
+
+<div class="pterm" id="t-pipe" data-title="install + pipe — one-liners"></div>
+<script type="application/json" data-pterm="t-pipe">
+[
+  {"k":"dim", "t":"# install in one line:"},
+  {"k":"in",  "t":"curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh"},
+  {"k":"ok",  "t":"✓ perch v0.6.0 installed to /usr/local/bin/perch"},
+  {"k":"blank","t":""},
+  {"k":"dim", "t":"# run a remote .perch file straight from a URL — never lands on disk:"},
+  {"k":"in",  "t":"curl -fsSL https://example.com/scripts/setup.perch | perch -f - --no-shell run"},
+  {"k":"dim", "t":"🔒 security: --no-shell"},
+  {"k":"ok",  "t":"setting up project..."},
+  {"k":"err", "t":"op \"shell\" is disabled by --no-shell"},
+  {"k":"accent","t":"→ pipe untrusted scripts through restrictions before they touch your machine"}
+]
+</script>
 
 <div class="pterm" id="t-shebang" data-title=".perch files are scripts too"></div>
 <script type="application/json" data-pterm="t-shebang">

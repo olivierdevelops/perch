@@ -120,6 +120,27 @@ scp ./greet remote.host:~/    # works on any same-OS box, no perch install neede
 
 What just happened: `perch --build` copied itself, appended your parsed program as JSON + a magic footer, and produced a single file that boots straight into your commands. See [Embedding](embedding.md) for the format.
 
+## Run a remote `.perch` file — no save-to-disk step
+
+`perch -f -` reads the source from stdin, so anything you can `curl` you can run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/sample.perch \
+  | perch -f - hello
+```
+
+Layer security flags on top — they apply to piped scripts exactly the same way:
+
+```sh
+# Run an untrusted script with shell + network disabled.
+# `--scan` would have shown what it needed first; --no-shell --no-write
+# means the worst it can do is print things.
+curl -fsSL https://stranger.example/random.perch \
+  | perch -f - --no-shell --no-write run
+```
+
+This is the right answer for "run a script you don't fully trust." Pipe it through restrictions instead of saving it, chmod'ing it, and hoping.
+
 ## What next
 
 - [Language reference](language.md) — every config modifier, op, and block form.

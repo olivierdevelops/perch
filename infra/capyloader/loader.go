@@ -13,6 +13,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,27 @@ import (
 var librarySource string
 
 // Load parses a .perch source file and returns a Program.
+//
+// Special case: path == "-" reads the source from os.Stdin instead of
+// a file. This is what makes piping work:
+//
+//   curl -fsSL https://.../commands.perch | perch -f - <command>
+//
+// ScriptPath is set to "-" for the stdin case so auto-bound ${script_path}
+// is still defined (just to a non-filesystem sentinel).
 func Load(path string) (*domain.Program, error) {
+	if path == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("read stdin: %w", err)
+		}
+		p, err := LoadFromString(string(data))
+		if err != nil {
+			return nil, err
+		}
+		p.ScriptPath = "-"
+		return p, nil
+	}
 	script, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)

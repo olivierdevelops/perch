@@ -415,6 +415,18 @@ catch unknown
 end
 ```
 
+## Piping a `.perch` file from stdin
+
+`perch -f -` reads the perch source from stdin instead of from a file:
+
+```sh
+cat script.perch | perch -f - hello
+curl -fsSL https://.../script.perch | perch -f - --no-shell --no-network run
+git show HEAD:commands.perch | perch -f - --check
+```
+
+Useful for running remote scripts without saving them to disk and for combining with restriction flags as a sandbox-on-the-fly. `${script_path}` is `"-"` in this mode.
+
 ## Preview before running
 
 - **`perch --dry-run <cmd>`** — walks every op, prints kind + interpolated args, skips the handler. Capture vars become `""` so `${x}` still resolves downstream.
