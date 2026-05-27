@@ -65,7 +65,7 @@ perch build --help             # → per-command help (args, defaults, examples)
 perch --check                  # → statically validate commands.perch
 perch test                     # → run every command marked `test` (sandboxed)
 perch --report build           # → execute + render the span tree of what ran
-perch --server                 # → same file, web UI
+perch --server                 # → same file, web UI (no terminal required ✨)
 perch --shell                  # → same file, REPL
 perch --build -o myapp         # → same file, portable binary
 ```
@@ -87,6 +87,29 @@ irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1
 # Or download a binary from the releases page:
 # https://github.com/luowensheng/perch/releases
 ```
+
+### 🪟 Web UI — no terminal required
+
+For teammates who don't live in a terminal — support, ops, QA, the new hire on their first day — `perch --server` turns the same `.perch` file into a friendly localhost web app:
+
+```sh
+perch -f commands.perch --server --port 8080
+# → open http://127.0.0.1:8080
+```
+
+**What you get out of the box:**
+
+| Tab | What it does |
+|---|---|
+| **▶ Run** | Searchable command list with type-aware form inputs (checkbox for bools, number spinner for ints, multi-line for `rest` args). Click **Run** → output streams live in a dark panel. **Copy as CLI** button mirrors the form back to a shell command for handoff. |
+| **🧪 Simulate** | Every `--sim-*` flag becomes a form field. Paste a v2 fixture JSON (with **oracles** + **scenarios**) and click Simulate → per-op outcomes (WILL_RUN ✓ / WILL_FAIL ✗ / MIGHT_FAIL ?) for each scenario side by side. |
+| **🔍 Scan** | One click → the full capability + risk audit. Same report `perch --scan` prints, plus the recommended hardened invocation. |
+| **✓ Check** | One click → syntactic validation. Issue list with severity counts. |
+| **ℹ About** | Program metadata + links to docs. |
+
+Plus: live **search/filter** across commands, **dark mode** (auto-detects system theme, persists per browser), **globals panel** showing every binding, **mod badges** for `test` / `detached` / `proxy_args` commands. Single-tenant + localhost-bound by default — put it behind your existing reverse proxy / SSO for shared access.
+
+The web UI sits on the same interpreter as the CLI — anything you'd type as `perch -f file.perch CMD -arg=val` works in the UI, and vice versa.
 
 ### AI-agent integration
 

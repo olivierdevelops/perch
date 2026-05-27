@@ -60,10 +60,62 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 <p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
 <strong>Also recently shipped:</strong>
+🪟 <a href="web-ui/"><strong>Web UI for non-devs</strong></a> — same <code>.perch</code> file, served as a tabbed localhost web app (Run / Simulate / Scan / Check / About) ·
 📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
 📦 <a href="recipes/"><strong>22 ready-made recipes</strong></a> — Redis / Postgres / devstack / aistack / observe / kafka / modern-unix / gh-flow / docker-mgr / mkcert / backup / scan-secrets · one curl, audit with <code>--scan</code>, run ·
 🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer
 </p>
+
+---
+
+## 🪟 No terminal? No problem.
+
+For **support engineers**, **QA**, **product**, **ops**, **the new hire on day one** — anyone who'd rather click than memorise CLI flags:
+
+```sh
+perch -f commands.perch --server --port 8080
+# → open http://127.0.0.1:8080
+```
+
+The same `.perch` file becomes a friendly localhost web app. **Five tabs, one file, zero config:**
+
+<div class="perch-features">
+
+<div class="card">
+  <h4>▶ Run</h4>
+  <p>Searchable list of every command. <strong>Type-aware form inputs</strong> — checkbox for bools, number spinner for ints, multi-line textarea for <code>rest</code> args. Click Run → output streams live. <strong>Copy as CLI</strong> button hands the form back as a shell command. Globals panel + mod badges (<code>test</code> · <code>detached</code> · <code>proxy_args</code>).</p>
+</div>
+
+<div class="card">
+  <h4>🧪 Simulate</h4>
+  <p>Every <code>--sim-*</code> flag becomes a form field. Paste a <strong>v2 fixture JSON</strong> (capabilities + oracles + scenarios) and Simulate → per-op outcomes for each scenario side by side. *"What would this do on the prod host?"* answered without a terminal.</p>
+</div>
+
+<div class="card">
+  <h4>🔍 Scan</h4>
+  <p>One click → the full capability + risk audit. Severity pills, the recommended hardened invocation, every host / write root / env var the program touches. <strong>Run this before executing anything you didn't write yourself.</strong></p>
+</div>
+
+<div class="card">
+  <h4>✓ Check</h4>
+  <p>One click → syntactic validation (same engine as <code>perch --check</code> in pre-commit). Issue list with severity counts.</p>
+</div>
+
+<div class="card">
+  <h4>ℹ About + Theme</h4>
+  <p>Program metadata + doc links. <strong>Dark mode</strong> auto-respects <code>prefers-color-scheme</code> and persists per browser. Hash-routed tabs (<code>#run</code>, <code>#simulate</code>, …) so any tab is bookmarkable.</p>
+</div>
+
+<div class="card">
+  <h4>🔌 JSON API</h4>
+  <p>Every panel is a JSON endpoint you can drive from another internal tool: <code>GET /api/program</code>, <code>POST /api/check</code> / <code>/api/scan</code> / <code>/api/simulate</code>, NDJSON-streaming <code>/api/exec</code>. Embed perch in your dashboard, Slack bot, or Backstage plugin.</p>
+</div>
+
+</div>
+
+**Security**: single-tenant + localhost-bound by default; pair with your reverse proxy + SSO for shared access. Capability restrictions inherit from launch — `perch --no-shell --no-network --server` produces a UI where shell ops error and HTTP is denied. Commands marked `private` are hidden + rejected.
+
+[**Web UI guide →**](web-ui.md)
 
 ### See them in action
 
