@@ -1,0 +1,58 @@
+name "diff-summary"
+about "Agent-safe PR summarization — structured JSON from a unified diff"
+version "1.0.0"
+
+command summarize_file
+    description "Summarize a diff file bundled under ./diffs"
+    arg path
+        type string
+        index 0
+        description "Diff file name (under ./diffs)"
+    end
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/diff-summary.wasm"
+            wasm_arg "/ro/diffs/${path}"
+            wasm_mount_read "${assets}/diffs"
+        end
+    end
+end
+
+command summarize_stdin
+    description "Read a diff from stdin, print summary JSON to stdout"
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/diff-summary.wasm"
+            wasm_env ""
+        end
+    end
+end
+
+command demo
+    description "Summarize the bundled sample.diff"
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/diff-summary.wasm"
+            wasm_arg "/ro/diffs/sample.diff"
+            wasm_mount_read "${assets}/diffs"
+        end
+    end
+end
+
+command summarize_pr
+    description "Pipe `git diff` into the summarizer (suitable for CI / agent calls)"
+    do
+        shell "git diff origin/main...HEAD | perch -f ${script_dir}/commands.perch summarize_stdin"
+    end
+end
+
+command rebuild
+    description "Recompile diff-summary.wasm (needs Go 1.21+)"
+    do
+        with_cwd "${script_dir}"
+            shell "GOOS=wasip1 GOARCH=wasm go build -o diff-summary.wasm ."
+        end
+        let size = file_size "${script_dir}/diff-summary.wasm"
+        print "✓ rebuilt diff-summary.wasm (${size} bytes)"
+    end
+end

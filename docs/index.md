@@ -104,7 +104,7 @@ ops/security (mkcert-local, backup, scan-secrets).
 
 <div class="card">
   <h4>🔒 <code>wasm_run</code> — the constrained execution lane</h4>
-  <p>For when "capability-gated shell" isn't enough. Load a WebAssembly module under WASI; the module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is invisible <em>by construction</em>, not policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <a href="wasm/">Details →</a></p>
+  <p>For when "capability-gated shell" isn't enough. Load a WebAssembly module under WASI; the module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is invisible <em>by construction</em>, not policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <a href="wasm/">Reference →</a> · <a href="wasm-walkthroughs/">5 end-to-end walkthroughs →</a></p>
 </div>
 
 <div class="card">

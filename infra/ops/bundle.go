@@ -58,7 +58,13 @@ func registerBundle(m map[string]interpreter.Handler) {
 		bundleMu.Lock()
 		if bundleArchive == nil {
 			bundleMu.Unlock()
-			return nil, fmt.Errorf("no embedded bundle")
+			// No bundle (running from a .perch file rather than a built
+			// binary). Fall back to script_dir so a single .perch file
+			// can use ${bundle_dir} uniformly in both modes.
+			if sd, ok := b.Lookup("script_dir"); ok && sd != "" {
+				return sd, nil
+			}
+			return nil, fmt.Errorf("no embedded bundle and script_dir is empty — provide a file via -f")
 		}
 		bundleMu.Unlock()
 		bundleExtractOnce.Do(func() {

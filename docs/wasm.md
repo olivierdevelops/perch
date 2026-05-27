@@ -1,5 +1,12 @@
 # `wasm_run` — the constrained execution lane
 
+> **Looking for end-to-end examples?** [`wasm-walkthroughs.md`](wasm-walkthroughs.md)
+> walks through five real-world workflows: markdown frontmatter
+> validation, JSON Schema validation with caching, AI-agent safe
+> execution via MCP, polyglot pipelines, and CI hot loops. This page
+> is the reference — every flag, every capability declaration, full
+> spec.
+
 > **perch has two execution lanes.**
 >
 > `shell` is the universal escape hatch — flexible, fast to write,

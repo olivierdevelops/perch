@@ -73,6 +73,7 @@ nav:
   - Templates, contexts &amp; `--report`: execution-contexts.md
   - Testing (`perch test`): testing.md
   - "🔒 WASM (`wasm_run`)": wasm.md
+  - "🔒 WASM walkthroughs": wasm-walkthroughs.md
   - Op catalog: op-reference.md
   - Embedding (`--build`): embedding.md
   - MCP server (AI agents): mcp.md

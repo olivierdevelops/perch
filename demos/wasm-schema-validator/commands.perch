@@ -1,0 +1,70 @@
+name "schema-validator"
+about "Deterministic JSON schema validation via embedded WASM module"
+version "1.0.0"
+
+command validate
+    description "Validate ONE JSON file against ONE schema"
+    arg schema
+        type string
+        index 0
+        description "Schema name (file under ./schemas/SCHEMA.json)"
+    end
+    arg file
+        type string
+        index 1
+        description "JSON file to validate (path under ./fixtures/)"
+    end
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/schema-validator.wasm"
+            wasm_arg "/ro/schemas/${schema}.json"
+            wasm_arg "/ro/fixtures/${file}"
+            wasm_mount_read "${assets}/schemas"
+            wasm_mount_read "${assets}/fixtures"
+        end
+    end
+end
+
+command demo_good
+    description "Validate a passing fixture (exit 0, prints ✓ valid)"
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/schema-validator.wasm"
+            wasm_arg "/ro/schemas/user.json"
+            wasm_arg "/ro/fixtures/good-alice.json"
+            wasm_mount_read "${assets}/schemas"
+            wasm_mount_read "${assets}/fixtures"
+        end
+    end
+end
+
+command demo_bad
+    description "Validate a fixture with 5 violations (exit 1, prints 5 errors)"
+    do
+        let assets = bundle_dir
+        wasm_run "${assets}/schema-validator.wasm"
+            wasm_arg "/ro/schemas/user.json"
+            wasm_arg "/ro/fixtures/bad-mallory.json"
+            wasm_mount_read "${assets}/schemas"
+            wasm_mount_read "${assets}/fixtures"
+        end
+    end
+end
+
+command test_validator_accepts_good
+    test
+    do
+        run demo_good
+    end
+end
+
+command rebuild
+    description "Recompile the .wasm from main.go (needs Go 1.21+)"
+    do
+        with_cwd "${script_dir}"
+            shell "GOOS=wasip1 GOARCH=wasm go build -o schema-validator.wasm ."
+        end
+        let size = file_size "${script_dir}/schema-validator.wasm"
+        print "✓ rebuilt schema-validator.wasm (${size} bytes)"
+    end
+end

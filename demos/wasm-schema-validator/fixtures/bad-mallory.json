@@ -1,0 +1,7 @@
+{
+  "id": -1,
+  "email": "not-an-email",
+  "role": "superuser",
+  "age": 200,
+  "secret_field": "should-be-rejected"
+}
