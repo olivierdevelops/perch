@@ -120,8 +120,10 @@ perch --completions fish > ~/.config/fish/completions/perch.fish
 1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Five frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), steppable in a REPL (`--shell`), exposed to AI agents via MCP (`perch-mcp`), and runnable as an executable script (`#!/usr/bin/env perch` shebang).
-4. **One `--build` away from shippable.** Bundle your `commands.perch` into a single portable binary your users can run on a fresh machine with no Go toolchain, no perch install, no nothing.
-5. **Default-on hardening for HTTP.** `http_get` / `http_post` / `download` refuse private-IP destinations (AWS metadata, localhost pivot, RFC 1918), refuse https→http redirect downgrades, cap at 5 redirect hops, validate every A/AAAA record (DNS rebinding defense), and accept a strict `--allow-host` allowlist that re-validates each redirect target. Combined with `--no-shell` / `--no-network` / `--env` / `--audit`, perch is a defensible execution surface for scripts you'd hand to an AI agent.
+4. **One `--build` away from shippable.** `perch --build -o myapp` produces a single executable for the *current OS/arch* (cross-compile is roadmap), typically 10–15 MB. The format is the perch binary itself with your program JSON appended in a fat-binary footer; on startup the binary detects the footer and loads the embedded program instead of looking for a `.perch` file. `--include <path>` additionally embeds a gzipped tarball — useful for shipping a Python/Node project alongside the CLI. Full spec: [docs/embedding.md](docs/embedding.md).
+5. **Controlled scripting** — not sandboxing. perch lets you declare what an invocation may do: `--no-shell`, `--no-network`, `--no-write`, `--no-subprocess`, `--env A,B,C`, `--allow-bin git,docker`, `--allow-host api.github.com`, `--max-runtime 300`, `--audit FILE.ndjson`. With `--no-shell` the boundary is airtight (perch never spawns a subprocess). With `shell` allowed, perch enforces *its own* op dispatch — the subprocess can still talk to the kernel, so adversarial input still needs an OS-level sandbox (`firejail` / `sandbox-exec` / `AppContainer`) layered underneath. HTTP ops have additional default-on protections: no private-IP destinations, no https→http downgrade, max 5 redirect hops, DNS-rebinding defense via multi-A validation.
+
+> **Sweet spot:** replacing the Makefile + `bin/`-of-scripts + helper-CLI sprawl in a single project, *especially* when you want to ship it as a portable binary or expose it to an AI agent. Outside that range (a 200-command monorepo task system, a CI orchestrator, a public multi-tenant service) you'll outgrow perch's composability primitives — see "Where it breaks down" below.
 
 ---
 
@@ -136,7 +138,7 @@ Perch is deliberately narrow. It is not:
 - **An init system or service supervisor.** No restart policies, no health checks, no PID files. Use `systemd` / `launchd` / a process manager for that.
 - **A polyglot runtime.** No Python / JS / Rust embedding. Call them via `shell` or ship them via `--build --include`.
 - **A multi-user auth system.** `--server` is single-tenant, localhost-bound by default. For multi-tenant or public access, put it behind a reverse proxy with the auth story you already use.
-- **A kernel-level sandbox.** The op set is the security boundary. `--no-shell` is airtight; once you allow `shell`, the spawned subprocess can talk to the kernel directly and `--no-network` only fences perch's own HTTP ops. For adversarial input, layer with `firejail` / `sandbox-exec` / `AppContainer`. See [docs/sandbox.md §0d](docs/sandbox.md#0d-the-subprocess-escape-hatch--and-the-layered-defense) for the honest discussion.
+- **A kernel-level sandbox.** Frame it as **controlled scripting, not sandboxing.** The op set is the boundary perch enforces; with `--no-shell` it's airtight (no subprocess can fire); with `shell` allowed, the spawned process can talk to the kernel directly and only perch's *own* HTTP / FS / env ops are fenced. For genuinely adversarial input, layer with `firejail` / `sandbox-exec` / `AppContainer` underneath. See [docs/sandbox.md §0d](docs/sandbox.md#0d-the-subprocess-escape-hatch--and-the-layered-defense) for the full discussion.
 
 If you need one of the above, perch is the wrong layer — but it composes with whichever one you pick.
 
@@ -213,14 +215,20 @@ Four more worked examples live under [demos/](demos): a Docker wrapper, a cross-
 
 Honest about the limits — useful for deciding whether perch fits your problem:
 
+**Composability.** This is where perch outgrows itself fastest:
+
+- **No user-defined functions, closures, or higher-order ops.** `command NAME ... end` is the only abstraction unit. `run other_command` calls another command (with `let` bindings flowing through), but you can't pass a command as an argument, return one from another, or write a one-line helper inside a body. Repeated patterns get repeated literally — no macros, no `define`, no `defn`.
+- **No imports or modules.** `-f` picks one file at a time. A second file can be referenced via `shell "perch -f other.perch sub-cmd"`, but that's a subprocess boundary, not a language one — no shared bindings, no static cross-file checks. **Multi-file composition is the most concrete missing feature.**
+- **Scale ceiling per file.** ~10 commands reads well; ~30 starts to feel cramped; ~50+ probably wants splitting (which today means subprocess fan-out, not a language solution). If your problem looks like a 200-command monorepo orchestrator, perch is the wrong tool today.
+
+**Other limits worth knowing:**
+
 - **Streaming captures.** `shell "X"` streams output to stdout; `let s = shell_output "X"` waits for X to finish. Long real-time log views work via plain `shell`, not via captures.
 - **No real list type.** Variadic args, `glob`, and `list_dir` return newline-joined strings; `for_each` iterates them. Nested data structures (maps, lists-of-lists) don't exist in the binding system. Use JSON ops + `json_get` for nested reads.
-- **No closures or higher-order anything.** Commands are the unit of composition. `run other_command` exists; passing a command as an argument doesn't.
 - **Single-process, sequential.** No coroutines, no event loop, no daemons. `shell_detached` is the only parallel escape; everything else runs in order.
 - **State is per-invocation.** Persistent state lives in files / databases / whatever you choose. The REPL keeps bindings across lines within one session — that's the extent of in-memory persistence.
-- **Scale ceiling per file.** ~10 commands reads well; ~50 starts to feel cramped; beyond that you probably want multiple files (which perch supports via `-f`, but with a flat per-file namespace — no imports yet).
 - **Cross-platform parity has an asterisk.** The ~140 ops are identical across macOS / Linux / Windows. `shell` invocations are inherently OS-specific. `--no-shell` is the only way to *guarantee* parity; with `shell` allowed, you write per-OS branches.
-- **Adversarial input.** Restriction flags close the easy cases. For genuinely hostile `.perch` files you can't trust, layer perch under a kernel-level sandbox (`firejail`, `sandbox-exec`, `AppContainer`) — perch's security model assumes you've code-reviewed the file, not that it could be from a determined attacker. [docs/sandbox.md](docs/sandbox.md) is honest about this.
+- **Adversarial input.** Restriction flags close the easy cases. For genuinely hostile `.perch` files you can't trust, layer perch under a kernel-level sandbox (`firejail`, `sandbox-exec`, `AppContainer`) — perch is *controlled scripting*, not a sandbox.
 - **Hot reload.** Parsed once at start. Edit, re-run. No file-watcher mode.
 
 If two or three of these are deal-breakers, perch is the wrong tool. If they're acceptable trade-offs, perch is probably saving you a Cobra app + a Makefile + a CI YAML + an MCP server.
