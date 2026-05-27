@@ -235,7 +235,7 @@ For the Wrap / Translate / Rewrite migration story from existing shell scripts, 
 
 To be honest about the limits:
 
-- **It is not a kernel.** It can't enforce filesystem or network restrictions on a subprocess that legitimately reads a file or opens a socket. For that you need real OS sandboxing — Linux mount/network namespaces (firejail, bubblewrap), macOS sandbox-exec, Windows AppContainer. perch documents how to layer with those (see [sandbox §0c](sandbox.md#0c-the-subprocess-escape-hatch-and-the-layered-defense)) but doesn't reimplement them.
+- **It is not a kernel.** It can't enforce filesystem or network restrictions on a subprocess that legitimately reads a file or opens a socket. For that you need real OS sandboxing — Linux mount/network namespaces (firejail, bubblewrap), macOS sandbox-exec, Windows AppContainer. perch documents how to layer with those (see [sandbox §0c](sandbox.md#0d-the-subprocess-escape-hatch-and-the-layered-defense)) but doesn't reimplement them.
 - **It is not multi-user.** No login, no per-user identity beyond what the host already provides. Identity is "whoever invoked perch."
 - **It is not an init system.** There's no `systemd`-style service supervision yet. Long-running processes go to `shell_detached`; cleanup is via `on_signal`. Real supervision (restart policy, health checks, dependency graph) is a future direction, not a current feature.
 - **It is not a hypervisor.** It does not provide hardware isolation. Two `perch` instances on the same machine share the same OS view.
