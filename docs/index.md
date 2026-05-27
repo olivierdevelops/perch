@@ -83,6 +83,8 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 
 <p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
 <strong>Also recently shipped:</strong>
+🖥️ <strong>OS execution-context blocks (<code>os "PLATFORM" ... end</code>)</strong> — declare cross-platform branches structurally: <code>os "unix"</code> / <code>os "linux"</code> / <code>os "windows"</code> (plus a <code>"unix"</code> umbrella matching darwin + linux + BSDs). simulate prunes mismatched branches as known dead code on the target host ·
+🎯 <strong>Risk score in <code>--scan</code></strong> — one-glance 🟢 SAFE / 🟡 LOW / 🟠 MED / 🔴 HIGH summary with concrete reasons (uses sudo, executes shell, catch forwards proxy_args, …); web UI's Scan tab surfaces the score as a colored pill ·
 🛟 <a href="errors/"><strong>Error handling — <code>try/rescue/finally</code> + <code>match</code></strong></a> — 30-kind error enum (<code>shell_exit_nonzero</code>, <code>http_ssrf_blocked</code>, <code>wasm_module_exited</code>, …) for structured recovery + cleanup, no more "halt on any error" ·
 🪟 <a href="web-ui/"><strong>Web UI for non-devs</strong></a> — same <code>.perch</code> file, served as a tabbed localhost web app (Run / Simulate / Scan / Check / About) ·
 📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
@@ -288,7 +290,7 @@ perch -f commands.perch --server --port 8080
 
 <div class="card">
   <h4>🔍 Scan</h4>
-  <p>One click → the full capability + risk audit. Severity pills, the recommended hardened invocation, every host / write root / env var the program touches. <strong>Run this before executing anything you didn't write yourself.</strong></p>
+  <p>One click → the full capability + risk audit. Leads with a <strong>one-glance risk score</strong> (🟢 SAFE / 🟡 LOW / 🟠 MED / 🔴 HIGH) and concrete reasons (uses sudo, executes shell, catch forwards proxy_args, …). Severity pills, the recommended hardened invocation, every host / write root / env var the program touches. <strong>Run this before executing anything you didn't write yourself.</strong></p>
 </div>
 
 <div class="card">
