@@ -12,6 +12,26 @@ func registerFlow(m map[string]interpreter.Handler) {
 	m["if"] = opIf
 	m["if_call"] = opIfCall
 	m["for_each"] = opForEach
+	m["os"] = opOsBlock
+}
+
+// opOsBlock — execution context block. `os "linux" ... end` runs its
+// body only when the host's ${os} matches the declared target.
+// Semantically richer than `if os == "linux" ... end`: the body has a
+// KNOWN OS context, which the simulator + --scan + the UI use to make
+// stronger statements about what the program needs.
+//
+// Runtime semantics: skip body if ${os} != target. That's it. The
+// "stronger statements" live in the static-analysis layers
+// (--scan, simulate), not in the interpreter.
+func opOsBlock(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	target, _ := args["target"].(string)
+	currentOS, _ := b.Lookup("os")
+	if target == "" || target != currentOS {
+		return nil, nil // wrong OS; skip
+	}
+	body, _ := args["_body"].([]domain.Op)
+	return nil, i.RunOps(body, b)
 }
 
 // opForEach iterates over a newline-separated string value, binding each

@@ -365,6 +365,26 @@ func simulateOp(op domain.Op, env SimEnv, depth int, p *domain.Program, cmdName 
 		rollupChildren(&r)
 		return r
 
+	case "os":
+		// OS execution context block. When --sim-os matches the
+		// declared target, simulate the body in that context.
+		// When it doesn't match, this branch is dead code on the
+		// simulated host — annotate but don't classify children
+		// (they wouldn't fire).
+		r.IsBlockEntry = true
+		target, _ := op.Args["target"].(string)
+		if env.OS == "" || env.OS == target {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("os %q matches sim-os — body will run", target))
+			r.Children = simulateBody(op.Body, env, depth+1, p, cmdName)
+		} else {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("os %q does NOT match sim-os %q — body skipped",
+					target, env.OS))
+		}
+		rollupChildren(&r)
+		return r
+
 	case "run":
 		classifyRun(&r, op, env, depth, p)
 		return r

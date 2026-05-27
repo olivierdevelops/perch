@@ -6,6 +6,28 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ### Added
 
+- **`os "PLATFORM" ... end` — execution-context blocks.** Declares which body is meant for which OS, making cross-platform intent first-class structure rather than hidden inside shell strings. Same runtime semantics as `if os == "X" ... end` (skip body if `${os}` doesn't match), but with three concrete wins downstream: (1) **simulate** prunes mismatched branches as known dead code on the target host — `simulate setup --sim-os=linux` reports "os \"darwin\" does NOT match sim-os \"linux\" — body skipped" instead of treating the darwin shell as uncertainty; (2) the **web UI** can flag "incompatible with your current OS" before the user clicks Run; (3) **agents** reasoning about a `.perch` file have explicit OS metadata to constrain their plan.
+
+  ```perch
+  command setup
+      do
+          os "darwin"
+              shell "brew install jq"
+          end
+          os "linux"
+              shell "apt-get install -y jq"
+          end
+          os "windows"
+              shell "choco install jq -y"
+          end
+      end
+  end
+  ```
+
+  `if os == "X"` still works for runtime branching mid-flight; `os "X" ... end` is the new shape for "this body's structural intent is OS-specific work." Wired into both the static and the v2 (state-threaded) simulator. Implementation: new `os` op kind + handler in `infra/ops/flow.go`, new grammar function in `lib.perch`, added to `domain.IsBlock`.
+
+- **Risk score in `--scan` + `/api/scan`.** The capability audit now leads with a one-glance summary — 🟢 SAFE / 🟡 LOW / 🟠 MED / 🔴 HIGH — plus the concrete bullet list of why (executes shell, uses sudo, network access, catch forwards proxy_args, etc.). The web UI's Scan tab can pill this score; the JSON endpoint returns `risk: {score, reasons}` for downstream tools (CI gates, dashboards, Slack bots). Scoring rules in `usecases/scan/risk.go`: HIGH escalates on sudo, proxy_args forwarding to shell, or any HIGH-severity finding; MED on shell metacharacters or 2+ capabilities; LOW on exactly one capability; SAFE on pure ops. Pure UI affordance — explicitly NOT a security guarantee; it's "is this worth carefully reading before I run?" framing.
+
 - **🛟 Error handling — `try / rescue / finally` + `match` + the error-kind enum.** Until now perch had no general error recovery: any op failure halted the command. `try_shell` covered the shell case, `retry` re-ran whole bodies on failure, but there was no way to discriminate on **what kind of error** happened. This ships full structured error handling:
 
   ```perch

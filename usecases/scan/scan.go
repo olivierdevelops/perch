@@ -341,6 +341,15 @@ func PrintReport(w io.Writer, p *domain.Program, path string, r Report) {
 		len(p.Commands), boolStr(p.Catch != nil), len(p.Globals.Bindings))
 	fmt.Fprintln(w)
 
+	// RISK SCORE — a one-glance summary for non-experts. Computed from
+	// declared capabilities + finding severities. See ScoreReport.
+	score, reasons := ScoreReport(r)
+	fmt.Fprintf(w, "  RISK: %s\n", riskBadge(score))
+	for _, why := range reasons {
+		fmt.Fprintf(w, "    · %s\n", why)
+	}
+	fmt.Fprintln(w)
+
 	// CAPABILITIES
 	fmt.Fprintln(w, "  CAPABILITIES NEEDED")
 	cap(w, "shell", r.NeedsShell, summariseShell(r))

@@ -892,20 +892,39 @@ let raw = read_file "./config.txt"
 let normalized = replace "${raw}" "\r\n" "\n"
 ```
 
-### Shell vs OS
+### Shell vs OS — use `os "PLATFORM" ... end` for explicit OS context
 
-The first token of `shell "X"` is the binary you're invoking. Different OSes have different binaries:
+The first token of `shell "X"` is the binary you're invoking. Different OSes have different binaries. **Use the `os "PLATFORM" ... end` block** to declare which body is meant for which OS — explicit beats hidden:
 
 ```perch
-# Cross-platform package install
+command setup
+    do
+        os "darwin"
+            shell "brew install jq"
+        end
+        os "linux"
+            shell "apt-get install -y jq"
+        end
+        os "windows"
+            shell "choco install jq -y"
+        end
+    end
+end
+```
+
+Why prefer `os "X"` over `if os == "X"`?
+
+- **Same runtime semantics** (body runs only when `${os}` matches the declared platform).
+- **Stronger static analysis.** `simulate --sim-os=linux` knows the `os "darwin"` branch is dead code; the **web UI** can flag "incompatible with your current OS"; **`--scan`** can give per-OS capability summaries.
+- **Reads cleaner.** "This body is for Linux" is the structural intent; an `if` reads as runtime branching.
+
+If you genuinely want runtime branching (one body that needs to react to `${os}` mid-flight), `if os == "X"` is still the right tool. For declaring "this command's body is OS-specific work," `os "X"` is the new shape.
+
+Older cross-platform style still works (no behavior change):
+
+```perch
 if is_macos
     shell "brew install jq"
-end
-if is_linux
-    shell "sudo apt-get install -y jq"
-end
-if is_windows
-    shell "choco install jq -y"
 end
 ```
 
@@ -1150,7 +1169,7 @@ perch --check -f commands.perch
 
 Catches: unknown op kinds, missing `run TARGET` references, typo'd arg types, duplicate args, colliding positional indexes, unresolved `${name}` placeholders.
 
-### `--scan` (capability audit)
+### `--scan` (capability audit + risk score)
 
 Static analysis: what capabilities does this program need? What risks are there?
 
@@ -1158,9 +1177,20 @@ Static analysis: what capabilities does this program need? What risks are there?
 perch --scan -f deploy.perch
 ```
 
-Output: needed capabilities (shell? subprocess? network hosts? write roots? env vars?), risk findings (`sudo` usage, `${var}` interpolated into shell without validation, `${proxy_args}` forwarded to shell), and a recommended hardened invocation.
+Output now leads with a **one-glance risk score**:
 
-Always run before executing a `.perch` file you didn't write.
+```
+RISK: 🟢 SAFE   — pure ops only
+RISK: 🟡 LOW    — limited surface; review the capabilities below
+RISK: 🟠 MED    — multiple capabilities or shell metacharacters; review carefully
+RISK: 🔴 HIGH   — sudo / proxy_args / privileged ops; read every command first
+```
+
+Plus the bullet list of WHY (`uses sudo`, `executes shell`, `network access (3 hosts)`, `writes the filesystem (2 roots)`, etc.). Then the full capability table, risk findings (with severity HIGH / MED / LOW / INFO), and a recommended hardened invocation.
+
+**Always run before executing a `.perch` file you didn't write.** A 🔴 HIGH score isn't necessarily bad (production deploy scripts are usually HIGH) — it's the *signal that you should actually read the file before running it*.
+
+The web UI's Scan tab surfaces the score as a colored pill; the JSON `/api/scan` endpoint returns `risk: {score: "HIGH", reasons: [...]}` for downstream tools.
 
 ### `simulate` (hypothetical-env analyzer)
 

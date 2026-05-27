@@ -274,9 +274,14 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request, p *domain.Pr
 	var buf bytes.Buffer
 	scan.PrintReport(&buf, p, s.ConfigPath, rep)
 	recommended := scan.RecommendedInvocation(s.ConfigPath, rep)
+	score, reasons := scan.ScoreReport(rep)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"report":      buf.String(),
+		"risk": map[string]any{
+			"score":   score.String(),
+			"reasons": reasons,
+		},
 		"capabilities": map[string]any{
 			"shell":          rep.NeedsShell,
 			"shell_bins":     rep.ShellBins,

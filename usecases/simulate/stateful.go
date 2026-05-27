@@ -102,6 +102,20 @@ func simulateOpStateful(op domain.Op, state *SimState, env SimEnv, depth int, p 
 		classifyIfCallStateful(&r, op, env, state, depth, p, cmdName)
 		return r
 
+	case "os":
+		r.IsBlockEntry = true
+		target, _ := op.Args["target"].(string)
+		if env.OS == "" || env.OS == target {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("os %q matches — body runs", target))
+			r.Children = simulateBodyStateful(op.Body, env, state, depth+1, p, cmdName)
+		} else {
+			r.Reasons = append(r.Reasons,
+				fmt.Sprintf("os %q != sim-os %q — body skipped", target, env.OS))
+		}
+		rollupChildren(&r)
+		return r
+
 	case "parallel", "retry", "timeout", "with_env", "with_cwd", "sandbox", "cache", "for_each":
 		r.IsBlockEntry = true
 		// Block ops snapshot the state so concurrent branches don't

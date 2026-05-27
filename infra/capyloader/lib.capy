@@ -845,6 +845,36 @@ end
 # match handlers walk the body splitting on these sentinels.
 # ────────────────────────────────────────────────────────────────────────────
 
+# ────────────────────────────────────────────────────────────────────────────
+# os "PLATFORM" ... end — execution context block.
+#
+# Declares that the body is meant for a specific OS (darwin/linux/
+# windows). At runtime the body is skipped on other OSes (same shape as
+# `if os == "X"` but with a richer semantic for the simulator + UI:
+# the body's ops are KNOWN to be in that OS's context, so tool-
+# availability and path-shape assumptions are explicit). Pairs cleanly
+# with cross-platform programs that declare each branch:
+#
+#   os "darwin"
+#       shell "brew install jq"
+#   end
+#   os "linux"
+#       shell "apt-get install -y jq"
+#   end
+#   os "windows"
+#       shell "choco install jq -y"
+#   end
+# ────────────────────────────────────────────────────────────────────────────
+
+function os_block
+    arg literal "os"
+    arg capture target string
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"os","args":{"target":${target}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
 function try_block
     arg literal "try"
     block_closer end
