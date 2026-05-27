@@ -90,6 +90,7 @@ Each is independent. Omitting a flag means "no restriction in that dimension."
 | `--sim-no-subprocess` | Sim equivalent of `--no-subprocess` | (boolean) |
 | `--sim-no-network` | Sim equivalent of `--no-network` | (boolean) |
 | `--sim-no-write` | Sim equivalent of `--no-write` | (boolean) |
+| `--sim-file PATH` | JSON fixture with capabilities + oracles + scenarios (see "Stateful simulation" below) | `--sim-file=fixtures/staging.json` |
 
 All flags compose. They mirror perch's runtime `--no-*` / `--allow-*` / `--env` flags so you can simulate exactly the invocation you plan to run.
 
@@ -185,13 +186,73 @@ Each block-op modifies the simulated environment for its body. `sandbox` narrows
 
 `run other_command` recurses — the simulator follows the call and simulates that command's body too, with the same sim env. Useful for catching that `run setup` depends on `--sim-have-bin=brew` even if the parent command looks fine.
 
+## Stateful simulation, oracles, and scenarios
+
+Pure capability-mode (`--sim-*` flags only) answers *"can each op run in this environment?"* It does NOT answer:
+
+- *"What if the file exists after the previous step?"*
+- *"What if HTTP returns 500?"*
+- *"What if `git rev-parse HEAD` returns this specific value?"*
+- *"What if the upstream redirects to a host I haven't allowlisted?"*
+
+For those, point `simulate` at a JSON **fixture file** with `--sim-file FIXTURE.json`. The fixture declares capabilities + **oracles** (concrete simulated outputs for ops the static walker can't otherwise resolve) + named **scenarios** (override sets that branch the simulation).
+
+### Fixture file shape
+
+```json
+{
+  "os": "linux", "arch": "amd64",
+  "env": {"HOME": "/h", "PATH": "/usr/bin"},
+  "fs_write": ["/tmp"],
+  "bins":    ["git", "curl"],
+  "network": ["api.github.com"],
+
+  "oracles": {
+    "file_exists":  {"/tmp/manifest.yaml": true},
+    "shell_output": {"git rev-parse HEAD": "abc123"},
+    "http":         {"https://api.github.com/health": {"status": 200, "body": "OK"}},
+    "has_bin":      {"kubectl": true}
+  },
+
+  "scenarios": [
+    {"name": "happy",      "overrides": {}},
+    {"name": "github-down","overrides": {
+      "http": {"https://api.github.com/health": {"status": 500, "body": "down"}}
+    }},
+    {"name": "redirect-evil","overrides": {
+      "http": {"https://api.github.com/health": {"status": 302, "redirect": "https://evil.com/payload"}}
+    }}
+  ]
+}
+```
+
+### What the stateful walker does
+
+- **State threads through ops.** `write_file "/tmp/x"` records the file as existing; downstream `if exists "/tmp/x"` evaluates true. `rm` flips it back. `cd /srv` shifts the cwd used to resolve relative paths.
+- **`let` captures consult oracles.** `let rev = shell_output "git rev-parse HEAD"` looks up the post-interpolation command in `oracles.shell_output`. If present, `${rev}` resolves to the simulated value; if absent, `${rev}` is marked *symbolic* and downstream uses surface MIGHT_FAIL.
+- **HTTP outcomes are oracled per URL.** Status 2xx → WILL_RUN; 4xx/5xx → WILL_FAIL with the simulated body; 3xx with a `redirect` field → MIGHT_FAIL, and if the redirect destination's host isn't in your network allowlist → WILL_FAIL (the practical answer to "what if upstream redirects me to evil.com?").
+- **`has_bin` oracles override the capability list.** Lets you simulate "what if `kubectl` is suddenly missing?" without removing it from `bins`.
+
+### Scenarios
+
+Each entry in `scenarios` runs as one independent walk with its own report, sharing the top-level capabilities + oracles but overlaying the scenario's `overrides`. Empty `scenarios` is treated as one implicit `default` scenario. Per-scenario `env` overrides let you tweak the environment too — e.g. *"what if `GITHUB_TOKEN` is missing in this scenario?"*
+
+### Running it
+
+```sh
+perch -f commands.perch simulate release --sim-file fixture.json
+```
+
+Each scenario produces a banner, then the per-op report. Exit code is non-zero if any scenario reports a failure — drop straight into CI as a multi-environment gate.
+
+CLI `--sim-*` flags layer on top of the fixture (CLI wins on conflict), so you can combine `--sim-file env.json --sim-no-network` to force-disable network for a one-off without editing the fixture.
+
 ## What the simulator does NOT catch (yet — roadmap)
 
-- **Runtime values inside `let X = shell_output …`** — anything captured from a subprocess is an unknown. The simulator marks downstream uses of that value as MIGHT_FAIL.
-- **Symbolic branching on unknown conditions** — if a condition depends on a runtime value, the simulator presents the body as "MIGHT run." It doesn't enumerate "if X were Y, this branch fires; if X were Z, that branch fires."
-- **HTTP redirect destination enumeration** — today the report says "the server could redirect anywhere." A future version would let you supply candidate redirect targets and enumerate cases.
+- **Symbolic branching on unknown conditions** — if a condition depends on a runtime value that has no oracle, the simulator presents the body as "MIGHT run." It doesn't enumerate "if X were Y, this branch fires; if X were Z, that branch fires."
 - **`wasm_run` body deep analysis** — the simulator notes the module path but doesn't simulate the WASM module's behavior (the module sees a tighter capability surface by construction; that's `wasm_run`'s point).
-- **Counterfactual suggestions** — e.g. "Add `api.github.com` to your `--allow-host` to make this pass" is a v2 idea.
+- **Counterfactual suggestions** — e.g. "Add `api.github.com` to your `--allow-host` to make this pass" is a future idea.
+- **Persistent state between scenarios** — each scenario starts from a fresh state seeded from the top-level fixture. Chained scenarios ("start in state from scenario A, then run B") are a future idea.
 
 Each of these gracefully degrades to `MIGHT_FAIL` with a reason explaining what the simulator couldn't resolve. Honest, not lossy.
 

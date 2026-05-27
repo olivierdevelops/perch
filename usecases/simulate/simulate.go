@@ -27,7 +27,7 @@ import (
 
 // UseCase is the consumer-owned protocol used by the CLI.
 type UseCase interface {
-	Execute(configPath, commandName string, env SimEnv, w io.Writer) error
+	Execute(configPath, commandName string, env SimEnv, fixturePath string, w io.Writer) error
 }
 
 // LoadFn parses a .perch file into a Program (same shape capyloader.Load
@@ -42,11 +42,54 @@ type Impl struct {
 // Execute simulates `commandName` against `env`, writing a human report
 // to w. Returns a non-nil error if the simulation reports any
 // WILL_FAIL outcome — so this is CI-droppable like --check / perch test.
-func (i *Impl) Execute(configPath, commandName string, env SimEnv, w io.Writer) error {
+func (i *Impl) Execute(configPath, commandName string, env SimEnv, fixturePath string, w io.Writer) error {
 	p, err := i.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", configPath, err)
 	}
+
+	// If a fixture file is supplied, iterate its scenarios — each scenario
+	// is one independent state-threading walk against effective oracles.
+	if fixturePath != "" {
+		fix, err := LoadFixture(fixturePath)
+		if err != nil {
+			return fmt.Errorf("loading fixture %s: %w", fixturePath, err)
+		}
+		merged := mergeFixtureIntoEnv(fix, env)
+		scenarios := fix.Scenarios
+		if len(scenarios) == 0 {
+			scenarios = []Scenario_{{Name: "default"}}
+		}
+		var failures int
+		for idx, sc := range scenarios {
+			if idx > 0 {
+				fmt.Fprintln(w)
+			}
+			oracles := MergeOracles(fix.Oracles, sc.Overrides)
+			scEnv := merged
+			if len(sc.Env) > 0 {
+				scEnv = withEnvOverlay(scEnv, sc.Env)
+			}
+			fmt.Fprintf(w, "═══ Scenario: %s ═══\n", sc.Name)
+			names := []string{commandName}
+			if commandName == "" {
+				names = commandNames(p)
+			}
+			for j, name := range names {
+				if j > 0 {
+					fmt.Fprintln(w)
+				}
+				res, _ := SimulateWithState(p, name, scEnv, oracles)
+				renderResult(w, res, p, name)
+				failures += res.WillFail
+			}
+		}
+		if failures > 0 {
+			return fmt.Errorf("%d op(s) would fail across simulated scenarios", failures)
+		}
+		return nil
+	}
+
 	if commandName == "" {
 		// Simulate every command.
 		var failures int
@@ -70,6 +113,56 @@ func (i *Impl) Execute(configPath, commandName string, env SimEnv, w io.Writer) 
 		return fmt.Errorf("%d op(s) would fail under the simulated environment", res.WillFail)
 	}
 	return nil
+}
+
+// mergeFixtureIntoEnv layers fixture capabilities on top of CLI-flag env.
+// CLI flags win when both are set (so a user can `--sim-no-network` a
+// fixture that has Network entries). Fields the CLI didn't touch fall
+// through from the fixture.
+func mergeFixtureIntoEnv(f Fixture, cli SimEnv) SimEnv {
+	fxEnv := f.ToSimEnv()
+	out := cli
+	if out.OS == "" {
+		out.OS = fxEnv.OS
+	}
+	if out.Arch == "" {
+		out.Arch = fxEnv.Arch
+	}
+	if out.Env == nil {
+		out.Env = fxEnv.Env
+	}
+	if !out.EnvRestrict {
+		out.EnvRestrict = fxEnv.EnvRestrict
+	}
+	if out.FsRead == nil {
+		out.FsRead = fxEnv.FsRead
+	}
+	if out.FsWrite == nil {
+		out.FsWrite = fxEnv.FsWrite
+	}
+	if out.Bins == nil {
+		out.Bins = fxEnv.Bins
+	}
+	if out.Network == nil {
+		out.Network = fxEnv.Network
+	}
+	out.NoShell = out.NoShell || fxEnv.NoShell
+	out.NoSubprocess = out.NoSubprocess || fxEnv.NoSubprocess
+	out.NoNetwork = out.NoNetwork || fxEnv.NoNetwork
+	out.NoWrite = out.NoWrite || fxEnv.NoWrite
+	return out
+}
+
+func withEnvOverlay(base SimEnv, overlay map[string]string) SimEnv {
+	merged := map[string]string{}
+	for k, v := range base.Env {
+		merged[k] = v
+	}
+	for k, v := range overlay {
+		merged[k] = v
+	}
+	base.Env = merged
+	return base
 }
 
 // SimEnv describes the hypothetical host the program will run on.

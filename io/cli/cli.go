@@ -87,7 +87,7 @@ type TestUseCase interface {
 // environment and reports per-op outcomes. The simulate Args struct
 // carries every flag from `perch simulate`.
 type SimulateUseCase interface {
-	Execute(configPath, commandName string, env SimulateEnv, w io.Writer) error
+	Execute(configPath, commandName string, env SimulateEnv, fixturePath string, w io.Writer) error
 }
 
 // SimulateEnv is the CLI-side mirror of usecases/simulate.SimEnv.
@@ -210,8 +210,8 @@ func (c *CLI) Run() int {
 		// against a hypothetical runtime environment and report per-op
 		// outcomes (WILL_RUN / WILL_FAIL / MIGHT_FAIL). No execution.
 		path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
-		cmdName, env := parseSimulateFlags(rest)
-		return errExit(c.UseCases.Simulate.Execute(path, cmdName, env, os.Stdout))
+		cmdName, env, fixture := parseSimulateFlags(rest)
+		return errExit(c.UseCases.Simulate.Execute(path, cmdName, env, fixture, os.Stdout))
 	case "--scan":
 		// `perch --scan FILE` — static security audit. Prints what
 		// capabilities the script needs, risk findings, and the
@@ -402,10 +402,11 @@ func parseTestFlags(args []string) (filter string, verbose bool) {
 //	--sim-no-subprocess                  — sim --no-subprocess
 //	--sim-no-network                     — sim --no-network
 //	--sim-no-write                       — sim --no-write
+//	--sim-file PATH                      — JSON fixture: capabilities + oracles + scenarios
 //
 // First non-flag arg (or argv after the flag block) is the command name.
 // Empty command means "simulate all callable commands."
-func parseSimulateFlags(args []string) (cmd string, env SimulateEnv) {
+func parseSimulateFlags(args []string) (cmd string, env SimulateEnv, fixturePath string) {
 	pullStringList := func(s string) []string {
 		out := []string{}
 		for _, p := range strings.Split(s, ",") {
@@ -487,6 +488,10 @@ func parseSimulateFlags(args []string) (cmd string, env SimulateEnv) {
 			env.NoNetwork = true
 		case a == "--sim-no-write":
 			env.NoWrite = true
+		case strings.HasPrefix(a, "--sim-file="):
+			fixturePath = strings.TrimPrefix(a, "--sim-file=")
+		case a == "--sim-file":
+			fixturePath = take()
 		default:
 			// First non-flag token = the command name. Subsequent tokens
 			// after that are ignored (perch simulate doesn't take

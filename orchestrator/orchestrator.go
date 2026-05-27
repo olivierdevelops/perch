@@ -643,7 +643,7 @@ func knownOps(handlers map[string]interpreter.Handler) func() map[string]struct{
 // because orchestrator/ is the only place that imports both.
 type simulateAdapter struct{}
 
-func (simulateAdapter) Execute(configPath, commandName string, env cli.SimulateEnv, w io.Writer) error {
+func (simulateAdapter) Execute(configPath, commandName string, env cli.SimulateEnv, fixturePath string, w io.Writer) error {
 	impl := simulate.Impl{Load: capyloader.Load}
 	return impl.Execute(configPath, commandName, simulate.SimEnv{
 		OS:           env.OS,
@@ -658,7 +658,7 @@ func (simulateAdapter) Execute(configPath, commandName string, env cli.SimulateE
 		NoSubprocess: env.NoSubprocess,
 		NoNetwork:    env.NoNetwork,
 		NoWrite:      env.NoWrite,
-	}, w)
+	}, fixturePath, w)
 }
 
 // runTestFnFor constructs the per-test runner closure shared by both

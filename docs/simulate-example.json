@@ -1,0 +1,56 @@
+{
+  "os": "linux",
+  "arch": "amd64",
+  "env": {"HOME": "/home/ci", "PATH": "/usr/bin:/usr/local/bin"},
+  "fs_read":  ["/srv", "/etc"],
+  "fs_write": ["/tmp", "/srv/data"],
+  "bins":     ["git", "curl", "docker", "kubectl"],
+  "network":  ["api.github.com", "*.s3.amazonaws.com"],
+
+  "oracles": {
+    "file_exists": {
+      "/srv/manifest.yaml": true,
+      "/etc/passwd": true
+    },
+    "shell_output": {
+      "git rev-parse HEAD": "1f1db7bf",
+      "git remote get-url origin": "git@github.com:luowensheng/perch.git"
+    },
+    "http": {
+      "https://api.github.com/health": {"status": 200, "body": "OK"}
+    },
+    "has_bin": {
+      "kubectl": true,
+      "docker": true
+    }
+  },
+
+  "scenarios": [
+    {
+      "name": "happy-path",
+      "overrides": {}
+    },
+    {
+      "name": "github-down",
+      "overrides": {
+        "http": {
+          "https://api.github.com/health": {"status": 500, "body": "internal error"}
+        }
+      }
+    },
+    {
+      "name": "github-redirects-to-evil",
+      "overrides": {
+        "http": {
+          "https://api.github.com/health": {"status": 302, "redirect": "https://evil.com/payload"}
+        }
+      }
+    },
+    {
+      "name": "kubectl-missing",
+      "overrides": {
+        "has_bin": {"kubectl": false}
+      }
+    }
+  ]
+}
