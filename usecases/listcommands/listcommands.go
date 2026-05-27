@@ -40,7 +40,7 @@ func (i *Impl) Execute(configPath string) error {
 
 	keys := make([]string, 0, len(p.Commands))
 	for k, c := range p.Commands {
-		if c.Modifiers.Private {
+		if c.Modifiers.Private || c.Modifiers.Test {
 			continue
 		}
 		keys = append(keys, k)

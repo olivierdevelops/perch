@@ -74,6 +74,14 @@ type HelpUseCase interface {
 	Execute(topic string, asJSON bool) error
 }
 
+// TestUseCase runs every command marked with the `test` modifier in
+// the program at configPath. Filter narrows discovery to commands
+// whose names contain the substring. Verbose surfaces each test's
+// captured output even on pass.
+type TestUseCase interface {
+	Execute(configPath string, filter string, verbose bool) error
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -88,6 +96,7 @@ type UseCases struct {
 	ImportSh      ImportShUseCase
 	Scan          ScanUseCase
 	Help          HelpUseCase
+	Test          TestUseCase
 }
 
 type Config struct {
@@ -164,6 +173,13 @@ func (c *CLI) Run() int {
 	case "--check", "--validate":
 		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Validate.Execute(path))
+	case "test", "--test":
+		// `perch test [--filter PAT] [-v|--verbose]` — discover and run
+		// every command marked `test`. Sandboxed by default; opt out
+		// per-test via test_allow_* modifiers.
+		path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+		filter, verbose := parseTestFlags(rest)
+		return errExit(c.UseCases.Test.Execute(path, filter, verbose))
 	case "--scan":
 		// `perch --scan FILE` — static security audit. Prints what
 		// capabilities the script needs, risk findings, and the
@@ -314,6 +330,29 @@ func parseFileFlag(args []string, def string) (string, []string) {
 		}
 	}
 	return def, args
+}
+
+// parseTestFlags strips the `test`-specific flags from args. Recognises:
+//   --filter PATTERN   substring match against test names
+//   --filter=PATTERN
+//   -v / --verbose     also surface per-test output on pass
+// Unrecognised tokens are left in place (and ignored by the runner).
+func parseTestFlags(args []string) (filter string, verbose bool) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--filter":
+			if i+1 < len(args) {
+				filter = args[i+1]
+				i++
+			}
+		case len(a) > 9 && a[:9] == "--filter=":
+			filter = a[9:]
+		case a == "-v", a == "--verbose":
+			verbose = true
+		}
+	}
+	return
 }
 
 func (c *CLI) printHelp() {

@@ -43,3 +43,20 @@ command hello
         print "Hello from ${HOME} on ${USER}."
     end
 end
+
+command test_hello_string_assertions
+    test
+    do
+        assert_contains "Hello from /home/x on alice" "Hello"
+        assert_not_contains "Hello from /home/x on alice" "ERROR"
+        assert_match "v1.2.3" "^v[0-9]+[.][0-9]+[.][0-9]+$"
+    end
+end
+
+command test_auto_bindings_present
+    test
+    do
+        assert_neq "${os}" ""
+        assert_neq "${arch}" ""
+    end
+end

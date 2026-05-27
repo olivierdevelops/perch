@@ -148,7 +148,10 @@ func (c *checker) run() {
 func (c *checker) checkCommand(cmd *domain.Command) {
 	where := cmd.Name
 
-	if cmd.Description == "" {
+	// Test-marked commands are hidden from --help, so a missing
+	// description isn't a UX problem worth warning about. Same for
+	// `private` commands.
+	if cmd.Description == "" && !cmd.Modifiers.Test && !cmd.Modifiers.Private {
 		c.addWarn(where, "no description (won't show up nicely in --help)")
 	}
 
@@ -244,7 +247,12 @@ func (c *checker) checkOps(ops []domain.Op, where string, known map[string]bool)
 	for _, op := range ops {
 		opWhere := where
 		if _, ok := c.ops[op.Kind]; !ok {
-			c.addErr(opWhere, fmt.Sprintf("unknown op kind %q", op.Kind))
+			if op.Kind == "_template_call" {
+				name, _ := op.Args["name"].(string)
+				c.addErr(opWhere, fmt.Sprintf("`call %s` — no such template (check imports + spelling)", name))
+			} else {
+				c.addErr(opWhere, fmt.Sprintf("unknown op kind %q", op.Kind))
+			}
 		}
 		// `run TARGET` — validate target exists.
 		if op.Kind == "run" {

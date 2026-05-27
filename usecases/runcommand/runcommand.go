@@ -47,7 +47,7 @@ func (i *Impl) Execute(configPath, name string, args []string) error {
 		if i.Suggest != nil {
 			candidates := []string{}
 			for n, c := range p.Commands {
-				if c != nil && !c.Modifiers.Private {
+				if c != nil && !c.Modifiers.Private && !c.Modifiers.Test {
 					candidates = append(candidates, n)
 				}
 			}
