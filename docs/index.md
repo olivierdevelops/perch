@@ -5,19 +5,34 @@ hide:
 
 # perch
 
-> **perch is a cross-platform command runtime for defining, running, and shipping operational tools in a single structured file.**
+> **One file. Every surface.** Define your commands once in a `.perch` file — run them as a CLI, a **web UI** 🪟, a REPL, an **AI-agent tool** 🤖, or a portable binary. macOS · Linux · Windows.
 
-Declare your commands once; run them consistently on macOS / Linux / Windows; expose them through a CLI, REPL, web UI, or AI-agent surface; and `perch --build` once to ship them as a single portable binary. **Replaces shell scripts + Makefiles + ad-hoc CLI wrappers + internal ops tools + "one-off automation repos"** with one declarative file that humans, CI, and agents all execute.
+<style>
+.qbits{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0 8px}
+.qbit{background:var(--md-default-bg-color);border:1px solid var(--md-default-fg-color--lightest);border-radius:10px;padding:14px 12px;text-align:center;transition:transform .15s}
+.qbit:hover{transform:translateY(-2px);border-color:var(--md-accent-fg-color)}
+.qbit .ico{font-size:28px;line-height:1;margin-bottom:6px}
+.qbit .ttl{font-size:13px;font-weight:600;color:var(--md-default-fg-color);margin-bottom:2px}
+.qbit .sub{font-size:11px;color:var(--md-default-fg-color--light);line-height:1.35}
+.replaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0}
+.rep{background:var(--md-default-bg-color);border:1px solid var(--md-default-fg-color--lightest);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:center;font-size:13px}
+.rep .ico{font-size:22px;line-height:1}
+.rep .txt{color:var(--md-default-fg-color);font-weight:500}
+.rep .txt .strike{color:var(--md-default-fg-color--lighter);text-decoration:line-through;font-weight:400;font-size:11px;display:block;margin-top:2px}
+</style>
 
-That's the one-sentence answer. The longer one: a `.perch` file *also* serves as a web UI (`--server`), a REPL (`--shell`), an MCP tool surface for AI agents (`perch-mcp`), and a `#!/usr/bin/env perch` script. Those extra frontends are **downstream consequences** of having a typed-CLI representation in one file, not separate systems. The primary abstraction is the file; everything else is rendering. Built on [capy](https://luowensheng.github.io/capy). Apache-2.0.
-
-**Mental model:** *A structured way to define and ship operational commands that can run everywhere, with optional safety controls and multiple interfaces.* This enables a small but real pattern — **operational workflows as distributable products**: what used to be a folder of scripts plus a wiki page becomes one binary you can `scp` and run.
-
-The deeper claim — that perch is "the operating system you can `scp`" — has its own page: **[Read the OS analogy](os-in-a-program.md)**.
+<div class="qbits">
+  <div class="qbit"><div class="ico">📝</div><div class="ttl">One file</div><div class="sub">Replaces bash + Make + a Cobra/Click/Typer CLI</div></div>
+  <div class="qbit"><div class="ico">🪟</div><div class="ttl">Web UI</div><div class="sub">No frontend to write — <code>--server</code> is the dashboard</div></div>
+  <div class="qbit"><div class="ico">🤖</div><div class="ttl">AI agent tool</div><div class="sub">Same file as MCP server — typed verbs, capability gates</div></div>
+  <div class="qbit"><div class="ico">📦</div><div class="ttl">One binary</div><div class="sub"><code>--build</code> ships a portable executable, no Go needed</div></div>
+  <div class="qbit"><div class="ico">🛡️</div><div class="ttl">Safe by default</div><div class="sub">SSRF/redirect guards · capability flags · audit log</div></div>
+  <div class="qbit"><div class="ico">⚡</div><div class="ttl">Cross-platform</div><div class="sub">macOS · Linux · Windows · same 146 built-in ops</div></div>
+</div>
 
 <div id="perch-demo" class="perch-demo"></div>
 
-The animated demo above cycles through the same `redis.perch` file in five rendering modes. **You write one file. perch renders every surface:**
+*Same `redis.perch` file, five rendering modes — animation cycles through each.*
 
 <div id="perch-fanout"></div>
 
@@ -43,17 +58,20 @@ The animated demo above cycles through the same `redis.perch` file in five rende
 
 <div class="card">
   <h4>🎯 One file → five surfaces</h4>
-  <p>The same <code>commands.perch</code> is callable as a <strong>CLI</strong>, served as a <strong>web UI</strong> (<code>--server</code>), steppable in a <strong>REPL</strong> (<code>--shell</code>), exposed to AI agents over <strong>MCP</strong> (<code>perch-mcp</code>), and bundled into a <strong>single portable binary</strong> (<code>--build</code> with your whole project embedded). Not five integrations — one abstraction, five renderings. <em>Nothing in the bash / Make / Click / Cobra / Just / Task ecosystem does this.</em></p>
+  <p>One <code>commands.perch</code> → <strong>CLI · web UI · REPL · MCP tool · portable binary</strong>. Not five integrations — one abstraction, five renderings.</p>
+  <p style="font-size:11px;color:var(--md-default-fg-color--light);margin:6px 0 0">Nothing in bash / Make / Click / Cobra / Just / Task does this.</p>
 </div>
 
 <div class="card">
-  <h4>🔒 <code>wasm_run</code> — capabilities by construction, not by policy</h4>
-  <p>Load a WebAssembly module under WASI. The module sees ONLY the argv, env vars, and filesystem mounts you declared — anything else is <strong>invisible by construction</strong>, not blocked by policy. Pure Go (wazero); no Docker, no daemon, no native sandbox setup. <strong>The killer demo:</strong> a plugin host runs 4 legitimate plugins + 1 deliberately malicious plugin that tries 5 escape routes — every escape fails because the runtime doesn't <em>provide</em> those operations.<br><a href="wasm/"><strong>Reference →</strong></a> · <a href="wasm-walkthroughs/">5 walkthroughs</a> · <a href="https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host"><strong>zero-trust AI plugin demo →</strong></a></p>
+  <h4>🔒 <code>wasm_run</code> — sandbox by construction</h4>
+  <p>Load a WebAssembly module. It sees ONLY the argv, env vars, and mounts you <em>declared</em> — anything else <strong>doesn't exist</strong>. Not policy. Construction.</p>
+  <p style="font-size:11px;color:var(--md-default-fg-color--light);margin:6px 0 0">🎯 <a href="https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host"><strong>Killer demo: zero-trust AI plugin runtime</strong></a> · <a href="wasm/">reference</a> · <a href="wasm-walkthroughs/">5 walkthroughs</a></p>
 </div>
 
 <div class="card">
-  <h4>🧪 <code>perch simulate</code> — answer "what would happen on THAT host?" without running anything <span style="background:#eef;padding:1px 6px;border-radius:3px;font-size:.75em;vertical-align:middle">v2</span></h4>
-  <p>Walk the program against a <strong>hypothetical environment</strong> — sim OS, sim bins, sim env vars, sim network allowlist, sim FS roots — and report per-op outcomes (WILL_RUN ✓ / WILL_FAIL ✗ / MIGHT_FAIL ?). <strong>v2</strong> threads state through the walk (write-then-exists works), accepts a JSON fixture (<code>--sim-file</code>) with <strong>oracles</strong> (pin <code>shell_output</code>, <code>http</code>, <code>file_exists</code>, <code>has_bin</code>) and <strong>named scenarios</strong> that run as independent walks ("happy" vs "github-down" vs "kubectl-missing" all in one report). Drop into CI as a multi-environment gate. <a href="simulate/"><strong>Details →</strong></a></p>
+  <h4>🧪 <code>perch simulate</code> — "what would happen on THAT host?" <span style="background:rgba(124,131,248,.15);color:#7c83f8;padding:1px 6px;border-radius:3px;font-size:.7em;vertical-align:middle;font-weight:700">v2</span></h4>
+  <p>Walk the program against a <strong>hypothetical env</strong>. Per-op verdicts: <span style="color:#16a34a">WILL_RUN ✓</span> · <span style="color:#dc2626">WILL_FAIL ✗</span> · <span style="color:#d97706">MIGHT_FAIL ?</span>. <strong>v2</strong>: state threading, oracles, multi-scenario.</p>
+  <p style="font-size:11px;color:var(--md-default-fg-color--light);margin:6px 0 0"><a href="simulate/"><strong>Details →</strong></a></p>
 </div>
 
 </div>
@@ -532,13 +550,11 @@ perch --report cmd    # execute + render the span tree
 
 ## Cross-platform without thinking about it
 
-Every command starts with ~30 variables already bound. **No declaration, no `let`, no `if uname`.** Hover any row — that's what perch sees on the running machine.
+**~30 variables auto-bound at every command start.** No declaration, no `let`, no `if uname`. Hover any row below — that's what perch sees on the running machine.
 
 <div id="perch-bindings"></div>
 
 ## What's in the box
-
-The technical details that don't fit on the marketing panel above:
 
 <div class="perch-features">
 
@@ -626,7 +642,7 @@ The technical details that don't fit on the marketing panel above:
 ]
 </script>
 
-```capy
+```perch
 command test
     description "Run unit + integration tests"
     do
@@ -724,7 +740,7 @@ The recipient needs **only** what your install command requires (here: `python3`
 ]
 </script>
 
-```capy
+```perch
 command restart_service
     description "Restart a service on a host"
     arg host
@@ -780,7 +796,7 @@ The agent never sees `ssh`. It sees `restart_service(host, service)` with typed 
 ]
 </script>
 
-```capy
+```perch
 command up
     description "Start the dev stack"
     do

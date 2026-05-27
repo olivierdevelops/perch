@@ -637,9 +637,20 @@ pre code.language-perch {
     border-radius: 6px;
 }
 pre:has(code.language-capy),
-pre:has(code.language-perch) {
+pre:has(code.language-perch),
+pre:has(code.pcode-hl) {
     background: #0f1320 !important;
     border: 1px solid #1e2540;
+}
+
+/* When pymdownx remapped `capy`/`perch` to `language-text`, the parent
+ * wrapper carries that class. Style the line-number anchors so they
+ * stay readable on our dark code background. */
+.language-text.highlight pre:has(code.pcode-hl) a {
+    color: #4a5878;
+}
+.pcode-hl a {
+    color: #4a5878;
 }
 
 /* ─── Stats bar under the hero ────────────────────────────────────── */
