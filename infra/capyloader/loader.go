@@ -34,7 +34,7 @@ var librarySource string
 // from a stdin-loaded program are resolved against cwd (no $0 to
 // derive a directory from). This is what makes piping work:
 //
-//   curl -fsSL https://.../commands.perch | perch -f - <command>
+//	curl -fsSL https://.../commands.perch | perch -f - <command>
 //
 // Imports form a graph: cycles are detected and reported (not followed).
 // Each file's transitive imports are merged into the root program's
@@ -786,7 +786,83 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 		}
 	}
 
+	// Split `exec`/pipe-stage argv: the grammar captures all argv tokens as a
+	// single `tail` string (`argv_raw`); we shell-split it into positional
+	// slots _0.._N HERE, at load time, on the LITERAL source (before any
+	// ${…} interpolation). That preserves the §3.3 keystone — a `${msg}`
+	// token stays one slot even if its runtime value contains spaces — while
+	// letting the grammar be one `exec BIN tail` function instead of an
+	// arity-capped overload ladder. (capy >= ac128fb: quote-preserving tail.)
+	splitExecArgvAll(prog)
+
 	return prog, imports, nil
+}
+
+// splitExecArgvAll walks every command/catch/template body (recursing into
+// block bodies) and expands any `exec` op's argv_raw into _0.._N slots.
+func splitExecArgvAll(prog *domain.Program) {
+	for _, cmd := range prog.Commands {
+		splitExecArgv(cmd.Ops)
+	}
+	if prog.Catch != nil {
+		splitExecArgv(prog.Catch.Ops)
+	}
+	for _, tpl := range prog.Templates {
+		splitExecArgv(tpl.Ops)
+	}
+}
+
+func splitExecArgv(ops []domain.Op) {
+	for i := range ops {
+		op := &ops[i]
+		if op.Kind == "exec" && op.Args != nil {
+			if raw, ok := op.Args["argv_raw"].(string); ok {
+				delete(op.Args, "argv_raw")
+				for n, tok := range shellSplitArgs(raw) {
+					op.Args[fmt.Sprintf("_%d", n)] = tok
+				}
+			}
+		}
+		if len(op.Body) > 0 {
+			splitExecArgv(op.Body)
+		}
+	}
+}
+
+// shellSplitArgs splits a tail-captured argv string into tokens, honoring
+// double quotes (a quoted run is one token, with the surrounding quotes
+// stripped) and backslash escapes. Runs on the LITERAL source, so `${x}`
+// placeholders pass through as single tokens and are interpolated later.
+func shellSplitArgs(s string) []string {
+	var out []string
+	var cur []byte
+	inQuote := false
+	started := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\' && i+1 < len(s):
+			cur = append(cur, s[i+1])
+			i++
+			started = true
+		case c == '"':
+			inQuote = !inQuote
+			started = true
+		case (c == ' ' || c == '\t') && !inQuote:
+			if started {
+				out = append(out, string(cur))
+				cur = cur[:0]
+				started = false
+			}
+		default:
+			cur = append(cur, c)
+			started = true
+		}
+	}
+	if started {
+		out = append(out, string(cur))
+	}
+	return out
 }
 
 // expandTemplateOps walks `ops`, replacing every `_template_call` op with

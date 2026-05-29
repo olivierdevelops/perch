@@ -19,8 +19,8 @@ end
 command t
     do
         let out = pipe
-            exec echo "hello"
-            exec tr "a-z" "A-Z"
+            exec echo hello
+            exec tr a-z A-Z
             exec rev
         end
         print "r=${out}"
@@ -46,7 +46,7 @@ command t
     do
         let out = pipe
             exec echo "hi"
-            exec wc "-c"
+            exec wc -c
         end
         print "${out}"
     end

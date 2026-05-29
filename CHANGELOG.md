@@ -12,6 +12,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 - **`#` line comments** now parse (leading and trailing) — perch's `lib.capy` opts in via capy's `comments` directive. Examples and user files can use them.
 - **`try / rescue / finally` now parses and runs.** Rebuilt on capy `block_sections` (the old flat-marker grammar didn't parse). The handler is unchanged — the grammar reconstructs the `_enter / _catch / _finally / _leave` stream `opTry` already consumed. A `finally`-only `try` (no `rescue`) **re-raises** after cleanup; only a non-empty `rescue` arm swallows the error. The error binding is `err` (`${err.kind}`, `${err.message}`, …). Removed the "parse-broken" caveats from errors.md / guide.md / using-perch-today.md.
 - **Bare `match err.kind`** now works — the `match`-ident grammar uses capy `dotted_ident`, capturing both plain bindings (`match os`) and dotted member paths (`match err.kind`). The string form `match "${err.kind}"` still works.
+- **`exec` collapsed to a single grammar function (no arity cap).** Bumped capy to `ac128fb` (quote-preserving `tail`) and replaced the `exec_0args…exec_8args` + `let_exec_*` overload ladders with one `exec BIN tail` function (+ the `let` form). The argv string is shell-split at **load time** on the literal source, so the §3.3 keystone is preserved (a `${x}` token is always one slot). Bare flags/paths still work unquoted; quote a token only to keep embedded spaces.
 
 ### Added
 

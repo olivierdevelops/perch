@@ -17,8 +17,8 @@ requires
 end
 command t
     do
-        exec echo "hello" "world"
-        let got = exec echo "captured"
+        exec echo hello world
+        let got = exec echo captured
         print "v=${got}"
     end
 end
@@ -70,7 +70,7 @@ command t
         default "world"
     end
     do
-        exec echo "hi" "${who}"
+        exec echo hi "${who}"
     end
 end
 `

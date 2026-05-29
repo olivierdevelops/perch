@@ -10,9 +10,9 @@ func TestExecGrammar(t *testing.T) {
 	src := `name "x"
 command t
     do
-        exec git "status"
-        exec docker "run" "-d" "--name" "web"
-        let head = exec git "rev-parse" "HEAD"
+        exec git status
+        exec docker run -d --name web
+        let head = exec git rev-parse HEAD
     end
 end
 `

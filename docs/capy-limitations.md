@@ -16,7 +16,7 @@
 | 3 | No JSON-safe interpolation for ident-or-string | `${asString x}` | ✅ (`exec` argv) |
 | 4 | Can't lex flags/paths/globs as one token | `word` capture (+ `tail`) | ✅ (`exec` bare flags) |
 | 5 | No context-sensitivity / lookahead | `when_followed_by` / `when_not_followed_by indent` | ✅ (bare `os`/`arch` in `requires`) |
-| 6 | No varargs / overload-ladder boilerplate | `tail` capture | partial (kept a `word` ladder — see below) |
+| 6 | No varargs / overload-ladder boilerplate | `tail` capture (quote-preserving, capy ≥ `ac128fb`) | ✅ (one `exec BIN tail` function, no arity cap) |
 | 7 | `#` line comments don't parse | `comments { line "#" }` | ✅ |
 | 8 | `try`/`rescue`/`finally` don't parse | `block_sections` | ✅ (`try … rescue … finally … end` ships) |
 | 9 | Dotted access not captured bare | `dotted_ident` | ✅ (bare `match err.kind` ships) |
@@ -41,6 +41,4 @@
 
 - **Bare `match err.kind` (§9) via `dotted_ident`.** The `match`-ident grammar uses `dotted_ident`, which captures both a plain binding (`os`) and a dotted member path (`err.kind`) as one token. Error bindings are stored under their literal dotted key, so `match err.kind` resolves directly. The string form `match "${err.kind}"` still works.
 
-## Note on the one adopted-with-a-caveat
-
-- **§6 `tail` (unbounded varargs).** `tail` removes the arity cap, but it **strips quotes** when rejoining tokens, so `exec git commit -m "fix the bug"` would collapse to `commit -m fix the bug` — losing the slot boundary for spaced args. perch therefore kept a `word`-ladder (capped at bin + 8 args), which is lossless for both bare flags and spaced args. If a future capy `tail` preserves quoting (or yields a token array), the ladder can collapse to one function.
+- **§6 `tail` (unbounded varargs).** Originally `tail` stripped quotes when rejoining tokens, which lost the slot boundary for spaced args (`exec git commit -m "fix the bug"` → `commit -m fix the bug`), so perch kept a capped `word`-ladder. capy `ac128fb` made `tail` **quote-preserving**, so `exec` collapsed to a single `exec BIN tail` function (no arity cap). The argv string is shell-split at **load time** (`loader.go shellSplitArgs`) on the literal source — before interpolation — so the §3.3 keystone holds: a `${x}` token stays one slot even if its value has spaces. (Minor quirk: *redundantly* quoting single-word tokens — `exec docker "run" "-d"` — confuses the splitter; just write them bare, `exec docker run -d`. Quote only tokens that contain spaces.)
