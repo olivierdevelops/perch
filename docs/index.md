@@ -111,6 +111,52 @@ ul.shipped .brk{font-size:.72em;font-weight:700;color:#d97706;border:1px solid #
 
 ---
 
+## The philosophy — what perch is trying to do
+
+Every team has an *operational layer*: the scripts that build the project, spin up the dev stack, deploy the service, wrap the clunky CLI, run the runbook. It's the least-loved code you own — and you usually write it **five times in five incompatible languages**. A bash script for the terminal. A Makefile for CI. A Cobra/Click/Typer program when the bash gets too hairy. A little Flask dashboard so non-devs can click a button. An MCP/JSON-tool backend now that an agent needs to run it too. **Five descriptions of the same handful of verbs**, drifting apart the moment they're written.
+
+perch's bet is that this is one program, not five — and that you should describe it **once**.
+
+<style>
+.philo{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:20px 0}
+.philo .p{background:var(--md-default-bg-color);border:1px solid var(--md-default-fg-color--lightest);border-left:3px solid var(--md-accent-fg-color);border-radius:8px;padding:14px 16px}
+.philo .p h4{margin:0 0 4px;font-size:14px;color:var(--md-default-fg-color)}
+.philo .p p{margin:0;font-size:13px;line-height:1.55;color:var(--md-default-fg-color--light)}
+</style>
+
+<div class="philo">
+  <div class="p">
+    <h4>① Describe once, render many</h4>
+    <p>You declare typed verbs in one <code>.perch</code> file. Being a CLI, a web form, a REPL command, an MCP tool, and a binary entry point is the <em>tool's</em> job — not yours. No schema written five times, nothing to keep in sync.</p>
+  </div>
+  <div class="p">
+    <h4>② The grammar is the security boundary</h4>
+    <p>Capabilities are <strong>declared and gated</strong>, not bolted on after. A file states what it touches (<code>requires</code>); the operator narrows what's allowed (<code>--no-*</code>); neither side can exceed the other. You can know what a file does <em>before</em> you run it.</p>
+  </div>
+  <div class="p">
+    <h4>③ Cross-platform is the runtime's problem</h4>
+    <p>Common operations — copy, mkdir, hash, http, gzip — are <strong>first-class ops</strong>, not per-OS shell incantations. <code>exec</code> runs declared binaries without a shell. The same file behaves the same on macOS, Linux, and Windows.</p>
+  </div>
+  <div class="p">
+    <h4>④ Legible by construction</h4>
+    <p>Typed args, <code>--check</code>, <code>--scan</code>, <code>simulate</code>, a structured error enum, and an audit log come standard. Operational code is the code most often run by someone who didn't write it — so it has to be <em>readable and inspectable</em>, not clever.</p>
+  </div>
+  <div class="p">
+    <h4>⑤ Ship one artifact</h4>
+    <p>Hand someone a file, or <code>--build</code> a single portable binary that needs no Go, no perch, no clone. The install tax on the recipient should be one download — and embedding can carry an entire Python/Node project along.</p>
+  </div>
+  <div class="p">
+    <h4>⑥ Stay small on purpose</h4>
+    <p>perch is a <strong>control plane, not a programming language</strong>. It orchestrates tools and glues steps together; it is deliberately not where you write your application's business logic. A small, closed vocabulary is what makes the other five promises keepable.</p>
+  </div>
+</div>
+
+The throughline: the operational layer should be something you **write once, read easily, hand to a teammate — or an AI agent, or CI — with confidence, and run anywhere.** Everything else perch ships is in service of that one goal.
+
+> Want the longer argument? [sandboxed-by-design](sandboxed-by-design/) and [trust-by-manifest](trust-by-manifest/) lay out the security worldview; [os-in-a-program](os-in-a-program/) covers the cross-platform stance.
+
+---
+
 ## 🪟 The web UI — two products in one binary
 
 `perch --server` is a single feature with **two distinct value props** depending on who you are:
