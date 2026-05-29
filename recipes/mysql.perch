@@ -26,17 +26,17 @@ command up
     end
     do
         call require_docker
-        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        let running = exec docker ps -q -f name=^${NAME}$
         if running
             call ok "${NAME} already running"
         end
         if not running
-            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                shell "docker start ${NAME}"
+                exec docker start ${NAME}
             end
             if not existing
-                shell "docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}"
+                exec docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}
             end
             call ok "mysql up on port ${port}"
             print "  connect: mysql -h 127.0.0.1 -P ${port} -uroot -p${ROOT_PASS} ${db}"
@@ -46,18 +46,18 @@ end
 
 command down
     do
-        shell "docker stop ${NAME}"
+        exec docker stop ${NAME}
         call ok "${NAME} stopped"
     end
 end
 
 command destroy
     do
-        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            shell "docker rm -f ${NAME}"
+            exec docker rm -f ${NAME}
         end
-        shell "docker volume rm ${NAME}-data"
+        exec docker volume rm ${NAME}-data
         call ok "destroyed"
     end
 end
@@ -68,7 +68,7 @@ command cli
         default "app"
     end
     do
-        shell "docker exec -it ${NAME} mysql -uroot -p${ROOT_PASS} ${db}"
+        exec docker exec -it ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
     end
 end
 
@@ -104,7 +104,7 @@ end
 
 command status
     do
-        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             call ok "${info}"
         end

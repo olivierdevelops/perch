@@ -27,18 +27,18 @@ command up
     end
     do
         call require_docker
-        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        let running = exec docker ps -q -f name=^${NAME}$
         if running
             call ok "${NAME} already running"
             print "  endpoint: http://localhost:${port}"
         end
         if not running
-            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                shell "docker start ${NAME}"
+                exec docker start ${NAME}
             end
             if not existing
-                shell "docker run -d --name ${NAME} -p ${port}:4566 -e SERVICES=${services} -e PERSISTENCE=1 -v ${NAME}-data:/var/lib/localstack ${IMAGE}"
+                exec docker run -d --name ${NAME} -p ${port}:4566 -e SERVICES=${services} -e PERSISTENCE=1 -v ${NAME}-data:/var/lib/localstack ${IMAGE}
             end
             call ok "localstack up"
             print "  endpoint: http://localhost:${port}"
@@ -49,28 +49,28 @@ end
 
 command down
     do
-        shell "docker stop ${NAME}"
+        exec docker stop ${NAME}
         call ok "${NAME} stopped"
     end
 end
 
 command destroy
     do
-        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            shell "docker rm -f ${NAME}"
+            exec docker rm -f ${NAME}
         end
-        shell "docker volume rm ${NAME}-data"
+        exec docker volume rm ${NAME}-data
         call ok "destroyed"
     end
 end
 
 command status
     do
-        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}'"
+        let info = exec docker ps -f name=^${NAME}$ --format {{.Status}}
         if info
             call ok "${info}"
-            let health = shell_output "curl -fsS http://localhost:4566/_localstack/health"
+            let health = exec curl -fsS http://localhost:4566/_localstack/health
             print "${health}"
         end
         if not info
@@ -81,6 +81,6 @@ end
 
 command logs
     do
-        shell "docker logs -f ${NAME}"
+        exec docker logs -f ${NAME}
     end
 end

@@ -40,17 +40,17 @@ end
 command start_postgres
     private
     do
-        let r = shell_output "docker ps -q -f name=^${PG_NAME}$"
+        let r = exec docker ps -q -f name=^${PG_NAME}$
         if r
             call ok "postgres already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${PG_NAME}$"
+            let e = exec docker ps -aq -f name=^${PG_NAME}$
             if e
-                shell "docker start ${PG_NAME}"
+                exec docker start ${PG_NAME}
             end
             if not e
-                shell "docker run -d --name ${PG_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=app -v ${PG_NAME}-data:/var/lib/postgresql/data -p 5432:5432 ${PG_IMG}"
+                exec docker run -d --name ${PG_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=app -v ${PG_NAME}-data:/var/lib/postgresql/data -p 5432:5432 ${PG_IMG}
             end
             call ok "postgres up"
         end
@@ -60,16 +60,16 @@ end
 command start_redis
     private
     do
-        let r = shell_output "docker ps -q -f name=^${RD_NAME}$"
+        let r = exec docker ps -q -f name=^${RD_NAME}$
         if r
             call ok "redis already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${RD_NAME}$"
+            let e = exec docker ps -aq -f name=^${RD_NAME}$
             if e
-                shell "docker rm ${RD_NAME}"
+                exec docker rm ${RD_NAME}
             end
-            shell "docker run -d --name ${RD_NAME} -p 6379:6379 ${RD_IMG}"
+            exec docker run -d --name ${RD_NAME} -p 6379:6379 ${RD_IMG}
             call ok "redis up"
         end
     end
@@ -78,17 +78,17 @@ end
 command start_minio
     private
     do
-        let r = shell_output "docker ps -q -f name=^${M_NAME}$"
+        let r = exec docker ps -q -f name=^${M_NAME}$
         if r
             call ok "minio already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${M_NAME}$"
+            let e = exec docker ps -aq -f name=^${M_NAME}$
             if e
-                shell "docker start ${M_NAME}"
+                exec docker start ${M_NAME}
             end
             if not e
-                shell "docker run -d --name ${M_NAME} -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v ${M_NAME}-data:/data ${M_IMG} server /data --console-address :9001"
+                exec docker run -d --name ${M_NAME} -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v ${M_NAME}-data:/data ${M_IMG} server /data --console-address :9001
             end
             call ok "minio up"
         end
@@ -99,9 +99,9 @@ command down
     description "Stop everything (preserves volumes)"
     do
         parallel
-            shell "docker stop ${PG_NAME}"
-            shell "docker stop ${RD_NAME}"
-            shell "docker stop ${M_NAME}"
+            exec docker stop ${PG_NAME}
+            exec docker stop ${RD_NAME}
+            exec docker stop ${M_NAME}
         end
         call ok "devstack stopped"
     end
@@ -110,14 +110,14 @@ end
 command destroy
     description "Stop AND delete all volumes — full wipe"
     do
-        shell "docker rm -f ${PG_NAME} ${RD_NAME} ${M_NAME}"
-        shell "docker volume rm ${PG_NAME}-data ${M_NAME}-data"
+        exec docker rm -f ${PG_NAME} ${RD_NAME} ${M_NAME}
+        exec docker volume rm ${PG_NAME}-data ${M_NAME}-data
         call ok "devstack destroyed"
     end
 end
 
 command status
     do
-        shell "docker ps --filter name=^${PG_NAME}$ --filter name=^${RD_NAME}$ --filter name=^${M_NAME}$ --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+        exec docker ps --filter name=^${PG_NAME}$ --filter name=^${RD_NAME}$ --filter name=^${M_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     end
 end

@@ -14,7 +14,7 @@ command pr
     end
     do
         call require_bin "gh"
-        shell "gh pr create ${title}"
+        exec gh pr create ${title}
     end
 end
 
@@ -22,7 +22,7 @@ command land
     description "Squash-merge the current branch's PR and delete the branch"
     do
         call require_bin "gh"
-        shell "gh pr merge --squash --delete-branch --auto"
+        exec gh pr merge --squash --delete-branch --auto
         call ok "PR landed (queued for auto-merge after checks pass)"
     end
 end
@@ -30,13 +30,13 @@ end
 command sync
     description "Pull the latest main and rebase the current branch on top"
     do
-        let branch = shell_output "git rev-parse --abbrev-ref HEAD"
-        shell "git fetch origin main:main"
+        let branch = exec git rev-parse --abbrev-ref HEAD
+        exec git fetch origin main:main
         if branch == "main"
             call ok "already on main; pulled latest"
             exit 0
         end
-        shell "git rebase main"
+        exec git rebase main
         call ok "${branch} rebased on main"
     end
 end
@@ -44,7 +44,7 @@ end
 command cleanup
     description "Delete every local branch that no longer has a remote"
     do
-        shell "git fetch -p"
+        exec git fetch -p
         shell "git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D"
         call ok "stale local branches deleted"
     end
@@ -53,14 +53,14 @@ end
 command wip
     description "Stage everything, commit as 'wip', push — for quick context-switch saves"
     do
-        shell "git add -A"
-        let staged = shell_output "git diff --cached --stat"
+        exec git add -A
+        let staged = exec git diff --cached --stat
         if not staged
             call ok "nothing to commit"
             exit 0
         end
-        shell "git commit -m 'wip'"
-        shell "git push"
+        exec git commit -m wip
+        exec git push
         call ok "wip saved + pushed"
     end
 end
@@ -70,10 +70,10 @@ command status
     do
         call require_bin "gh"
         print "── your open PRs ──"
-        shell "gh pr list --author '@me'"
+        exec gh pr list --author @me
         print ""
         print "── current branch ──"
-        shell "git status -sb"
+        exec git status -sb
     end
 end
 
@@ -87,7 +87,7 @@ command review
     end
     do
         call require_bin "gh"
-        shell "gh pr view ${pr} --web"
+        exec gh pr view ${pr} --web
     end
 end
 
@@ -95,6 +95,6 @@ command checks
     description "Show CI status for the current branch's PR"
     do
         call require_bin "gh"
-        shell "gh pr checks"
+        exec gh pr checks
     end
 end

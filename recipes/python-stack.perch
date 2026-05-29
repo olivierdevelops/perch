@@ -9,14 +9,14 @@ command install_uv
     do
         if os == "darwin"
             call require_bin "brew"
-            shell "brew install uv"
+            exec brew install uv
         end
         if os == "linux"
             shell "curl -LsSf https://astral.sh/uv/install.sh | sh"
         end
         if os == "windows"
             call require_bin "winget"
-            shell "winget install --id astral-sh.uv -e"
+            exec winget install --id astral-sh.uv -e
         end
         call ok "uv installed"
     end
@@ -34,9 +34,9 @@ command bootstrap
     end
     do
         call require_bin "uv"
-        shell "uv init ${name} --python ${python}"
+        exec uv init ${name} --python ${python}
         with_cwd "${name}"
-            shell "uv venv"
+            exec uv venv
         end
         call ok "project ${name} ready"
         print ""
@@ -54,7 +54,7 @@ command venv
     end
     do
         call require_bin "uv"
-        shell "uv venv --python ${python}"
+        exec uv venv --python ${python}
         call ok ".venv ready (python ${python})"
     end
 end
@@ -63,7 +63,7 @@ command sync
     description "Install dependencies from uv.lock / pyproject.toml"
     do
         call require_bin "uv"
-        shell "uv sync"
+        exec uv sync
         call ok "synced"
     end
 end
@@ -76,7 +76,7 @@ command add
     end
     do
         call require_bin "uv"
-        shell "uv add ${pkg}"
+        exec uv add ${pkg}
     end
 end
 
@@ -88,7 +88,7 @@ command remove
     end
     do
         call require_bin "uv"
-        shell "uv remove ${pkg}"
+        exec uv remove ${pkg}
     end
 end
 
@@ -101,7 +101,7 @@ command run
     end
     do
         call require_bin "uv"
-        shell "uv run ${cmd}"
+        exec uv run ${cmd}
     end
 end
 
@@ -109,7 +109,7 @@ command clean
     description "Remove the .venv (uv sync will recreate it)"
     do
         if exists ".venv"
-            shell "rm -rf .venv"
+            exec rm -rf .venv
             call ok ".venv removed"
         end
     end

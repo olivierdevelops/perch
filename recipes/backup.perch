@@ -13,14 +13,14 @@ command install
     do
         if os == "darwin"
             call require_bin "brew"
-            shell "brew install restic"
+            exec brew install restic
         end
         if os == "linux"
-            shell "sudo apt-get install -y restic"
+            exec sudo apt-get install -y restic
         end
         if os == "windows"
             call require_bin "winget"
-            shell "winget install --id restic.restic -e"
+            exec winget install --id restic.restic -e
         end
         call ok "restic installed"
     end
@@ -36,7 +36,7 @@ command init_repo
     do
         call require_bin "restic"
         call warn "you will be prompted for a passphrase — write it down"
-        shell "restic init --repo ${repo}"
+        exec restic init --repo ${repo}
         call ok "repo initialized at ${repo}"
     end
 end
@@ -54,7 +54,7 @@ command snapshot
     end
     do
         call require_bin "restic"
-        shell "restic --repo ${repo} backup ${path}"
+        exec restic --repo ${repo} backup ${path}
         call ok "snapshot saved"
     end
 end
@@ -66,7 +66,7 @@ command list
         default "${home}/restic-repo"
     end
     do
-        shell "restic --repo ${repo} snapshots"
+        exec restic --repo ${repo} snapshots
     end
 end
 
@@ -87,7 +87,7 @@ command restore
         default "${home}/restic-repo"
     end
     do
-        shell "restic --repo ${repo} restore latest --path ${path} --target ${target}"
+        exec restic --repo ${repo} restore latest --path ${path} --target ${target}
         call ok "restored to ${target}"
     end
 end
@@ -99,7 +99,7 @@ command forget
         default "${home}/restic-repo"
     end
     do
-        shell "restic --repo ${repo} forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune"
+        exec restic --repo ${repo} forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
         call ok "retention applied"
     end
 end
@@ -111,7 +111,7 @@ command check
         default "${home}/restic-repo"
     end
     do
-        shell "restic --repo ${repo} check"
+        exec restic --repo ${repo} check
     end
 end
 
@@ -128,6 +128,6 @@ command mount
     end
     do
         mkdir "${target}"
-        shell "restic --repo ${repo} mount ${target}"
+        exec restic --repo ${repo} mount ${target}
     end
 end

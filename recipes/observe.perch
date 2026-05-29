@@ -42,17 +42,17 @@ end
 command start_prom
     private
     do
-        let r = shell_output "docker ps -q -f name=^${PROM_NAME}$"
+        let r = exec docker ps -q -f name=^${PROM_NAME}$
         if r
             call ok "prometheus already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${PROM_NAME}$"
+            let e = exec docker ps -aq -f name=^${PROM_NAME}$
             if e
-                shell "docker start ${PROM_NAME}"
+                exec docker start ${PROM_NAME}
             end
             if not e
-                shell "docker run -d --name ${PROM_NAME} -p 9090:9090 -v ${PROM_NAME}-data:/prometheus ${PROM_IMG}"
+                exec docker run -d --name ${PROM_NAME} -p 9090:9090 -v ${PROM_NAME}-data:/prometheus ${PROM_IMG}
             end
             call ok "prometheus up"
         end
@@ -62,17 +62,17 @@ end
 command start_grafana
     private
     do
-        let r = shell_output "docker ps -q -f name=^${GRAF_NAME}$"
+        let r = exec docker ps -q -f name=^${GRAF_NAME}$
         if r
             call ok "grafana already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${GRAF_NAME}$"
+            let e = exec docker ps -aq -f name=^${GRAF_NAME}$
             if e
-                shell "docker start ${GRAF_NAME}"
+                exec docker start ${GRAF_NAME}
             end
             if not e
-                shell "docker run -d --name ${GRAF_NAME} -p 3001:3000 -e GF_SECURITY_ADMIN_PASSWORD=admin --add-host=host.docker.internal:host-gateway -v ${GRAF_NAME}-data:/var/lib/grafana ${GRAF_IMG}"
+                exec docker run -d --name ${GRAF_NAME} -p 3001:3000 -e GF_SECURITY_ADMIN_PASSWORD=admin --add-host=host.docker.internal:host-gateway -v ${GRAF_NAME}-data:/var/lib/grafana ${GRAF_IMG}
             end
             call ok "grafana up"
         end
@@ -82,17 +82,17 @@ end
 command start_loki
     private
     do
-        let r = shell_output "docker ps -q -f name=^${LOKI_NAME}$"
+        let r = exec docker ps -q -f name=^${LOKI_NAME}$
         if r
             call ok "loki already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${LOKI_NAME}$"
+            let e = exec docker ps -aq -f name=^${LOKI_NAME}$
             if e
-                shell "docker start ${LOKI_NAME}"
+                exec docker start ${LOKI_NAME}
             end
             if not e
-                shell "docker run -d --name ${LOKI_NAME} -p 3100:3100 -v ${LOKI_NAME}-data:/loki ${LOKI_IMG}"
+                exec docker run -d --name ${LOKI_NAME} -p 3100:3100 -v ${LOKI_NAME}-data:/loki ${LOKI_IMG}
             end
             call ok "loki up"
         end
@@ -103,13 +103,13 @@ command open
     description "Open Grafana in the default browser"
     do
         if os == "darwin"
-            shell "open http://localhost:3001"
+            exec open http://localhost:3001
         end
         if os == "linux"
-            shell "xdg-open http://localhost:3001"
+            exec xdg-open http://localhost:3001
         end
         if os == "windows"
-            shell "start http://localhost:3001"
+            exec start http://localhost:3001
         end
     end
 end
@@ -117,9 +117,9 @@ end
 command down
     do
         parallel
-            shell "docker stop ${PROM_NAME}"
-            shell "docker stop ${GRAF_NAME}"
-            shell "docker stop ${LOKI_NAME}"
+            exec docker stop ${PROM_NAME}
+            exec docker stop ${GRAF_NAME}
+            exec docker stop ${LOKI_NAME}
         end
         call ok "observe stack stopped"
     end
@@ -127,14 +127,14 @@ end
 
 command destroy
     do
-        shell "docker rm -f ${PROM_NAME} ${GRAF_NAME} ${LOKI_NAME}"
-        shell "docker volume rm ${PROM_NAME}-data ${GRAF_NAME}-data ${LOKI_NAME}-data"
+        exec docker rm -f ${PROM_NAME} ${GRAF_NAME} ${LOKI_NAME}
+        exec docker volume rm ${PROM_NAME}-data ${GRAF_NAME}-data ${LOKI_NAME}-data
         call ok "destroyed"
     end
 end
 
 command status
     do
-        shell "docker ps --filter name=^${PROM_NAME}$ --filter name=^${GRAF_NAME}$ --filter name=^${LOKI_NAME}$ --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+        exec docker ps --filter name=^${PROM_NAME}$ --filter name=^${GRAF_NAME}$ --filter name=^${LOKI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     end
 end

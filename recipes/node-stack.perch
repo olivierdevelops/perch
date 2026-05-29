@@ -9,7 +9,7 @@ command install
     do
         if os == "darwin"
             call require_bin "brew"
-            shell "brew install fnm pnpm"
+            exec brew install fnm pnpm
         end
         if os == "linux"
             shell "curl -fsSL https://fnm.vercel.app/install | bash"
@@ -17,8 +17,8 @@ command install
         end
         if os == "windows"
             call require_bin "winget"
-            shell "winget install --id Schniz.fnm -e"
-            shell "winget install --id pnpm.pnpm -e"
+            exec winget install --id Schniz.fnm -e
+            exec winget install --id pnpm.pnpm -e
         end
         call ok "fnm + pnpm installed"
         print ""
@@ -36,7 +36,7 @@ command pin
     end
     do
         call require_bin "fnm"
-        shell "fnm install ${version}"
+        exec fnm install ${version}
         write_file ".nvmrc" "${version}"
         call ok "pinned Node ${version} (.nvmrc written)"
     end
@@ -52,7 +52,7 @@ command bootstrap
         call require_bin "pnpm"
         mkdir "${name}"
         with_cwd "${name}"
-            shell "pnpm init"
+            exec pnpm init
             write_file ".nvmrc" "20"
             write_file ".gitignore" "node_modules\ndist\n.env\n*.log"
         end
@@ -64,7 +64,7 @@ command upgrade_all
     description "Bump every dependency to its latest version (interactive)"
     do
         call require_bin "pnpm"
-        shell "pnpm update --interactive --latest"
+        exec pnpm update --interactive --latest
     end
 end
 
@@ -72,7 +72,7 @@ command clean
     description "Nuke node_modules + lockfile (full reset)"
     do
         if exists "node_modules"
-            shell "rm -rf node_modules"
+            exec rm -rf node_modules
         end
         if exists "pnpm-lock.yaml"
             rm "pnpm-lock.yaml"

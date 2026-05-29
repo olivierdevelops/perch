@@ -41,17 +41,17 @@ end
 command start_kafka
     private
     do
-        let r = shell_output "docker ps -q -f name=^${K_NAME}$"
+        let r = exec docker ps -q -f name=^${K_NAME}$
         if r
             call ok "kafka already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${K_NAME}$"
+            let e = exec docker ps -aq -f name=^${K_NAME}$
             if e
-                shell "docker start ${K_NAME}"
+                exec docker start ${K_NAME}
             end
             if not e
-                shell "docker run -d --name ${K_NAME} -p 9092:9092 -e KAFKA_CFG_NODE_ID=0 -e KAFKA_CFG_PROCESS_ROLES=controller,broker -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 -v ${K_NAME}-data:/bitnami/kafka ${K_IMG}"
+                exec docker run -d --name ${K_NAME} -p 9092:9092 -e KAFKA_CFG_NODE_ID=0 -e KAFKA_CFG_PROCESS_ROLES=controller,broker -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 -v ${K_NAME}-data:/bitnami/kafka ${K_IMG}
             end
             call ok "kafka up"
         end
@@ -61,17 +61,17 @@ end
 command start_ui
     private
     do
-        let r = shell_output "docker ps -q -f name=^${UI_NAME}$"
+        let r = exec docker ps -q -f name=^${UI_NAME}$
         if r
             call ok "kafka-ui already running"
         end
         if not r
-            let e = shell_output "docker ps -aq -f name=^${UI_NAME}$"
+            let e = exec docker ps -aq -f name=^${UI_NAME}$
             if e
-                shell "docker start ${UI_NAME}"
+                exec docker start ${UI_NAME}
             end
             if not e
-                shell "docker run -d --name ${UI_NAME} -p 8080:8080 -e KAFKA_CLUSTERS_0_NAME=local -e KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=host.docker.internal:9092 --add-host=host.docker.internal:host-gateway ${UI_IMG}"
+                exec docker run -d --name ${UI_NAME} -p 8080:8080 -e KAFKA_CLUSTERS_0_NAME=local -e KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=host.docker.internal:9092 --add-host=host.docker.internal:host-gateway ${UI_IMG}
             end
             call ok "kafka-ui up"
         end
@@ -85,7 +85,7 @@ command topic_create
         index 0
     end
     do
-        shell "docker exec ${K_NAME} kafka-topics.sh --create --topic ${name} --bootstrap-server localhost:9092 --if-not-exists"
+        exec docker exec ${K_NAME} kafka-topics.sh --create --topic ${name} --bootstrap-server localhost:9092 --if-not-exists
         call ok "topic: ${name}"
     end
 end
@@ -93,15 +93,15 @@ end
 command topics
     description "List topics"
     do
-        shell "docker exec ${K_NAME} kafka-topics.sh --list --bootstrap-server localhost:9092"
+        exec docker exec ${K_NAME} kafka-topics.sh --list --bootstrap-server localhost:9092
     end
 end
 
 command down
     do
         parallel
-            shell "docker stop ${K_NAME}"
-            shell "docker stop ${UI_NAME}"
+            exec docker stop ${K_NAME}
+            exec docker stop ${UI_NAME}
         end
         call ok "kafka-stack stopped"
     end
@@ -109,14 +109,14 @@ end
 
 command destroy
     do
-        shell "docker rm -f ${K_NAME} ${UI_NAME}"
-        shell "docker volume rm ${K_NAME}-data"
+        exec docker rm -f ${K_NAME} ${UI_NAME}
+        exec docker volume rm ${K_NAME}-data
         call ok "destroyed"
     end
 end
 
 command status
     do
-        shell "docker ps --filter name=^${K_NAME}$ --filter name=^${UI_NAME}$ --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+        exec docker ps --filter name=^${K_NAME}$ --filter name=^${UI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     end
 end

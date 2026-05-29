@@ -9,7 +9,7 @@ command install_mkcert
     do
         if os == "darwin"
             call require_bin "brew"
-            shell "brew install mkcert nss"
+            exec brew install mkcert nss
         end
         if os == "linux"
             call warn "Linux: install mkcert via your distro's package or release binary"
@@ -17,7 +17,7 @@ command install_mkcert
         end
         if os == "windows"
             call require_bin "winget"
-            shell "winget install --id FiloSottile.mkcert -e"
+            exec winget install --id FiloSottile.mkcert -e
         end
         call ok "mkcert installed"
     end
@@ -27,7 +27,7 @@ command install_ca
     description "Install mkcert's root CA into the OS + browser trust stores"
     do
         call require_bin "mkcert"
-        shell "mkcert -install"
+        exec mkcert -install
         call ok "root CA installed (browsers will trust certs minted by mkcert)"
     end
 end
@@ -42,7 +42,7 @@ command cert
     end
     do
         call require_bin "mkcert"
-        shell "mkcert ${domains}"
+        exec mkcert ${domains}
         call ok "wrote *.pem files to current directory"
     end
 end
@@ -51,7 +51,7 @@ command uninstall_ca
     description "Remove the mkcert root CA from trust stores"
     do
         call require_bin "mkcert"
-        shell "mkcert -uninstall"
+        exec mkcert -uninstall
         call ok "root CA removed"
     end
 end
@@ -61,9 +61,9 @@ command status
     do
         let h = has_bin "mkcert"
         if h
-            let ver = shell_output "mkcert -version"
+            let ver = exec mkcert -version
             print "  ✓ mkcert ${ver}"
-            shell "mkcert -CAROOT"
+            exec mkcert -CAROOT
         end
         if not h
             print "  ✗ mkcert not installed (run install_mkcert)"

@@ -15,10 +15,10 @@ command ctx
     do
         call require_bin "kubectl"
         if not name
-            shell "kubectl config get-contexts"
+            exec kubectl config get-contexts
             exit 0
         end
-        shell "kubectl config use-context ${name}"
+        exec kubectl config use-context ${name}
         call ok "context: ${name}"
     end
 end
@@ -33,10 +33,10 @@ command ns
     do
         call require_bin "kubectl"
         if not name
-            shell "kubectl get namespaces"
+            exec kubectl get namespaces
             exit 0
         end
-        shell "kubectl config set-context --current --namespace=${name}"
+        exec kubectl config set-context --current --namespace=${name}
         call ok "namespace: ${name}"
     end
 end
@@ -44,7 +44,7 @@ end
 command pods
     description "List pods in the current namespace"
     do
-        shell "kubectl get pods -o wide"
+        exec kubectl get pods -o wide
     end
 end
 
@@ -61,10 +61,10 @@ command shell
     end
     do
         if container
-            shell "kubectl exec -it ${pod} -c ${container} -- sh"
+            exec kubectl exec -it ${pod} -c ${container} -- sh
         end
         if not container
-            shell "kubectl exec -it ${pod} -- sh"
+            exec kubectl exec -it ${pod} -- sh
         end
     end
 end
@@ -76,7 +76,7 @@ command logs
         index 0
     end
     do
-        shell "kubectl logs -f --all-containers ${pod}"
+        exec kubectl logs -f --all-containers ${pod}
     end
 end
 
@@ -92,7 +92,7 @@ command pf
         description "LOCAL:REMOTE (e.g. 8080:80)"
     end
     do
-        shell "kubectl port-forward svc/${svc} ${ports}"
+        exec kubectl port-forward svc/${svc} ${ports}
     end
 end
 
@@ -103,8 +103,8 @@ command restart
         index 0
     end
     do
-        shell "kubectl rollout restart deployment/${deploy}"
-        shell "kubectl rollout status deployment/${deploy}"
+        exec kubectl rollout restart deployment/${deploy}
+        exec kubectl rollout status deployment/${deploy}
         call ok "${deploy} restarted"
     end
 end
@@ -112,23 +112,23 @@ end
 command top
     description "Live pod CPU/memory usage"
     do
-        shell "kubectl top pods"
+        exec kubectl top pods
     end
 end
 
 command events
     description "Recent cluster events (most useful when debugging)"
     do
-        shell "kubectl get events --sort-by=.lastTimestamp"
+        exec kubectl get events --sort-by=.lastTimestamp
     end
 end
 
 command who_am_i
     description "Show current context + namespace + user"
     do
-        let ctx = shell_output "kubectl config current-context"
-        let ns = shell_output "kubectl config view --minify -o jsonpath='{..namespace}'"
-        let user = shell_output "kubectl config view --minify -o jsonpath='{.users[0].name}'"
+        let ctx = exec kubectl config current-context
+        let ns = exec kubectl config view --minify -o jsonpath={..namespace}
+        let user = exec kubectl config view --minify -o jsonpath={.users[0].name}
         print "context:   ${ctx}"
         print "namespace: ${ns}"
         print "user:      ${user}"

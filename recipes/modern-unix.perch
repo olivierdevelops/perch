@@ -27,7 +27,7 @@ command install_brew
     private
     do
         call require_bin "brew"
-        shell "brew install ripgrep fd bat fzf jq yq eza zoxide"
+        exec brew install ripgrep fd bat fzf jq yq eza zoxide
     end
 end
 
@@ -35,8 +35,8 @@ command install_apt
     private
     do
         call require_bin "apt-get"
-        shell "sudo apt-get update"
-        shell "sudo apt-get install -y ripgrep fd-find bat fzf jq"
+        exec sudo apt-get update
+        exec sudo apt-get install -y ripgrep fd-find bat fzf jq
         call warn "On Debian/Ubuntu fd is installed as 'fdfind' and bat as 'batcat' — add aliases or symlinks."
         call warn "yq, eza, zoxide are not in apt — install via cargo or their release pages."
     end
@@ -46,14 +46,14 @@ command install_winget
     private
     do
         call require_bin "winget"
-        shell "winget install --id BurntSushi.ripgrep.MSVC -e"
-        shell "winget install --id sharkdp.fd -e"
-        shell "winget install --id sharkdp.bat -e"
-        shell "winget install --id junegunn.fzf -e"
-        shell "winget install --id stedolan.jq -e"
-        shell "winget install --id MikeFarah.yq -e"
-        shell "winget install --id eza-community.eza -e"
-        shell "winget install --id ajeetdsouza.zoxide -e"
+        exec winget install --id BurntSushi.ripgrep.MSVC -e
+        exec winget install --id sharkdp.fd -e
+        exec winget install --id sharkdp.bat -e
+        exec winget install --id junegunn.fzf -e
+        exec winget install --id stedolan.jq -e
+        exec winget install --id MikeFarah.yq -e
+        exec winget install --id eza-community.eza -e
+        exec winget install --id ajeetdsouza.zoxide -e
     end
 end
 
@@ -90,6 +90,6 @@ command uninstall_brew
     description "Remove the toolkit (macOS only)"
     require_os "darwin"
     do
-        shell "brew uninstall ripgrep fd bat fzf jq yq eza zoxide"
+        exec brew uninstall ripgrep fd bat fzf jq yq eza zoxide
     end
 end

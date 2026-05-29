@@ -12,7 +12,7 @@ command status
     description "All running containers with disk + memory"
     do
         call require_bin "docker"
-        shell "docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}'"
+        exec docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}"
     end
 end
 
@@ -26,14 +26,14 @@ end
 command big_volumes
     description "Show volume disk usage"
     do
-        shell "docker system df -v"
+        exec docker system df -v
     end
 end
 
 command stop_all
     description "Stop EVERY running container"
     do
-        let running = shell_output "docker ps -q"
+        let running = exec docker ps -q
         if not running
             call ok "nothing running"
             exit 0
@@ -46,7 +46,7 @@ end
 command restart_all
     description "Restart EVERY running container"
     do
-        let running = shell_output "docker ps -q"
+        let running = exec docker ps -q
         if not running
             call ok "nothing to restart"
             exit 0
@@ -59,9 +59,9 @@ end
 command prune_safe
     description "Remove stopped containers + dangling images + unused networks (no volumes)"
     do
-        shell "docker container prune -f"
-        shell "docker image prune -f"
-        shell "docker network prune -f"
+        exec docker container prune -f
+        exec docker image prune -f
+        exec docker network prune -f
         call ok "safe prune done"
     end
 end
@@ -70,7 +70,7 @@ command prune_all
     description "AGGRESSIVE — remove every stopped container, every unused image, every unused volume"
     do
         call warn "this WILL delete unused volumes — data loss possible"
-        shell "docker system prune -a --volumes -f"
+        exec docker system prune -a --volumes -f
         call ok "aggressive prune done"
     end
 end
@@ -82,7 +82,7 @@ command logs
         index 0
     end
     do
-        shell "docker logs -f ${name}"
+        exec docker logs -f ${name}
     end
 end
 
@@ -93,13 +93,13 @@ command shell
         index 0
     end
     do
-        shell "docker exec -it ${name} sh"
+        exec docker exec -it ${name} sh
     end
 end
 
 command top_cpu
     description "Show running containers sorted by CPU usage (one-shot)"
     do
-        shell "docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'"
+        exec docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
     end
 end

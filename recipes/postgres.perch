@@ -28,17 +28,17 @@ command up
     end
     do
         call require_docker
-        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        let running = exec docker ps -q -f name=^${NAME}$
         if running
             call ok "${NAME} already running"
         end
         if not running
-            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                shell "docker start ${NAME}"
+                exec docker start ${NAME}
             end
             if not existing
-                shell "docker run -d --name ${NAME} -e POSTGRES_USER=${USER} -e POSTGRES_PASSWORD=${PASS} -e POSTGRES_DB=${db} -v ${NAME}-data:/var/lib/postgresql/data -p ${port}:5432 ${IMAGE}"
+                exec docker run -d --name ${NAME} -e POSTGRES_USER=${USER} -e POSTGRES_PASSWORD=${PASS} -e POSTGRES_DB=${db} -v ${NAME}-data:/var/lib/postgresql/data -p ${port}:5432 ${IMAGE}
             end
             call ok "postgres up on port ${port}"
             print "  connect: psql 'postgres://${USER}:${PASS}@localhost:${port}/${db}'"
@@ -49,7 +49,7 @@ end
 command down
     description "Stop the container (keeps the volume)"
     do
-        shell "docker stop ${NAME}"
+        exec docker stop ${NAME}
         call ok "${NAME} stopped"
     end
 end
@@ -57,11 +57,11 @@ end
 command destroy
     description "Stop AND delete the data volume"
     do
-        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            shell "docker rm -f ${NAME}"
+            exec docker rm -f ${NAME}
         end
-        shell "docker volume rm ${NAME}-data"
+        exec docker volume rm ${NAME}-data
         call ok "destroyed"
     end
 end
@@ -73,7 +73,7 @@ command psql
         default "app"
     end
     do
-        shell "docker exec -it ${NAME} psql -U ${USER} ${db}"
+        exec docker exec -it ${NAME} psql -U ${USER} ${db}
     end
 end
 
@@ -84,7 +84,7 @@ command createdb
         index 0
     end
     do
-        shell "docker exec ${NAME} createdb -U ${USER} ${db}"
+        exec docker exec ${NAME} createdb -U ${USER} ${db}
         call ok "created database ${db}"
     end
 end
@@ -123,7 +123,7 @@ end
 
 command status
     do
-        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             call ok "${info}"
         end
@@ -135,6 +135,6 @@ end
 
 command logs
     do
-        shell "docker logs -f ${NAME}"
+        exec docker logs -f ${NAME}
     end
 end

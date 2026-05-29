@@ -21,17 +21,17 @@ command up
     end
     do
         call require_docker
-        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        let running = exec docker ps -q -f name=^${NAME}$
         if running
             call ok "${NAME} already running"
         end
         if not running
-            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                shell "docker start ${NAME}"
+                exec docker start ${NAME}
             end
             if not existing
-                shell "docker run -d --name ${NAME} -v ${NAME}-data:/data/db -p ${port}:27017 ${IMAGE}"
+                exec docker run -d --name ${NAME} -v ${NAME}-data:/data/db -p ${port}:27017 ${IMAGE}
             end
             call ok "mongo up on port ${port}"
             print "  connect: mongosh mongodb://localhost:${port}"
@@ -41,33 +41,33 @@ end
 
 command down
     do
-        shell "docker stop ${NAME}"
+        exec docker stop ${NAME}
         call ok "${NAME} stopped"
     end
 end
 
 command destroy
     do
-        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            shell "docker rm -f ${NAME}"
+            exec docker rm -f ${NAME}
         end
-        shell "docker volume rm ${NAME}-data"
+        exec docker volume rm ${NAME}-data
         call ok "destroyed"
     end
 end
 
 command shell
     do
-        shell "docker exec -it ${NAME} mongosh"
+        exec docker exec -it ${NAME} mongosh
     end
 end
 
 command dump
     description "Dump every database to ./mongo-dump/"
     do
-        shell "docker exec ${NAME} mongodump --out=/tmp/dump"
-        shell "docker cp ${NAME}:/tmp/dump ./mongo-dump"
+        exec docker exec ${NAME} mongodump --out=/tmp/dump
+        exec docker cp ${NAME}:/tmp/dump ./mongo-dump
         call ok "wrote ./mongo-dump"
     end
 end
@@ -78,21 +78,21 @@ command restore
         default "./mongo-dump"
     end
     do
-        shell "docker cp ${dir} ${NAME}:/tmp/restore"
-        shell "docker exec ${NAME} mongorestore /tmp/restore"
+        exec docker cp ${dir} ${NAME}:/tmp/restore
+        exec docker exec ${NAME} mongorestore /tmp/restore
         call ok "restored from ${dir}"
     end
 end
 
 command logs
     do
-        shell "docker logs -f ${NAME}"
+        exec docker logs -f ${NAME}
     end
 end
 
 command status
     do
-        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             call ok "${info}"
         end

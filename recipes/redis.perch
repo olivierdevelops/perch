@@ -22,16 +22,16 @@ command up
     end
     do
         call require_docker
-        let running = shell_output "docker ps -q -f name=^${NAME}$"
+        let running = exec docker ps -q -f name=^${NAME}$
         if running
             call ok "${NAME} already running"
         end
         if not running
-            let existing = shell_output "docker ps -aq -f name=^${NAME}$"
+            let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                shell "docker rm ${NAME}"
+                exec docker rm ${NAME}
             end
-            shell "docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}"
+            exec docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}
             call ok "redis up on port ${port}"
             print "  connect: redis-cli -p ${port}"
         end
@@ -41,9 +41,9 @@ end
 command down
     description "Stop and remove the container"
     do
-        let exists = shell_output "docker ps -aq -f name=^${NAME}$"
+        let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            shell "docker rm -f ${NAME}"
+            exec docker rm -f ${NAME}
             call ok "${NAME} removed"
         end
         if not exists
@@ -55,14 +55,14 @@ end
 command cli
     description "Open an interactive redis-cli inside the container"
     do
-        shell "docker exec -it ${NAME} redis-cli"
+        exec docker exec -it ${NAME} redis-cli
     end
 end
 
 command flush
     description "FLUSHALL — destroy every key (use with care)"
     do
-        shell "docker exec ${NAME} redis-cli FLUSHALL"
+        exec docker exec ${NAME} redis-cli FLUSHALL
         call ok "flushed"
     end
 end
@@ -70,21 +70,21 @@ end
 command monitor
     description "Tail every command Redis sees (redis-cli MONITOR)"
     do
-        shell "docker exec -it ${NAME} redis-cli MONITOR"
+        exec docker exec -it ${NAME} redis-cli MONITOR
     end
 end
 
 command logs
     description "Tail container logs"
     do
-        shell "docker logs -f ${NAME}"
+        exec docker logs -f ${NAME}
     end
 end
 
 command status
     description "Is it running? On what port?"
     do
-        let info = shell_output "docker ps -f name=^${NAME}$ --format '{{.Status}}  {{.Ports}}'"
+        let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             call ok "${info}"
         end
@@ -97,8 +97,8 @@ end
 command backup
     description "Dump RDB snapshot to ./redis-backup.rdb"
     do
-        shell "docker exec ${NAME} redis-cli SAVE"
-        shell "docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb"
+        exec docker exec ${NAME} redis-cli SAVE
+        exec docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb
         call ok "wrote redis-backup.rdb"
     end
 end
