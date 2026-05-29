@@ -1,6 +1,6 @@
 # Using perch today
 
-> **Read this if you want to *use* perch right now.** A lot of recent design docs ([sandboxed-by-design](sandboxed-by-design.md), [trust-by-manifest](trust-by-manifest.md)) describe where perch is *heading* — default-deny capabilities, an `exec` verb, `read`/`write` path scopes, capability handles, `pipe`/`glob`, WASM manifests. **None of that is shipped yet.** This page documents only what actually works in the current build, with syntax that parses today.
+> **Read this if you want to *use* perch right now.** A lot of recent design docs ([sandboxed-by-design](sandboxed-by-design.md), [trust-by-manifest](trust-by-manifest.md)) describe where perch is *heading* — default-deny capabilities, named capability handles, inline `|`/`&&`/`||`, WASM manifests. **That part is roadmap, not shipped.** But several pieces have landed: the **`exec`** verb (shell-free subprocess), the **`pipe … end`** block, **`glob`**, the line toolbox (`grep`/`head`/…), `read`/`write` path scopes, and `#` comments all work today. This page documents what actually works in the current build, with syntax that parses today.
 
 ---
 
@@ -118,8 +118,8 @@ requires
     host "*.amazonaws.com"             # wildcard suffix
     read  "./src"                      # filesystem read scope (paths/dirs)
     write "./dist"                     # filesystem write scope (a write root implies read)
-    run_on   "linux"                   # host OS must match (one per line)
-    run_arch "amd64"                   # host arch must match (one per line)
+    os   "linux"                       # host OS must match (one per line)
+    arch "amd64"                       # host arch must match (one per line)
 end
 ```
 

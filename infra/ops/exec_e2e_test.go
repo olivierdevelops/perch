@@ -37,6 +37,31 @@ end
 	}
 }
 
+// Bare flags / paths / globs parse as one argv token each (capy `word`),
+// and a quoted token keeps embedded spaces as a single slot.
+func TestExec_BareFlagsAndSpacedArgs(t *testing.T) {
+	src := `name "x"
+command t
+    do
+        exec echo hello --flag -x world
+        let msg = exec echo one "two three" four
+        print "cap=${msg}"
+    end
+end
+`
+	out, err := runSource(t, src, "t")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(out, "hello --flag -x world") {
+		t.Errorf("bare flags not passed through; out=%q", out)
+	}
+	// "two three" must stay ONE argv slot, not split into two.
+	if !strings.Contains(out, "cap=one two three four") {
+		t.Errorf("spaced quoted arg not preserved as one slot; out=%q", out)
+	}
+}
+
 func TestExec_InterpolatesArgv(t *testing.T) {
 	src := `name "x"
 command t

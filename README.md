@@ -187,8 +187,8 @@ requires
     host  "*.amazonaws.com"
     read  "./manifests"                       # filesystem read scope
     write "./build"                           # filesystem write scope
-    run_on   "linux"                          # host OS allowlist (one per line)
-    run_arch "amd64"                          # host arch allowlist (one per line)
+    os    "linux"                             # host OS allowlist
+    arch  "amd64"                             # host arch allowlist
 end
 
 command deploy

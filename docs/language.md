@@ -73,8 +73,8 @@ requires
     env  "DEBUG" optional
     host "api.github.com"
     host "*.amazonaws.com"
-    run_on   "linux"
-    run_arch "amd64"
+    os   "linux"
+    arch "amd64"
 end
 ```
 

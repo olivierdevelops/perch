@@ -13,6 +13,13 @@
 
 extension json
 
+# `#` line comments — leading or trailing — are ignored by the parser.
+# Capy ships no default comment marker (a target language might use `#`
+# as data), so perch opts in here. (capy >= 5102dec.)
+comments
+    line "#"
+end
+
 # ────────────────────────────────────────────────────────────────────────────
 # Top-level
 # ────────────────────────────────────────────────────────────────────────────
@@ -229,23 +236,25 @@ function requires_write
 `
 end
 
-# Inside a `requires` block, the OS/arch the program supports use the
-# keywords `run_on` (OS) and `run_arch` (CPU arch) — NOT bare `os`/`arch`.
-# Bare `os`/`arch` are reserved for the `os "..." ... end` / `arch "..." ... end`
-# execution-context conditional blocks (see os_block / arch_block below); the
-# capy parser commits to a block-opener once its literal matches and cannot
-# backtrack, so a flat `os "linux"` requires-entry sharing that keyword would
-# parse non-deterministically. Distinct keywords keep both forms unambiguous.
+# Inside a `requires` block, `os "linux"` / `arch "amd64"` declare the host
+# OS/arch allowlist. These share the bare `os` / `arch` keyword with the
+# `os "..." ... end` / `arch "..." ... end` execution-context conditional
+# blocks (os_block / arch_block below) — disambiguated by INDENT lookahead
+# (capy >= 5102dec): a requires entry is NOT followed by an indented body;
+# the conditional block IS. Deterministic, so both forms coexist on the same
+# keyword. (Earlier this needed the `run_on` / `run_arch` rename — no longer.)
 function requires_os
-    arg literal "run_on"
+    arg literal "os"
     arg capture name any
+    when_not_followed_by indent
     write `{"event":"requires_os","name":${name}}
 `
 end
 
 function requires_arch
-    arg literal "run_arch"
+    arg literal "arch"
     arg capture name any
+    when_not_followed_by indent
     write `{"event":"requires_arch","name":${name}}
 `
 end
@@ -566,12 +575,6 @@ end
 # This is the core of docs/sandboxed-by-design.md §3.1–3.2: the only way to
 # run a subprocess without a shell. See also `with_exec` (§3.4).
 
-function exec
-    arg literal "exec"
-    arg capture bin ident
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin}}}
-`
-end
 
 # `pipe ... end` — wire stdout→stdin between exec stages with in-process
 # pipes (no shell). Each body line is an `exec BIN …` stage; perch connects
@@ -606,69 +609,120 @@ function let_pipe
 ${body}{"event":"op","kind":"_leave"}
 `
 end
-function exec_1arg
-    priority 50
+# ── exec — run a DECLARED binary with structured argv, no shell ────────────
+# `exec BIN tok tok …` spawns BIN directly (os/exec, never `sh -c`). Each
+# token (`word`) is one argv slot: bare flags/paths/globs work unquoted
+# (`exec git log --oneline -10`), and a quoted token keeps embedded spaces
+# as one slot (`exec git commit -m "fix the bug"`). `${x}` interpolates a
+# slot. Captured stdout is the op's value and is also streamed. Core of
+# docs/sandboxed-by-design.md §3.1–3.2. (capy >= 5102dec: word + asString.)
+function exec
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0}}}
+    arg capture bin word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin}}}
 `
 end
+
+function exec_1args
+    priority 50
+    arg literal "exec"
+    arg capture bin word
+    arg capture a0 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0}}}
+`
+end
+
 function exec_2args
     priority 100
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1}}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1}}}
 `
 end
+
 function exec_3args
     priority 150
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2}}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2}}}
 `
 end
+
 function exec_4args
     priority 200
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    arg capture a3 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3}}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3}}}
 `
 end
+
 function exec_5args
     priority 250
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    arg capture a3 string
-    arg capture a4 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3},"_4":${a4}}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    arg capture a4 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3},"_4":${asString a4}}}
 `
 end
+
 function exec_6args
     priority 300
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    arg capture a3 string
-    arg capture a4 string
-    arg capture a5 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3},"_4":${a4},"_5":${a5}}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    arg capture a4 word
+    arg capture a5 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3},"_4":${asString a4},"_5":${asString a5}}}
 `
 end
+
+function exec_7args
+    priority 350
+    arg literal "exec"
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    arg capture a4 word
+    arg capture a5 word
+    arg capture a6 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3},"_4":${asString a4},"_5":${asString a5},"_6":${asString a6}}}
+`
+end
+
+function exec_8args
+    priority 400
+    arg literal "exec"
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    arg capture a4 word
+    arg capture a5 word
+    arg capture a6 word
+    arg capture a7 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3},"_4":${asString a4},"_5":${asString a5},"_6":${asString a6},"_7":${asString a7}}}
+`
+end
+
 
 function fail
     arg literal "fail"
@@ -1239,6 +1293,7 @@ end
 function os_block
     arg literal "os"
     arg capture target string
+    when_followed_by indent
     block_closer end
     write `{"event":"op","kind":"_enter","name":"os","args":{"target":${target}}}
 ${body}{"event":"op","kind":"_leave"}
@@ -1270,6 +1325,7 @@ end
 function arch_block
     arg literal "arch"
     arg capture target string
+    when_followed_by indent
     block_closer end
     write `{"event":"op","kind":"_enter","name":"arch","args":{"target":${target}}}
 ${body}{"event":"op","kind":"_leave"}
@@ -1447,64 +1503,86 @@ end
 # these win over the generic let_Nargs forms (which would mis-route the
 # bin into "_0"). Token rules match inline exec: bare idents OK, quote
 # flags/paths.
+# `let NAME = exec BIN tok …` — capture stdout. `exec` is a literal so the
+# bin routes to "bin" and tokens to argv (same word rules as inline exec).
 function let_exec_0args
     priority 235
     arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
-    arg capture bin ident
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin}},"capture_into":${toJSON name}}
+    arg capture bin word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin}},"capture_into":${toJSON name}}
 `
 end
-function let_exec_1arg
+
+function let_exec_1args
     priority 240
     arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0}},"capture_into":${toJSON name}}
+    arg capture bin word
+    arg capture a0 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0}},"capture_into":${toJSON name}}
 `
 end
+
 function let_exec_2args
     priority 245
     arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1}},"capture_into":${toJSON name}}
 `
 end
+
 function let_exec_3args
     priority 250
     arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2}},"capture_into":${toJSON name}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2}},"capture_into":${toJSON name}}
 `
 end
+
 function let_exec_4args
     priority 255
     arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
-    arg capture bin ident
-    arg capture a0 string
-    arg capture a1 string
-    arg capture a2 string
-    arg capture a3 string
-    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3}},"capture_into":${toJSON name}}
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3}},"capture_into":${toJSON name}}
+`
+end
+
+function let_exec_5args
+    priority 260
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin word
+    arg capture a0 word
+    arg capture a1 word
+    arg capture a2 word
+    arg capture a3 word
+    arg capture a4 word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"_0":${asString a0},"_1":${asString a1},"_2":${asString a2},"_3":${asString a3},"_4":${asString a4}},"capture_into":${toJSON name}}
 `
 end
 

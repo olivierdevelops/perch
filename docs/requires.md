@@ -14,8 +14,8 @@ requires
     env "DEBUG"   optional
     host "api.github.com"
     host "*.amazonaws.com"
-    run_on   "linux"
-    run_arch "amd64"
+    os   "linux"
+    arch "amd64"
 end
 
 command deploy
@@ -140,8 +140,8 @@ If both inline `hash` and `hash_file` are set, perch compares them and errors if
 | `host "..." optional`             | Same as above; future versions may treat optional hosts differently.     |
 | `read "./src"`                    | A filesystem path the program may read. One per line, repeatable. Read ops outside every read (or write) root error with `read_not_declared`. |
 | `write "./dist"`                  | A filesystem path the program may write. Write ops outside every write root error with `write_not_declared`. A write root implies read on the same tree. |
-| `run_on "linux" / run_on "darwin"`   | Host OS allowlist. One value per line; multiple entries OR-combine. Special value `"unix"` matches any unix. (Named `run_on`, not `os`, because bare `os` is the `os "..." ... end` conditional block.) |
-| `run_arch "amd64" / run_arch "arm64"` | Host arch allowlist. One value per line; multiple entries OR-combine.  |
+| `os "linux" / os "darwin"`        | Host OS allowlist. One value per line; multiple entries OR-combine. Special value `"unix"` matches any unix. Shares the bare `os` keyword with the `os "..." ... end` conditional block — disambiguated by indent lookahead. |
+| `arch "amd64" / arch "arm64"`     | Host arch allowlist. One value per line; multiple entries OR-combine. |
 
 ### Filesystem scopes — `read` / `write`
 

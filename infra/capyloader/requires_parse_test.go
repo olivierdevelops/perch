@@ -27,9 +27,9 @@ requires
     read  "./src"
     read  "./config"
     write "./build"
-    run_on   "linux"
-    run_on   "darwin"
-    run_arch "amd64"
+    os   "linux"
+    os   "darwin"
+    arch "amd64"
 end
 
 command t

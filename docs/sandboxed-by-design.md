@@ -4,7 +4,7 @@
 >
 > This is the [object-capability](https://en.wikipedia.org/wiki/Object-capability_model) / default-deny model applied to the whole language: **the file is a sealed box; the only holes in the box are the ones the author cut on purpose, in writing.**
 
-> **Status (what ships today).** The shell-free subprocess core of this design is now implemented and tested: the **`exec`** op (run a declared binary with structured argv — no shell, no metachar surface), the **`pipe … end`** block (wire stdout→stdin between `exec` stages with in-process pipes), the **`glob`** op (read-scoped wildcard expansion), and the pure line-toolbox (**`grep` `reject` `cut` `head` `tail` `sort_lines` `uniq_lines` `count_lines`**). `exec` is gated by the same declared-`bin` check as `shell`. Still on the roadmap: the inline `|` / `&&` / `||` operators (§3.3), `with_exec` (§3.4), named capability handles (§3.1), and flipping the *default* from ambient to deny (§8, §11). The per-primitive status table is in [§3.5](#35-the-shell-toolbox-perch-native). A few surface compromises (argv tokens must be quoted, `with_exec` is blocked) trace to limits in the capy grammar engine, not to design — those are catalogued in [capy-limitations.md](capy-limitations.md).
+> **Status (what ships today).** The shell-free subprocess core of this design is now implemented and tested: the **`exec`** op (run a declared binary with structured argv — no shell, no metachar surface), the **`pipe … end`** block (wire stdout→stdin between `exec` stages with in-process pipes), the **`glob`** op (read-scoped wildcard expansion), and the pure line-toolbox (**`grep` `reject` `cut` `head` `tail` `sort_lines` `uniq_lines` `count_lines`**). `exec` is gated by the same declared-`bin` check as `shell`. `exec` reads like a shell: bare flags/paths work unquoted (`exec git log --oneline -10`) and a quoted token keeps embedded spaces as one argv slot (`exec git commit -m "fix the bug"`). Still on the roadmap: the inline `|` / `&&` / `||` operators (§3.3), `with_exec` (§3.4), named capability handles (§3.1), and flipping the *default* from ambient to deny (§8, §11). The per-primitive status table is in [§3.5](#35-the-shell-toolbox-perch-native). The capy grammar-engine gaps this design originally hit have since been fixed upstream — see [capy-limitations.md](capy-limitations.md) for what was resolved and what perch adopted.
 
 ---
 
@@ -203,12 +203,12 @@ The strongest version of this model **deletes the `shell` op altogether.** There
 # Today
 shell "docker ps -q -f name=^web$ | wc -l"
 
-# Sandboxed-by-design, shell removed (ships today). The bin is a bare
-# handle; every argv token is a quoted string (flags/filters included).
+# Sandboxed-by-design, shell removed (ships today). Bare flags/filters
+# need no quotes; a quoted token keeps embedded spaces as one slot.
 let n =
     pipe
-        exec docker "ps" "-q" "-f" "name=^web$"
-        exec wc "-l"
+        exec docker ps -q -f name=^web$
+        exec wc -l
     end
 ```
 
@@ -541,7 +541,7 @@ let payload = format '{"name":"${name}","count":${count}}'
 
 | Primitive | Status |
 |---|---|
-| `exec` of a declared bin with structured argv | **ships** (core of §3.2) — `exec BIN "arg"…`, bin a bare handle, every argv token a quoted string |
+| `exec` of a declared bin with structured argv | **ships** (core of §3.2) — `exec BIN tok…`; bare flags/paths unquoted, quote only tokens with spaces |
 | `pipe … end` block (stdout→stdin between exec stages, no shell) | **ships** — `let out = pipe … end` captures the final stage |
 | `glob` | **ships** (read-scoped) |
 | `grep` / `reject` / `cut` / `head` / `tail` / `sort_lines` / `uniq_lines` / `count_lines` | **ships** (pure ops) |

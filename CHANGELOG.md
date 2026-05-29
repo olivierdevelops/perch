@@ -4,9 +4,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- **`requires` block OS/arch entries renamed to `run_on` / `run_arch` (was `os` / `arch`).** The bare `os` / `arch` keywords inside a `requires` block collided with the `os "..." ... end` / `arch "..." ... end` execution-context conditional blocks — both claimed the same token, and capy's parser commits to a block-opener once its literal matches and cannot backtrack. The result was a `requires` block containing `os`/`arch` parsing **non-deterministically** (~50% of loads failed with "expected indented block"). The OS/arch host allowlist inside `requires` now uses distinct keywords, `run_on "linux"` and `run_arch "amd64"` (one value per line, repeatable; `run_on "unix"` still matches any Unix), which never collide. The conditional `os "..." ... end` block is unchanged. Emitted events (`requires_os` / `requires_arch`) and `domain.Requirements.OS` / `.Arch` are unchanged, so only the surface keyword moved. Regression coverage in `infra/capyloader/requires_parse_test.go`.
+- **Adopted capy `5102dec` (the all-fixes engine build).** Bumped `github.com/luowensheng/capy` to `v0.20.1-0.20260529061856-5102decfe5d0`, which lands deterministic candidate ordering, block-opener backtracking, `word` / `asString` captures, indent lookahead (`when_followed_by` / `when_not_followed_by indent`), and `comments`. All additive — the existing grammar and suite are unaffected. See [docs/capy-limitations.md](docs/capy-limitations.md) for the full before/after.
+- **`requires` OS/arch back to bare `os` / `arch`.** The earlier `run_on` / `run_arch` rename (a workaround for a non-deterministic keyword collision with the `os "..." ... end` conditional block) is **reverted** now that capy disambiguates by indent lookahead — a flat requires entry (`os "linux"`) and the conditional block (`os "darwin" ... end`) coexist deterministically on the same keyword.
+- **`exec` now reads like a shell.** Argv tokens use capy's `word` capture: bare flags/paths/globs work unquoted (`exec git log --oneline -10`, `exec docker run -d --name web nginx`), while a quoted token keeps embedded spaces as exactly one argv slot (`exec git commit -m "fix the bug"`). This replaces the previous quote-every-token surface. Each token is still one structured argv slot — no shell, no word-split, no metachar surface.
+- **`#` line comments** now parse (leading and trailing) — perch's `lib.capy` opts in via capy's `comments` directive. Examples and user files can use them.
 
 ### Added
 

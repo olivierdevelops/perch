@@ -37,7 +37,7 @@ Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.
 | `shell CMD`              | `(string)` | Runs `CMD` via bash (POSIX) or cmd.exe (Windows). Inherits stdout/stderr. |
 | `shell_output CMD`       | `(string) → string` | Same, but captures stdout as the return value. Usually used in `let`. |
 | `shell_detached CMD`     | `(string)` | Starts and returns immediately. Use with `detached` modifier. |
-| `exec BIN "arg"…`        | `(ident, string…) → string` | **Shell-free** subprocess: runs `BIN` directly (no `sh -c`). Bin is a bare handle; each argv token is a quoted string passed as one slot (no word-split, no glob, no metachar surface). Streams *and* captures stdout. Gated like `shell` (`bin_not_declared`). See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
+| `exec BIN tok…`          | `(word, word…) → string` | **Shell-free** subprocess: runs `BIN` directly (no `sh -c`). Each token is one argv slot — bare flags/paths/globs work unquoted (`exec git log --oneline -10`); quote a token to keep embedded spaces (`exec git commit -m "fix it"`). No word-split, no glob, no metachar surface. Streams *and* captures stdout. Gated like `shell` (`bin_not_declared`). See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
 | `pipe … end`             | `block → string` | Wires stdout→stdin between `exec` stages with in-process pipes — no shell. `let out = pipe … end` captures the final stage. Each stage is a declared-bin `exec`. |
 | `fail MSG`               | `(string)` | Exits non-zero with the message. |
 | `exit N`                 | `(int)`    | Exits with code `N`. |

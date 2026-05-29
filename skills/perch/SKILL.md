@@ -466,10 +466,10 @@ requires
     host  "*.amazonaws.com"
     read  "./config"                     # filesystem read scope
     write "./build"                      # filesystem write scope (write implies read)
-    run_on   "linux"                     # host OS allowlist (one value per line)
-    run_on   "darwin"
-    run_arch "amd64"                     # host arch allowlist (one value per line)
-    run_arch "arm64"
+    os    "linux"                        # host OS allowlist (one value per line)
+    os    "darwin"
+    arch  "amd64"                        # host arch allowlist (one value per line)
+    arch  "arm64"
 end
 ```
 
