@@ -22,15 +22,15 @@ command install
             bundle_extract "${INSTALL_BASE}/${h}"
             cd "${INSTALL_BASE}/${h}"
             print "→ Creating venv"
-            shell "python3 -m venv .venv"
+            exec python3 -m venv .venv
             print "→ Installing requirements"
-            shell ".venv/bin/pip install --quiet -r requirements.txt"
+            exec .venv/bin/pip install --quiet -r requirements.txt
             write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
 
             # Write a launcher script into ~/.local/bin/stt
             mkdir "${HOME}/.local/bin"
             write_file "${LAUNCHER}" "#!/usr/bin/env bash\nexec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py \"\$@\"\n"
-            shell "chmod +x ${LAUNCHER}"
+            exec chmod +x "${LAUNCHER}"
 
             print "✓ Installed."
             print "  Launcher:  ${LAUNCHER}"
@@ -67,6 +67,9 @@ command run
     proxy_args
     do
         let dir = bundle_dir
+        # ${proxy_args} is a space-joined string that must word-split into
+        # separate argv — that needs the shell, so this stays `shell` (the
+        # legitimate escape case; everything else in this file uses `exec`).
         shell "python3 ${dir}/main.py ${proxy_args}"
     end
 end

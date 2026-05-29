@@ -20,7 +20,10 @@ command build
     do
         print "Building ${APP_NAME} for ${target}…"
         mkdir "${BIN_DIR}/${target}"
-        shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN_PKG}"
+        # env prefix → with_env; the spaced -ldflags value is one quoted argv slot
+        with_env "GOOS=${target}"
+            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/${target}/${APP_NAME}" "${MAIN_PKG}"
+        end
         let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
         print "✓ ${size} bytes."
     end
@@ -30,27 +33,33 @@ command release
     description "Cross-compile darwin + linux + windows in one go"
     do
         mkdir "${BIN_DIR}/darwin"
-        shell "GOOS=darwin  go build -ldflags='-s -w' -o ${BIN_DIR}/darwin/${APP_NAME}  ${MAIN_PKG}"
+        with_env "GOOS=darwin"
+            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/darwin/${APP_NAME}" "${MAIN_PKG}"
+        end
         mkdir "${BIN_DIR}/linux"
-        shell "GOOS=linux   go build -ldflags='-s -w' -o ${BIN_DIR}/linux/${APP_NAME}   ${MAIN_PKG}"
+        with_env "GOOS=linux"
+            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/linux/${APP_NAME}" "${MAIN_PKG}"
+        end
         mkdir "${BIN_DIR}/windows"
-        shell "GOOS=windows go build -ldflags='-s -w' -o ${BIN_DIR}/windows/${APP_NAME}.exe ${MAIN_PKG}"
+        with_env "GOOS=windows"
+            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/windows/${APP_NAME}.exe" "${MAIN_PKG}"
+        end
     end
 end
 
 command test
     description "Run the test suite"
     do
-        shell "go test ./..."
+        exec go test ./...
     end
 end
 
 command lint
     description "Vet + staticcheck (install once with: go install honnef.co/go/tools/cmd/staticcheck@latest)"
     do
-        shell "go vet ./..."
+        exec go vet ./...
         if exists "${HOME}/go/bin/staticcheck"
-            shell "${HOME}/go/bin/staticcheck ./..."
+            exec "${HOME}/go/bin/staticcheck" ./...
         end
     end
 end
