@@ -12,13 +12,21 @@
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
 
-# Audit BEFORE running
+# Audit BEFORE running — risk score + what it touches
 perch --scan -f redis.perch
+
+# Verify it's feasible on THIS machine without running it
+perch -f redis.perch --check
 
 # Run
 perch -f redis.perch up
 perch -f redis.perch cli
 ```
+
+Recipes declare what they need in a `requires` block (the Docker recipes
+declare `bin "docker"`). With it present, perch runs in **strict mode** —
+any undeclared shell bin is refused, and `perch --check` catches it
+**statically, before you run**. See [requires.md](requires.md).
 
 ## The catalog (22 recipes)
 

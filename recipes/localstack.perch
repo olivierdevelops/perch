@@ -4,6 +4,11 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+    bin "curl"
+end
+
 globals
     NAME = "perch-localstack"
     IMAGE = "localstack/localstack:latest"

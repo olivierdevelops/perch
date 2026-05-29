@@ -215,6 +215,10 @@ func privateIPCategory(ip net.IP) string {
 // runHTTP encapsulates the validate-then-dispatch flow shared by every
 // HTTP op. Returns the response (caller closes Body) or an error.
 func runHTTP(i *interpreter.Interpreter, req *http.Request) (*http.Response, error) {
+	// File-declared manifest enforcement (no-op unless `requires` declared).
+	if err := CheckHostDeclared(i, req.URL.Hostname()); err != nil {
+		return nil, err
+	}
 	p := httpPolicy(i)
 	if err := validateRequestURL(req.URL, p); err != nil {
 		// validateRequestURL returns SSRF / allowlist / scheme errors.
@@ -290,6 +294,11 @@ func opHTTPMethod(method string) interpreter.Handler {
 func opDownload(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	urlStr := argString(args, "url")
 	dst := resolve(argString(args, "dst"), b)
+	// download writes the response body to dst — gate it as a write path
+	// (the URL host is gated separately by runHTTP below).
+	if err := checkPathDeclared(i, b, argString(args, "dst"), true); err != nil {
+		return nil, err
+	}
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return nil, err

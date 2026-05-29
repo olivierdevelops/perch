@@ -1,0 +1,38 @@
+name    "declared-requirements"
+about   "A file that declares exactly what it needs from the host"
+version "0.1.0"
+
+requires
+    bin "git"
+    bin "echo"
+    bin "go"
+    bin "jq" optional
+    env "HOME"
+    env "DEBUG" optional
+    host "api.github.com"
+end
+
+command versions
+    description "Run declared bins (existence is verified at preflight)"
+    do
+        shell "git --version"
+        shell "go version"
+        shell "echo all declared bins are present"
+    end
+end
+
+command whoami
+    description "Read a declared env var (HOME)"
+    do
+        let h = get_env "HOME"
+        print "HOME=${h}"
+    end
+end
+
+command fetch
+    description "Hit a declared host (api.github.com)"
+    do
+        let body = http_get "https://api.github.com"
+        print "github API reachable"
+    end
+end

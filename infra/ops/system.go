@@ -18,10 +18,26 @@ func registerSystem(m map[string]interpreter.Handler) {
 		return runtime.GOARCH, nil
 	}
 	m["get_env"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		return os.Getenv(argString(args, "name", "_0")), nil
+		name := argString(args, "name", "_0")
+		if err := CheckEnvDeclared(i, name); err != nil {
+			return "", err
+		}
+		return os.Getenv(name), nil
+	}
+	m["unset_env"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+		name := argString(args, "name", "_0")
+		if err := CheckEnvDeclared(i, name); err != nil {
+			return nil, err
+		}
+		delete(b.Env, name)           // drop from the binding overlay
+		return nil, os.Unsetenv(name) // and from the process env
 	}
 	m["set_env"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		return nil, os.Setenv(argString(args, "name"), argString(args, "value"))
+		name := argString(args, "name", "_0")
+		if err := CheckEnvDeclared(i, name); err != nil {
+			return nil, err
+		}
+		return nil, os.Setenv(name, argString(args, "value", "_1"))
 	}
 	m["cwd"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 		return b.Cwd, nil
@@ -116,6 +132,16 @@ func registerSystem(m map[string]interpreter.Handler) {
 	// `cmd /c ver` on windows. Returns "" if probing fails.
 	m["os_version"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 		var cmd *exec.Cmd
+		tool := "uname"
+		switch runtime.GOOS {
+		case "darwin":
+			tool = "sw_vers"
+		case "windows":
+			tool = "cmd"
+		}
+		if err := CheckSubprocessBin(i, tool); err != nil {
+			return "", err
+		}
 		switch runtime.GOOS {
 		case "darwin":
 			cmd = exec.Command("sw_vers", "-productVersion")
@@ -132,6 +158,9 @@ func registerSystem(m map[string]interpreter.Handler) {
 	}
 	m["env_default"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 		name := argString(args, "name", "_0")
+		if err := CheckEnvDeclared(i, name); err != nil {
+			return "", err
+		}
 		def := argString(args, "default", "_1")
 		if v, ok := os.LookupEnv(name); ok && v != "" {
 			return v, nil
@@ -139,7 +168,11 @@ func registerSystem(m map[string]interpreter.Handler) {
 		return def, nil
 	}
 	m["env_has"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
-		_, ok := os.LookupEnv(argString(args, "name", "_0"))
+		name := argString(args, "name", "_0")
+		if err := CheckEnvDeclared(i, name); err != nil {
+			return false, err
+		}
+		_, ok := os.LookupEnv(name)
 		return ok, nil
 	}
 	m["path_sep"] = func(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {

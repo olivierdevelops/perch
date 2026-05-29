@@ -64,7 +64,7 @@ Output is the full parsed program: globals, commands, ops, the works.
 
 - The embedded JSON is **not signed**. If your distribution channel matters, sign the entire binary with `codesign` (macOS), `signtool` (Windows), or your platform's equivalent.
 - The fat binary trusts the embedded program. Anyone who can `--build` on top of an existing perch can produce an unrelated binary with your name. Treat `--build` like any other build pipeline: the source `.perch` is the input you must trust.
-- The runtime has no sandbox. An embedded program with `shell "rm -rf /"` will run that. Source `commands.perch` should be reviewed exactly as you'd review a shell script.
+- **Capabilities still apply, but the default is ambient.** If the embedded `commands.perch` declares a [`requires` block](requires.md), the embedded binary enforces it exactly like `perch -f` would — every external op is gated ([capability-gating.md](capability-gating.md)). Without a `requires` block, the program runs with ambient access, so an embedded `shell "rm -rf /"` will run. Two mitigations: (1) declare a `requires` block in the source so the binary self-limits; (2) the embedded binary still honors operator `--no-shell` / `--no-network` / `--no-write` / `--env` flags at launch. Either way, review the source `commands.perch` as you'd review any build input.
 
 ## Roadmap
 

@@ -1,8 +1,8 @@
-# Sandboxing — a design document
+# Sandboxing — design + what's shipped
 
-**Status:** design proposal. Not yet implemented. Comments welcome on the [tracking issue](https://github.com/luowensheng/perch/issues).
+**Status:** *partly shipped.* The **operator side** (`--no-shell`/`--no-network`/`--no-write`/`--no-subprocess`, `--env`, `--dry-run`/`--ask`, SSRF/redirect guards) and the **author side** ([`requires` manifest](requires.md) declaring bins/env/hosts/filesystem read+write scopes, enforced by [capability gating](capability-gating.md) — every external op verifies it before running, plus static `perch --check`) are **both implemented today.** The *fuller* author-side `sandbox { … }` block with capability handles, the `--untrusted` preset, `--require-sandbox`, and org-wide policy files described in §2.5 and §3+ remain **design** (and the zero-ambient-authority default-deny inversion is in [sandboxed-by-design.md](sandboxed-by-design.md)). Read the "## 0a / 0b" sections for the shipped surface; the rest is the forward spec.
 
-This document is the spec for a capability-based sandbox layer on top of perch. The motivation is simple: the same `.perch` file we ship as a binary, expose as an MCP tool, or download from a stranger should have a way to declare *exactly* what it's allowed to touch — and we should be able to enforce that, both statically (via `--check`) and at runtime.
+This document is the spec for a capability-based sandbox layer on top of perch. The motivation is simple: the same `.perch` file we ship as a binary, expose as an MCP tool, or download from a stranger should have a way to declare *exactly* what it's allowed to touch — and we should be able to enforce that, both statically (via `--check`) and at runtime. Much of that is now live (see status above); this doc keeps the full design for the parts still in progress.
 
 It also addresses the meta-question: **is perch a cross-platform shell?** Short answer: yes — and the sandbox makes that claim defensible.
 
@@ -126,7 +126,7 @@ Earlier drafts used `--mode safe` / `--mode pure`. We dropped them: a flag's nam
 
 ### Where this fits
 
-These two flags are the **CLI side** of the trust model in §2.5. The author can declare a `sandbox` block in their `.perch` (still in design, §3+); the user layers `--no-*` / `--env` on top; the runtime enforces the intersection. Until the author-side block ships, the user side is the only side — which is fine for most threat models, because the user is always the one with skin in the game.
+These two flags are the **operator (CLI) side** of the trust model in §2.5. There is now also a shipped **author side**: the [`requires` block](requires.md) lets the file declare every external resource it needs (bins, hosts, env, filesystem read/write scopes) and — via [capability gating](capability-gating.md) — every external op verifies that manifest before it runs. The two compose AND-wise: the file's `requires` is the ceiling, operator `--no-*` / `--env` flags can only lower it further, and the runtime enforces the intersection. (The fuller author-side `sandbox` block with capability handles is still in design, §3+; the default-deny inversion is in [sandboxed-by-design.md](sandboxed-by-design.md).)
 
 ---
 

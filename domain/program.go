@@ -28,6 +28,15 @@ type Program struct {
 	// was loaded from. Empty when the program was embedded in a binary.
 	// Surfaces as ${script_path} / ${script_dir} auto-bindings.
 	ScriptPath string `json:"-"`
+	// Requirements is the file's self-declared manifest. When present
+	// (Requirements.Declared is true), runtime enforcement kicks in:
+	// every binary used by `shell`, every host hit by `http_*`, and
+	// every env-var read by `get_env` MUST be declared here, or the op
+	// errors with bin_not_declared / host_not_declared / env_not_declared.
+	// The block also lets `perch --check` and `perch simulate` verify the
+	// program against a host machine without running any user code.
+	Requirements Requirements `json:"requirements,omitempty"`
+
 	// Bundle declares what files/directories should be embedded into the
 	// fat binary at `perch --build` time. Lifts the on-CLI `--include`
 	// flag into the source file so the .perch is the complete buildable
@@ -68,6 +77,75 @@ type Bundle struct {
 type BundleAlias struct {
 	Name  string `json:"name"`
 	Entry string `json:"entry"`
+}
+
+// Requirements is the parsed `requires ... end` block — the file's
+// self-declared manifest of what the host machine must provide.
+//
+// Declared is true when the user wrote a `requires` block at all (vs
+// the block being absent). Strict runtime enforcement only kicks in
+// when Declared is true; legacy files without the block keep their
+// current behavior. The CLI flag `--strict-requires` flips the global
+// default so undeclared files fail loudly too.
+type Requirements struct {
+	Declared bool      `json:"declared,omitempty"`
+	Bins     []BinReq  `json:"bins,omitempty"`
+	Envs     []EnvReq  `json:"envs,omitempty"`
+	Hosts    []HostReq `json:"hosts,omitempty"`
+	OS       []string  `json:"os,omitempty"`
+	Arch     []string  `json:"arch,omitempty"`
+	// ReadRoots / WriteRoots are the filesystem scopes the program may
+	// touch. The filesystem is an external resource like any other, so it
+	// must be declared too: when the block is present, a read op outside
+	// every ReadRoot errors with read_not_declared, and a write op outside
+	// every WriteRoot errors with write_not_declared. A WriteRoot implies
+	// read on the same tree (you can stat/read what you may write). Paths
+	// are matched after `${…}` interpolation, cleaned and made absolute.
+	ReadRoots  []string `json:"read_roots,omitempty"`
+	WriteRoots []string `json:"write_roots,omitempty"`
+}
+
+// BinReq is one `bin "NAME" [optional]` line, optionally with a hash pin.
+//
+// Preflight verifies the bin exists on PATH and — when a hash is declared —
+// that its bytes match. There is deliberately NO version checking: that
+// would require executing the binary (or some probe) before the sandbox is
+// established, and a trojaned binary can report whatever version satisfies
+// a constraint. Hash pinning needs no execution and pins the exact artifact.
+type BinReq struct {
+	Name     string `json:"name"`
+	Optional bool   `json:"optional,omitempty"`
+	// Hash, when set, pins the binary's content. Preflight reads the
+	// resolved binary off disk and verifies its SHA-256 matches. Format
+	// is "sha256:HEXDIGEST" (the prefix is required so future hash algos
+	// can be added without ambiguity). Defends against PATH-shadowing
+	// and silently-swapped binaries from a compromised package mirror.
+	Hash string `json:"hash,omitempty"`
+	// HashFile, when set, loads the hash from a file instead of inline.
+	// Two path forms:
+	//   - "bundle:checksums/kubectl.sha256" — read from the embedded
+	//     bundle archive (works at runtime against the fat binary too).
+	//   - "./checksums/kubectl.sha256"       — read from the filesystem,
+	//     resolved relative to the .perch script directory.
+	// File contents are trimmed of whitespace; the first non-empty token
+	// is treated as the hash string. Supports both "sha256:HEX" and bare
+	// HEX (algorithm defaults to sha256). Lets supply-chain teams ship
+	// signed checksum files separately from the .perch source.
+	HashFile string `json:"hash_file,omitempty"`
+}
+
+// EnvReq is one `env "NAME" [optional]` line. Required envs must be
+// non-empty in the process environment; otherwise preflight errors.
+type EnvReq struct {
+	Name     string `json:"name"`
+	Optional bool   `json:"optional,omitempty"`
+}
+
+// HostReq is one `host "name" [optional]` line. Every http_get / http_post
+// must target a declared host (exact match or `*.suffix`).
+type HostReq struct {
+	Name     string `json:"name"`
+	Optional bool   `json:"optional,omitempty"`
 }
 
 // Template is a parse-time, parameterized op-sequence. Identical structure

@@ -679,6 +679,7 @@ func runTestFnFor(r ops.Restrictions, envAllow, allowBins map[string]bool, noMet
 		ops.ApplyRestrictions(testHandlers, testRestrictions)
 		ops.ApplyMaskGating(testHandlers)
 		ti := interpreter.New(testHandlers, p)
+		ti.PreflightHook = ops.Preflight
 		ti.Stdout = out
 		ti.Stderr = out
 		ti.EnvAllowlist = envAllow
@@ -707,6 +708,7 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 	hook := buildInterpreterHook(previewMode)
 	runFn := func(p *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
+		i.PreflightHook = ops.Preflight
 		i.BeforeOp = hook
 		i.EnvAllowlist = envAllow
 		i.AllowedShellBins = allowBins
@@ -817,6 +819,7 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 	loadEmbedded := func(_ string) (*domain.Program, error) { return p, nil }
 	runFn := func(_ *domain.Program, name string, args []string) error {
 		i := interpreter.New(handlers, p)
+		i.PreflightHook = ops.Preflight
 		i.BeforeOp = hook
 		i.EnvAllowlist = envAllow
 		i.AllowedShellBins = allowBins

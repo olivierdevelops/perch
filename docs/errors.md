@@ -2,6 +2,9 @@
 
 > **What this enables.** Catch op failures, branch on what *kind* of error happened, run cleanup unconditionally, and re-raise after you've decided to. Composes with `retry`, `parallel`, `timeout`, and every other block op — errors propagate UP through blocks until something catches them.
 
+!!! warning "Current status — the `try` block doesn't parse yet"
+    The error model below (the error-kind enum, the `${err.*}` bindings, and `match`) is shipped and works. **The `try / rescue / finally` block itself currently fails to parse** in the released build (a known grammar bug, tracked). Until it's fixed: an op that fails propagates the error up and halts the command (the normal model); use `perch --check` / `perch simulate` to catch failure paths ahead of time, and use `match "${...}"` for value dispatch. The `match`/enum sections on this page are accurate today; the `try`-wrapped examples are the *intended* design and will work once the parse bug is resolved. See [using-perch-today.md](using-perch-today.md#gotchas-in-the-current-build).
+
 ---
 
 ## TL;DR
@@ -140,6 +143,19 @@ These fire when the runtime restriction layer refuses an op outright (before the
 | `command_not_found` | `run X` where `X` isn't a declared command. |
 | `bin_not_found` | `has_bin` returned false in a context that required the binary (e.g. inside `require_bin`). |
 
+### Requires-manifest (4)
+
+These fire only in files that declared a `requires ... end` block. See [docs/requires.md](requires.md).
+
+| Kind | When it fires |
+|---|---|
+| `bin_not_declared` | A `shell` op's first token isn't listed under `bin` in the `requires` block. |
+| `env_not_declared` | `get_env "X"` where `X` isn't listed under `env`. |
+| `host_not_declared` | An HTTP op targets a host not listed under `host` (or its `*.suffix` form). |
+| `read_not_declared` | A filesystem read op touches a path outside every declared `read` (and `write`) root. |
+| `write_not_declared` | A filesystem write op touches a path outside every declared `write` root. |
+| `requirement_unmet` | Preflight failure — required bin missing, version doesn't satisfy comparator, required env not set, or host OS/arch not in declared list. |
+
 ### Catch-all (1)
 
 | Kind | When it fires |
@@ -168,7 +184,17 @@ Inside a `rescue ERR_NAME` arm, five bindings are populated:
 ## `match` — value-driven dispatch
 
 ```perch
-match "${VALUE}"
+# Bare ident (no quotes, no ${...}) — works for plain binding names
+match os
+    case darwin
+        ...
+    case linux
+        ...
+end
+
+# String form — required for dotted bindings (err.kind, err.message, etc.)
+# because capy's tokenizer treats `.` as a separator.
+match "${err.kind}"
     case literal_1
         OP_A
     case literal_2
@@ -179,6 +205,13 @@ match "${VALUE}"
         OP_D                # fallback
 end
 ```
+
+**When to use which form:**
+
+| Target binding | Form              |
+|----------------|-------------------|
+| `os`, `arch`, `status`, `result` | `match os`     |
+| `err.kind`, `err.code`, `err.message` | `match "${err.kind}"` (dotted — string form required) |
 
 Semantics:
 

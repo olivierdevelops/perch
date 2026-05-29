@@ -26,6 +26,7 @@ import (
 
 	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/luowensheng/perch/infra/ops"
 	"github.com/luowensheng/perch/usecases/scan"
 	"github.com/luowensheng/perch/usecases/simulate"
 	"github.com/luowensheng/perch/usecases/validate"
@@ -195,6 +196,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request, p *domain.Pr
 	stderr := writerFunc(func(b []byte) (int, error) { emit("err", string(b)); return len(b), nil })
 
 	i := interpreter.New(s.Handlers, p)
+	i.PreflightHook = ops.Preflight
 	i.Stdout = stdout
 	i.Stderr = stderr
 	if len(req.AllowBin) > 0 {

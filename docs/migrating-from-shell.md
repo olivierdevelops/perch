@@ -58,6 +58,7 @@ end
 
 catch passthrough
     description "Forward unknown commands to the legacy script"
+    proxy_args                       # required to bind ${proxy_args}
     do
         shell "./scripts/run.sh ${proxy_args}"
     end

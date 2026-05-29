@@ -357,6 +357,8 @@ type event struct {
 	CaptureInto string         `json:"capture_into,omitempty"`
 	Path        string         `json:"path,omitempty"`  // `import` event
 	Alias       string         `json:"alias,omitempty"` // `import` event
+	// `requires_bin` events
+	Optional bool `json:"optional,omitempty"`
 }
 
 // importDirective is one `import "PATH" [as ALIAS]` statement from a
@@ -381,6 +383,7 @@ const (
 	stTemplateArg
 	stTemplateDo
 	stBundle
+	stRequires
 )
 
 func parseEventStream(stream string) (*domain.Program, []importDirective, error) {
@@ -460,6 +463,73 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 					Entry: entry,
 				})
 			}
+		case "requires_begin":
+			if state != stTop {
+				return nil, nil, fmt.Errorf("line %d: requires block must be at top level", lineNum)
+			}
+			state = stRequires
+			prog.Requirements.Declared = true
+		case "requires_end":
+			state = stTop
+		case "requires_bin":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'bin' outside requires block", lineNum)
+			}
+			prog.Requirements.Bins = append(prog.Requirements.Bins, domain.BinReq{
+				Name:     ev.Name,
+				Optional: ev.Optional,
+			})
+		case "requires_bin_field":
+			// Mutates the most-recently-appended BinReq (hash / hash_file).
+			n := len(prog.Requirements.Bins)
+			if n == 0 || state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: '%s' outside a `bin ... end` block", lineNum, ev.Kind)
+			}
+			switch ev.Kind {
+			case "hash":
+				prog.Requirements.Bins[n-1].Hash = asString(ev.Value)
+			case "hash_file":
+				prog.Requirements.Bins[n-1].HashFile = asString(ev.Value)
+			default:
+				return nil, nil, fmt.Errorf("line %d: unknown bin field %q", lineNum, ev.Kind)
+			}
+		case "requires_env":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'env' outside requires block", lineNum)
+			}
+			prog.Requirements.Envs = append(prog.Requirements.Envs, domain.EnvReq{
+				Name:     ev.Name,
+				Optional: ev.Optional,
+			})
+		case "requires_host":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'host' outside requires block", lineNum)
+			}
+			prog.Requirements.Hosts = append(prog.Requirements.Hosts, domain.HostReq{
+				Name:     ev.Name,
+				Optional: ev.Optional,
+			})
+		case "requires_read":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'read' outside requires block", lineNum)
+			}
+			prog.Requirements.ReadRoots = append(prog.Requirements.ReadRoots, asString(ev.Value))
+		case "requires_write":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'write' outside requires block", lineNum)
+			}
+			prog.Requirements.WriteRoots = append(prog.Requirements.WriteRoots, asString(ev.Value))
+		case "requires_os":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'os' outside requires block", lineNum)
+			}
+			prog.Requirements.OS = append(prog.Requirements.OS, ev.Name)
+		case "requires_arch":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'arch' outside requires block", lineNum)
+			}
+			prog.Requirements.Arch = append(prog.Requirements.Arch, ev.Name)
+
 		case "global":
 			if state != stGlobals {
 				return nil, nil, fmt.Errorf("line %d: 'global' event outside globals block", lineNum)

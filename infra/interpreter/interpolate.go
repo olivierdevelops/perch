@@ -69,6 +69,39 @@ func InterpolateArgs(args map[string]any, b *Bindings) (map[string]any, error) {
 		}
 		out[k] = v
 	}
+	// Universal bare-ident resolution: keys of the form `_NAME_var` carry
+	// a binding NAME captured at parse time (via ident-form grammar
+	// overloads like `http_get url`). Resolve via b.Lookup and write the
+	// value to the canonical `NAME` key so the handler reads it via the
+	// usual `argString(args, "NAME", "_0")` call without modification.
+	// This is what makes `http_get url` / `print msg` / `shell cmd` etc.
+	// work with zero handler-side changes — adding one grammar overload
+	// per op surfaces the bare-ident form universally.
+	for k, v := range out {
+		if !strings.HasPrefix(k, "_") || !strings.HasSuffix(k, "_var") || len(k) <= 5 {
+			continue
+		}
+		name, ok := v.(string)
+		if !ok {
+			continue
+		}
+		// Strip leading `_` and trailing `_var` to derive the canonical
+		// key. For named args this is `_msg_var → msg`. For positional
+		// args the convention is keys of the form `_0`, `_1` (leading
+		// underscore is significant), so we must KEEP it when the inner
+		// token starts with a digit: `_0_var → _0`.
+		canonical := k[1 : len(k)-4]
+		if len(canonical) > 0 && canonical[0] >= '0' && canonical[0] <= '9' {
+			canonical = "_" + canonical
+		}
+		if got, ok := b.Lookup(name); ok {
+			out[canonical] = got
+		} else {
+			// Binding doesn't exist — surface a clear error rather than
+			// silently falling through to an empty value.
+			return nil, fmt.Errorf("undefined binding %q used as bare ident", name)
+		}
+	}
 	return out, nil
 }
 

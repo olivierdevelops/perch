@@ -4,6 +4,10 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+end
+
 globals
     K_NAME = "kafka-stack-kafka"
     UI_NAME = "kafka-stack-ui"

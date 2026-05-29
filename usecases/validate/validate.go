@@ -262,6 +262,15 @@ func (c *checker) checkOps(ops []domain.Op, where string, known map[string]bool)
 				}
 			}
 		}
+		// requires-manifest static enforcement: when the file declared a
+		// `requires` block, every literal shell bin / HTTP host / env-var
+		// read must be in the manifest. This catches `bin_not_declared` /
+		// `host_not_declared` / `env_not_declared` at --check time instead
+		// of waiting for the op to fire at runtime. Args containing ${...}
+		// are skipped — their value isn't known until runtime.
+		if c.prog.Requirements.Declared {
+			c.checkRequiresUsage(op, opWhere)
+		}
 		// Walk string args for ${name} placeholders.
 		for _, v := range op.Args {
 			if s, ok := v.(string); ok {
@@ -297,6 +306,194 @@ func (c *checker) checkOps(ops []domain.Op, where string, known map[string]bool)
 			c.checkOps(op.Body, opWhere, inner)
 		}
 	}
+}
+
+// checkRequiresUsage statically verifies one op against the file's
+// `requires` manifest. Only literal args (no `${...}`) are checked —
+// interpolated values aren't known until runtime, so those fall through
+// to the runtime guard. This is the static half of the same enforcement
+// `infra/ops/requires.go` does dynamically.
+func (c *checker) checkRequiresUsage(op domain.Op, where string) {
+	r := c.prog.Requirements
+	switch op.Kind {
+	case "shell", "shell_output", "shell_detached":
+		cmd := argStr(op, "cmd", "_0")
+		if cmd == "" || strings.Contains(cmd, "${") {
+			return // dynamic — defer to runtime
+		}
+		bin := firstShellToken(cmd)
+		if bin == "" || isShellBuiltin(bin) || binDeclared(r, bin) {
+			return
+		}
+		c.addErr(where, fmt.Sprintf(
+			"shell uses bin %q which is not declared in `requires` (add `bin %q` or run with the bin allowed)",
+			bin, bin))
+
+	case "http_get", "http_post", "http_put", "http_delete", "download":
+		url := argStr(op, "url", "_0")
+		if url == "" || strings.Contains(url, "${") {
+			return
+		}
+		host := hostFromURL(url)
+		if host == "" || hostDeclared(r, host) {
+			return
+		}
+		c.addErr(where, fmt.Sprintf(
+			"%s targets host %q which is not declared in `requires` (add `host %q`)",
+			op.Kind, host, host))
+
+	case "get_env":
+		name := argStr(op, "name", "_0")
+		if name == "" || strings.Contains(name, "${") {
+			return
+		}
+		if envDeclared(r, name) {
+			return
+		}
+		c.addErr(where, fmt.Sprintf(
+			"get_env reads %q which is not declared in `requires` (add `env %q`)",
+			name, name))
+
+	// Filesystem ops — literal paths checked against declared read/write roots.
+	case "mkdir", "rm", "touch", "chmod", "write_file", "append_file", "append_line",
+		"ensure_dir", "make_executable", "ensure_line_in_file", "replace_in_file":
+		c.checkPathArg(where, op, "write", argStr(op, "path", "_0"))
+	case "cp", "mv", "copy_dir":
+		c.checkPathArg(where, op, "read", argStr(op, "src", "_0"))
+		c.checkPathArg(where, op, "write", argStr(op, "dst", "_1"))
+	case "read_file", "exists", "is_dir", "is_file", "file_size", "list_dir",
+		"read_link", "sha256_file", "md5_file":
+		c.checkPathArg(where, op, "read", argStr(op, "path", "_0"))
+	}
+}
+
+// checkPathArg statically flags a literal fs path outside the declared
+// read/write roots. Dynamic paths (`${…}`) defer to the runtime gate.
+func (c *checker) checkPathArg(where string, op domain.Op, mode, p string) {
+	if p == "" || strings.Contains(p, "${") {
+		return
+	}
+	r := c.prog.Requirements
+	if mode == "write" {
+		if !pathInRoots(p, r.WriteRoots) {
+			c.addErr(where, fmt.Sprintf(
+				"%s writes %q which is outside every declared `write` root (add `write \"%s\"`)",
+				op.Kind, p, p))
+		}
+		return
+	}
+	if !pathInRoots(p, r.ReadRoots) && !pathInRoots(p, r.WriteRoots) {
+		c.addErr(where, fmt.Sprintf(
+			"%s reads %q which is outside every declared `read` root (add `read \"%s\"`)",
+			op.Kind, p, p))
+	}
+}
+
+// pathInRoots is a textual prefix check (the validator can't canonicalize
+// against a runtime cwd). Matches the runtime gate's intent closely enough
+// for static flagging; the runtime gate is authoritative.
+func pathInRoots(p string, roots []string) bool {
+	clean := strings.TrimPrefix(p, "./")
+	for _, root := range roots {
+		r := strings.TrimPrefix(root, "./")
+		if clean == r || strings.HasPrefix(clean, r+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// argStr returns the first present string arg among names.
+func argStr(op domain.Op, names ...string) string {
+	for _, n := range names {
+		if v, ok := op.Args[n]; ok {
+			if s, ok := v.(string); ok {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+// firstShellToken extracts the basename of the first non-assignment token
+// of a shell command. Mirrors ops.firstShellToken (kept separate to avoid
+// a usecase→infra import).
+func firstShellToken(raw string) string {
+	for _, f := range strings.Fields(raw) {
+		if eq := strings.IndexByte(f, '='); eq > 0 && !strings.ContainsAny(f[:eq], " \t") {
+			before := f[:eq]
+			if before == strings.ToUpper(before) { // GOOS=linux style prefix
+				continue
+			}
+		}
+		base := f
+		if idx := strings.LastIndexAny(base, "/\\"); idx >= 0 {
+			base = base[idx+1:]
+		}
+		return base
+	}
+	return ""
+}
+
+func isShellBuiltin(name string) bool {
+	switch name {
+	case "echo", "cd", "true", "false", "pwd", ":", "set", "unset", "export", "test", "[":
+		return true
+	}
+	return false
+}
+
+// hostFromURL extracts the hostname from a literal URL. Returns "" if it
+// can't parse one (in which case we skip the check rather than false-flag).
+func hostFromURL(u string) string {
+	s := u
+	if i := strings.Index(s, "://"); i >= 0 {
+		s = s[i+3:]
+	}
+	// Strip path / query.
+	if i := strings.IndexAny(s, "/?#"); i >= 0 {
+		s = s[:i]
+	}
+	// Strip userinfo and port.
+	if i := strings.LastIndexByte(s, '@'); i >= 0 {
+		s = s[i+1:]
+	}
+	if i := strings.LastIndexByte(s, ':'); i >= 0 {
+		s = s[:i]
+	}
+	return strings.ToLower(s)
+}
+
+func binDeclared(r domain.Requirements, bin string) bool {
+	for _, b := range r.Bins {
+		if b.Name == bin {
+			return true
+		}
+	}
+	return false
+}
+
+func hostDeclared(r domain.Requirements, host string) bool {
+	host = strings.ToLower(host)
+	for _, h := range r.Hosts {
+		want := strings.ToLower(h.Name)
+		if want == host {
+			return true
+		}
+		if strings.HasPrefix(want, "*.") && strings.HasSuffix(host, want[1:]) {
+			return true
+		}
+	}
+	return false
+}
+
+func envDeclared(r domain.Requirements, name string) bool {
+	for _, e := range r.Envs {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // ────────────────────────────────────────────────────────────────────────

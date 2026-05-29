@@ -144,6 +144,10 @@ globals
     CONTAINER = "my-redis"
 end
 
+requires
+    bin "docker"
+end
+
 command install
     description "Pull the Redis Docker image"
     do

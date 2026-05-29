@@ -136,6 +136,9 @@ func populateErrBindings(b *interpreter.Bindings, bind string, oe *domain.OpErro
 // opMatch evaluates args.target and dispatches to the first matching
 // `case` arm (or `else` arm if none match).
 func opMatch(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	// Both `match "${X}"` (string form) and `match X` (ident form) land
+	// in args.target — the ident form's `_target_var` is auto-resolved by
+	// InterpolateArgs into `target` before we run.
 	target := interpreter.ToStringValue(args["target"])
 	body, _ := args["_body"].([]domain.Op)
 	arms := splitMatchBody(body)

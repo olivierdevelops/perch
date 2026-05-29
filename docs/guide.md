@@ -163,15 +163,23 @@ globals
     GIT_OK    = true
 end
 
-# 3. Bundle — what gets embedded into the fat binary at `perch --build` time
+# 3. Requires — what this file needs from the host (declared + enforced)
+requires
+    bin "go"
+    bin "git"
+end
+
+# 4. Bundle — what gets embedded into the fat binary at `perch --build` time
 bundle
     include "./modules"             # whole dir
     include "./policy.wasm" as policy_wasm   # one file, alias for wasm_run
 end
 
-# 4. Templates — reusable parameter-substitution stamps (optional)
+# 5. Templates — reusable parameter-substitution stamps (optional)
 template ensure_dir
-    arg path string
+    arg path
+        type string
+    end
     do
         if not exists "${path}"
             mkdir "${path}"
@@ -179,7 +187,7 @@ template ensure_dir
     end
 end
 
-# 5. Commands — the typed verbs
+# 6. Commands — the typed verbs
 command build
     description "Compile myapp"
     arg target
@@ -188,12 +196,12 @@ command build
         description "Target OS"
     end
     do
-        call ensure_dir path:"${BUILD_DIR}/${target}"
+        call ensure_dir "${BUILD_DIR}/${target}"
         shell "go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp"
     end
 end
 
-# 6. Catch — runs when the user types an unknown command (optional)
+# 7. Catch — runs when the user types an unknown command (optional)
 catch unknown
     description "Forward unknown verbs to git, like `gh foo` would"
     proxy_args                     # required to bind ${proxy_args} in the catch body
@@ -211,6 +219,7 @@ end
 | `command NAME ... end` | Always. The thing you're declaring. |
 | `globals ... end` | Often. Shared paths / flags / defaults. |
 | `about "..."` | Usually. One-sentence description for `--help`. |
+| `requires ... end` | When you want the file to declare (and enforce) its external needs — bins (+ SHA-256 hash pins), env vars, hosts, filesystem read/write scopes, OS/arch. Every external op then verifies the manifest before it runs; `perch --check` proves feasibility without running. See [capability-gating.md](capability-gating.md). |
 | `bundle ... end` | When you want a portable binary with files embedded. |
 | `template NAME ... end` | When you have repeated body shapes. |
 | `import "PATH"` | Multi-file projects. |
@@ -288,7 +297,7 @@ perch deploy us-east-1 -bake=15
 perch build --help
 
 # Cross-command call (inside a body)
-run other_command "-arg1=x"  arg2:"y"
+run other_command "-arg1=x"  "-arg2=y"
 ```
 
 ---
@@ -597,6 +606,8 @@ By default, **any op that errors halts the command** and the process exits non-z
 
 ### General error handling — `try / rescue / finally` + `match`
 
+> **Status:** the `match` op and the error-kind enum below work today. The `try / rescue / finally` block itself **currently fails to parse** (a known grammar bug — see [errors.md](errors.md) and [using-perch-today.md](using-perch-today.md#gotchas-in-the-current-build)). Until it's fixed, rely on the default "halt on any error" model plus `perch --check` / `simulate` for failure paths; the `try` examples here are the intended design.
+
 ```perch
 try
     let body = http_get "${url}"
@@ -756,15 +767,15 @@ end
 command up
     description "Start the dev stack"
     do
-        call require_bin name:"docker"
-        call require_bin name:"docker-compose"
+        call require_bin "docker"
+        call require_bin "docker-compose"
         shell "docker-compose up -d"
     end
 end
 
 command down
     do
-        call require_bin name:"docker-compose"
+        call require_bin "docker-compose"
         shell "docker-compose down"
     end
 end
@@ -1082,8 +1093,8 @@ end
 
 command setup
     do
-        call install_pkg name:"jq"
-        call install_pkg name:"ripgrep"
+        call install_pkg "jq"
+        call install_pkg "ripgrep"
     end
 end
 ```
@@ -1261,7 +1272,7 @@ command test_lower
     test                                # marks this as a test
     do
         let result = lower "HÉLLO"
-        call suite_assert got:"${result}" want:"héllo"
+        call suite_assert "${result}" "héllo"
     end
 end
 
@@ -1547,8 +1558,8 @@ template require_bin
 end
 
 # Use:
-call require_bin name:"kubectl"
-call require_bin name:"docker"
+call require_bin "kubectl"
+call require_bin "docker"
 ```
 
 ### 2. Idempotent setup ("install if missing")
@@ -1578,7 +1589,7 @@ template wait_for_port
 end
 
 # Use:
-call wait_for_port host:"localhost" port:"5432" timeout_s:"30"
+call wait_for_port "localhost" "5432" "30"
 ```
 
 ### 4. Capture and reuse stdin / piped input
@@ -1847,7 +1858,7 @@ end
 command build
     description "Compile for the current platform"
     do
-        call ensure_clean dir:"${OUT_DIR}/${os}-${arch}"
+        call ensure_clean "${OUT_DIR}/${os}-${arch}"
         shell "go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}"
         let size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
         print "✓ built ${size} bytes"
@@ -1958,7 +1969,7 @@ command install
         end
 
         let install_dir = format "${cache_dir}/stt/${bundle_hash}"
-        call ensure_dir path:"${install_dir}"
+        call ensure_dir "${install_dir}"
 
         if not exists "${install_dir}/.installed"
             print "→ extracting source to ${install_dir}"
@@ -1974,7 +1985,7 @@ command install
         end
 
         # Drop a launcher into ~/.local/bin
-        call ensure_dir path:"${home_dir}/.local/bin"
+        call ensure_dir "${home_dir}/.local/bin"
         write_file "${home_dir}/.local/bin/stt" "#!/bin/sh\nexec ${install_dir}/.venv/bin/python ${install_dir}/src/main.py \"$@\"\n"
         chmod "${home_dir}/.local/bin/stt" "755"
 
@@ -2283,7 +2294,7 @@ command backup
         description "Tag for the backup filename"
     end
     do
-        call ensure_dir path:"${BACKUP_DIR}"
+        call ensure_dir "${BACKUP_DIR}"
         let stamp = format_time "now" "2006-01-02_150405"
         let out = format "${BACKUP_DIR}/${engine}-${label}-${stamp}.sql"
 
@@ -2322,7 +2333,7 @@ command backup
         end
 
         # Local retention: keep 14 most recent
-        run prune_local "-engine=${engine}" keep:"14"
+        run prune_local "-engine=${engine}" "-keep=14"
     end
 end
 
@@ -2403,10 +2414,10 @@ command test_roundtrip
     do
         let tmp = mktemp_dir
         shell "sqlite3 ${tmp}/src.db 'CREATE TABLE t(x); INSERT INTO t VALUES(42);'"
-        run backup "-engine=sqlite" conn:"${tmp}/src.db" label:"test"
+        run backup "-engine=sqlite" "-conn=${tmp}/src.db" "-label=test"
         # Most recent backup wins:
         let latest = shell_output "ls -1t ${BACKUP_DIR}/sqlite-test-*.sql.gz* | head -1"
-        run restore "-engine=sqlite" conn:"${tmp}/dst.db" path:"${latest}"
+        run restore "-engine=sqlite" "-conn=${tmp}/dst.db" "-path=${latest}"
         let got = shell_output "sqlite3 ${tmp}/dst.db 'SELECT x FROM t;'"
         assert_eq "${got}" "42"
         rm "${tmp}"
@@ -2450,7 +2461,7 @@ command issue
     arg domain type string description "Domain (e.g. example.com)" end
     arg email  type string description "Contact email for LE registration" end
     do
-        call require_bin name:"certbot"
+        call require_bin "certbot"
         shell "certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}"
         run install_to_nginx "-domain=${domain}"
         run alert "-msg=issued cert for ${domain}"
@@ -2793,7 +2804,7 @@ command serve_pipeline
                 fail "no new files"   # forces retry to wait
             end
             let out = format "./outbox/${user}-$(basename ${in} .csv).json"
-            run process "-input=${in}" output:"${out}"
+            run process "-input=${in}" "-output=${out}"
             mv "${in}" "./done/"
         end
     end
@@ -2890,7 +2901,7 @@ command pr
         end
 
         # Open the PR via gh
-        call require_bin name:"gh"
+        call require_bin "gh"
         let url = shell_output "gh pr create --base ${base} --title '${title}' --body 'Opened via perch pr.'"
         print "✓ PR opened: ${url}"
 
@@ -2908,7 +2919,7 @@ end
 command land
     description "Squash-merge the current PR + delete the branch + sync local"
     do
-        call require_bin name:"gh"
+        call require_bin "gh"
         let branch = shell_output "git symbolic-ref --short HEAD"
         let base = shell_output "gh pr view --json baseRefName -q .baseRefName"
         shell "gh pr merge --squash --auto --delete-branch"
@@ -3417,8 +3428,8 @@ command NAME description "..." [modifiers]
         let X = OP ARGS                  # capture result
         if EXPR ... end                  # control flow
         BLOCK_OP ARGS ... end            # parallel / retry / etc.
-        call TEMPLATE arg:value
-        run OTHER_COMMAND arg:value
+        call TEMPLATE "value"
+        run OTHER_COMMAND "-arg=value"
         fail "msg"
     end
 end

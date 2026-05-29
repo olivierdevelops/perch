@@ -83,6 +83,7 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 
 <p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
 <strong>Also recently shipped:</strong>
+📜 <a href="requires/"><strong><code>requires</code> — file-declared manifest</strong></a> — top-level block declares every external resource the file touches: <code>bin</code>, <code>env</code>, <code>host</code>, <strong>filesystem <code>read</code>/<code>write</code> scopes</strong>, OS, and arch (with <code>optional</code>). When present, <strong>every external op verifies the manifest before it runs</strong> — undeclared <code>shell</code> bins, <code>http</code> hosts, <code>get_env</code> reads, or filesystem paths ERROR (<code>bin_not_declared</code> / <code>host_not_declared</code> / <code>env_not_declared</code> / <code>read_not_declared</code> / <code>write_not_declared</code>). <strong>Pin SHA-256 hashes</strong> on bins (<code>hash "sha256:..."</code> or <code>hash_file "bundle:..."</code>) — read-only, never executes the binary. <a href="capability-gating/">every external op is gated, every time →</a> ·
 🖥️ <strong>OS + arch execution-context blocks (<code>os "PLATFORM" ... end</code> · <code>arch "ARCH" ... end</code>)</strong> — declare cross-platform AND cross-architecture branches structurally; compose for matrix builds (linux/amd64, linux/arm64, darwin/arm64, …). simulate prunes mismatched leaves as known dead code on the target host ·
 🪢 <strong><code>run NAME "-arg=value"</code> — CLI-consistent arg passing (breaking)</strong> — internal <code>run</code> calls now use the same flag syntax as <code>perch NAME -arg=value</code> from a shell. One parser, one mental model. (The old <code>colon:value</code> shape never actually worked; docs were misleading.) ·
 🔒 <strong>Catch <code>${proxy_args}</code> requires <code>proxy_args</code> modifier (breaking)</strong> — the catch→shell forwarding pattern that <code>--scan</code> flagged as HIGH risk can no longer happen implicitly. Without the modifier, <code>${proxy_args}</code> is unbound and referencing it errors. Aligns catch with command (where the modifier was already required). ·
@@ -753,6 +754,10 @@ The recipient needs **only** what your install command requires (here: `python3`
 </script>
 
 ```perch
+requires
+    bin "ssh"          # the file declares the one tool it shells out to
+end
+
 command restart_service
     description "Restart a service on a host"
     arg host
@@ -809,6 +814,10 @@ The agent never sees `ssh`. It sees `restart_service(host, service)` with typed 
 </script>
 
 ```perch
+requires
+    bin "docker"       # everything this file shells out to is declared
+end
+
 command up
     description "Start the dev stack"
     do
@@ -820,6 +829,7 @@ end
 
 catch passthrough
     description "Forward unknown commands to docker"
+    proxy_args                       # explicit opt-in to bind ${proxy_args}
     do
         shell "docker ${proxy_args}"
     end
@@ -878,6 +888,11 @@ The questions enterprise teams ask up-front, answered in one place:
 <div class="card">
   <h4>🔍 Static audit of unknown scripts</h4>
   <p><code>perch --scan FILE</code> walks a program WITHOUT executing it and reports: capabilities needed, env vars referenced, risk findings (sudo, catch passthrough to shell, unvalidated <code>${var}</code> in shell args), and the tightest CLI invocation that should still let it run. Review third-party <code>.perch</code> files before adopting them.</p>
+</div>
+
+<div class="card">
+  <h4>📜 Declared requirements + supply-chain pinning</h4>
+  <p>A <code>requires</code> block makes the file <strong>declare every external resource it touches</strong> — bins (with <strong>SHA-256 hash pins</strong>), env vars, hosts, filesystem <code>read</code>/<code>write</code> scopes, OS, arch. When present, <strong>every external op verifies the manifest immediately before executing, on every call</strong> (stateless — no allow-cache): undeclared shell bins, hosts, env reads, or filesystem paths all <strong>error</strong>. A regression test fails if any external op stops refusing undeclared access. <code>perch --check</code> additionally flags literal undeclared use at lint time — proving a file is feasible on a target host <em>without running it</em>. Hash pins (inline or <code>hash_file "bundle:..."</code> embedded in the fat binary) defend against PATH-shadow + trojaned mirrors, read-only. <a href="capability-gating/">capability-gating.md →</a> · <a href="requires/">requires.md →</a>. <strong>Where this is heading:</strong> <a href="sandboxed-by-design/">zero ambient authority</a> — programs start with NO external access at all; today the manifest is opt-in (a file without it keeps ambient access).</p>
 </div>
 
 <div class="card">
@@ -1353,6 +1368,8 @@ Grouped by what you're trying to do. Each row is one page.
 | [op-reference.md](op-reference.md) | The built-in op catalog (~140 ops) |
 | [execution-contexts.md](execution-contexts.md) | **`parallel` / `retry` / `timeout` / `sandbox` / `cache` blocks + templates + `--report`** |
 | [testing.md](testing.md) | **`perch test` — sandboxed behavior tests with `assert_*` ops** |
+| [requires.md](requires.md) | **`requires` — file-declared manifest (bins, env, hosts, FS read/write scopes, OS, hash pins)** |
+| [capability-gating.md](capability-gating.md) | **Every external op verifies `requires` before executing — full per-op coverage table** |
 | [lsp.md](lsp.md) | VS Code / Neovim / Helix / Zed integration |
 | [applications.md](applications.md) | **22 real applications worth copying** |
 
@@ -1369,6 +1386,8 @@ Grouped by what you're trying to do. Each row is one page.
 | | |
 |---|---|
 | [sandbox.md](sandbox.md) | **Capability model — env / FS / net / shell scopes, `--untrusted`, file-side `sandbox` blocks** |
+| [requires.md](requires.md) | **File-declared manifest — bins / env / hosts / FS read+write scopes / OS / arch + SHA-256 hash pins; supply-chain provenance built in** |
+| [capability-gating.md](capability-gating.md) | **The enforcement guarantee — every external op checks the manifest before it runs, every time; per-op coverage table + regression test** |
 | [llm-control-plane.md](llm-control-plane.md) | **Replace your LLM-tool backend with a `.perch` file** |
 | [mcp.md](mcp.md) | MCP server reference (JSON-RPC over stdio) |
 | [applications.md](applications.md) | 22 patterns; many are SRE / platform-team shaped |

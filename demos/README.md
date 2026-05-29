@@ -11,6 +11,7 @@ Each subfolder is a self-contained `commands.perch` you can copy into your own p
 | [03-go-project](03-go-project/) | Build, test, lint a Go project. Could replace your Makefile. | `perch build -target=linux` |
 | [04-portable-cli](04-portable-cli/) | Bundle a `commands.perch` into a single portable binary via `perch --build`. The killer feature. | `perch --build -o greet && ./greet hello -name=Alice` |
 | [05-python-installer](05-python-installer/) | Embed a Python project alongside perch with `--include`. One binary that installs itself. | See its README |
+| [06-declared-requirements](06-declared-requirements/) | A `requires` manifest — declares every bin (with version floors + a custom version probe), env var, and host. Strict mode: undeclared use errors; `--check` proves feasibility without running. | `perch -f commands.perch --check` |
 
 ## WASM demos (`wasm_run` end-to-end)
 
@@ -54,10 +55,11 @@ If you're new to perch:
 1. Start with **01-hello** for the language basics.
 2. Read **02-cross-platform-setup** + **03-go-project** for shell-based recipes.
 3. Try **04-portable-cli** + **05-python-installer** for the `perch --build` story.
-4. Then **wasm-hello** to see the capability boundary in action.
-5. Then **wasm-schema-validator** for the "actually shippable CI tool" pattern.
-6. Then **wasm-diff-summary** for the agent-safety pattern.
-7. Then **wasm-plugin-host** for the architectural punch — AI-generated WASM plugins running under capability gates, with a deliberately malicious plugin demonstrating that every escape attempt fails *by construction*.
+4. Read **06-declared-requirements** for the `requires` manifest — what the file needs, declared and enforced.
+5. Then **wasm-hello** to see the capability boundary in action.
+6. Then **wasm-schema-validator** for the "actually shippable CI tool" pattern.
+7. Then **wasm-diff-summary** for the agent-safety pattern.
+8. Then **wasm-plugin-host** for the architectural punch — AI-generated WASM plugins running under capability gates, with a deliberately malicious plugin demonstrating that every escape attempt fails *by construction*.
 
 ## See also
 

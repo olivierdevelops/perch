@@ -54,6 +54,32 @@ end
 
 Globals are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc. By convention, UPPER_SNAKE_CASE globals are also exported as environment variables to every spawned `shell` call.
 
+## `requires … end` — the file-declared manifest
+
+Declares everything the file needs from the host: bins, env vars, hosts, OS, arch. When present, perch enforces strictly — undeclared shell bins / HTTP hosts / `get_env` reads error (`bin_not_declared`, `host_not_declared`, `env_not_declared`), and preflight verifies bins exist and (optionally) match a pinned SHA-256 hash. There is **no version checking** — that would require executing the binary before the sandbox exists (and a trojaned binary lies about its version); pin the artifact's hash instead.
+
+```perch
+requires
+    bin "kubectl"
+        hash "sha256:abc123…"              # pin the exact build you trust (read-only, no exec)
+    end
+    bin "docker"  optional
+    bin "go"
+    bin "internal-tool"
+        hash_file "bundle:checksums/tool.sha256"   # pin from an embedded file
+    end
+
+    env  "KUBECONFIG"
+    env  "DEBUG" optional
+    host "api.github.com"
+    host "*.amazonaws.com"
+    run_on   "linux"
+    run_arch "amd64"
+end
+```
+
+`perch --check` statically flags undeclared *literal* usage before you ever run it. Full reference: [requires.md](requires.md).
+
 ## Commands
 
 A `command NAME ... end` declares one named, callable unit. Inside it the **config region** runs from the opening line to the `do` keyword; the **body region** runs from `do` to its matching `end`.
@@ -321,6 +347,14 @@ end
 
 Overlays per-block environment variables onto the bindings for the body, then restores prior values on exit. Comma-joined `KEY=value` pairs. More readable than the per-command `env` modifier when the override is scoped to a few ops.
 
+The three env-management forms, by lifetime:
+
+| Form | Lifetime |
+|---|---|
+| `with_env "K=v" ... end` | scoped — auto-restored when the block exits |
+| `export NAME "value"` (alias `set_env`) | process — persists for the rest of the run |
+| `unset NAME` (alias `unset_env`) | removes a var from the process + binding overlay |
+
 ### `with_cwd`
 
 ```capy
@@ -409,7 +443,8 @@ Unknown names produce an error at op-run time. To pass a literal `${VAR}` throug
 
 ## Comments
 
-`# ...` to end of line. Comment-only lines do not affect indentation.
+!!! warning "Comments currently don't parse"
+    `# ...` line comments are the intended design, but the current build's grammar **rejects them** (a known bug — no real `.perch` file uses `#` comments yet). Until it's fixed, keep explanatory prose *outside* the `.perch` file (in a README), or rely on descriptive command/arg `description` text. Don't put `#` lines in a file you intend to run.
 
 ## Reserved words
 

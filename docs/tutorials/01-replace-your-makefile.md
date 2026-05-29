@@ -57,6 +57,18 @@ globals
 end
 ```
 
+While you're here, declare what this file needs from the host. A `requires`
+block makes the dependency explicit and lets `perch --check` prove the file
+will work *before* you run it — and refuses any undeclared shell bin at
+runtime:
+
+```capy
+requires
+    bin "go"                         # existence is verified at preflight
+    bin "golangci-lint" optional
+end
+```
+
 ## Step 3 — `build`
 
 In Make:

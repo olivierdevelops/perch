@@ -27,6 +27,14 @@ globals                          # optional; bindings shared by every command
     FLAG = true
 end
 
+requires                         # optional but recommended — declares every external
+    bin   "git"                  #   resource the file touches: bins (+ optional hash
+    env   "HOME"                 #   pins), env vars, hosts, filesystem read/write scopes,
+    host  "api.github.com"       #   OS/arch. When present, every external op verifies the
+    read  "./config"             #   manifest before running; undeclared access errors.
+    write "./build"              #   (No version checking — pin a hash instead.)
+end
+
 command NAME
     # config region — declarative metadata
     description "what it does"
@@ -296,7 +304,7 @@ Map the request to perch concepts:
 
 | User says | Use |
 |---|---|
-| "build for multiple platforms" | a `release` command that calls `run build target:"..."` three times |
+| "build for multiple platforms" | a `release` command that calls `run build "-target=..."` three times (args to `run` are quoted, CLI-style) |
 | "install dev tools cross-platform" | `if os == "darwin"` / `if os == "linux"` blocks running brew / apt / choco |
 | "I want a help text on this" | `description "..."` in the config region |
 | "make this command not show up in --help" | `private` modifier |
@@ -368,6 +376,11 @@ globals
     MAIN_PKG  = "./cmd/myapp"
 end
 
+requires
+    bin   "go"
+    write "./bin"
+end
+
 command build
     description "Compile for one target"
 
@@ -388,9 +401,9 @@ end
 command release
     description "Cross-compile all three"
     do
-        run build target:"darwin"
-        run build target:"linux"
-        run build target:"windows"
+        run build "-target=darwin"
+        run build "-target=linux"
+        run build "-target=windows"
     end
 end
 
@@ -436,6 +449,40 @@ git show HEAD:commands.perch | perch -f - --check
 - **`perch --ask <cmd>`** — interactive step-through. For each op: `y` runs it, `n` skips, `a` runs this op then everything else without further asking, `q` quits the command.
 
 Both work for any command and stack with the restriction flags: `perch --no-shell --ask deploy` lets you preview ops AND have the runtime refuse shell calls.
+
+## `requires` — declare what the file needs from outside (the philosophy)
+
+perch's security model is **declare every external resource**. Add a top-level `requires` block listing the bins, env vars, hosts, and filesystem paths the file touches. When present, **every external op verifies the manifest immediately before it runs** — an undeclared shell bin, HTTP host, `get_env` name, or filesystem path *errors*. Files without a `requires` block keep ambient access (the block is opt-in today).
+
+```capy
+requires
+    bin   "git"                          # bins used by shell / subprocess ops
+    bin   "docker" optional              # absence is not fatal
+    bin   "kubectl"
+        hash "sha256:abc123…"            # OPTIONAL: pin exact bytes (read-only, never executed)
+    end
+    env   "HOME"                         # env vars get_env / set_env may touch
+    host  "api.github.com"               # hosts http_* / download / dns_lookup may reach
+    host  "*.amazonaws.com"
+    read  "./config"                     # filesystem read scope
+    write "./build"                      # filesystem write scope (write implies read)
+    run_on   "linux"                     # host OS allowlist (one value per line)
+    run_on   "darwin"
+    run_arch "amd64"                     # host arch allowlist (one value per line)
+    run_arch "arm64"
+end
+```
+
+Rules to follow when authoring:
+
+- **Declare a `bin` for every program a `shell` op runs** (its first token) and for subprocess ops (`pkg_install`, `bin_version`, …). Undeclared → `bin_not_declared`.
+- **Declare a `host` for every URL** an `http_*` / `download` / `dns_lookup` / `wait_for_url` op targets. Undeclared → `host_not_declared`.
+- **Declare an `env`** for every name `get_env` / `set_env` / `env_has` uses. Undeclared → `env_not_declared`.
+- **Declare `read` / `write` roots** for every path a filesystem op touches (`mkdir`, `write_file`, `read_file`, `cp`, …). Outside the roots → `read_not_declared` / `write_not_declared`.
+- **There is NO version checking** in `requires` — it would require executing the binary (which a trojaned binary can lie to). Pin a `hash` instead, or check a version *inside* a command with `shell_output` + `version_extract` / `assert_version` under the declared `shell`/`bin` capability.
+- `perch --check` statically flags undeclared *literal* usage; the runtime gate catches interpolated usage. Both compose with the operator `--no-*` flags (intersection — neither side can grant more than the other allows).
+
+When you write a file with a `requires` block, make sure every external op you emit has a matching declaration, or `perch --check` will reject it.
 
 ## Restriction flags
 

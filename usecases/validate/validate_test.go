@@ -220,3 +220,68 @@ func hasErr(issues []Issue, substr string) bool {
 	}
 	return false
 }
+
+func TestRequiresStaticEnforcement(t *testing.T) {
+	p := &domain.Program{
+		Requirements: domain.Requirements{
+			Declared: true,
+			Bins:     []domain.BinReq{{Name: "echo"}},
+			Hosts:    []domain.HostReq{{Name: "api.github.com"}},
+			Envs:     []domain.EnvReq{{Name: "HOME"}},
+		},
+		Commands: map[string]*domain.Command{
+			"x": {
+				Name: "x", Description: "d",
+				Ops: []domain.Op{
+					{Kind: "shell", Args: map[string]any{"cmd": "curl https://evil.example.com"}},
+					{Kind: "http_get", Args: map[string]any{"_0": "https://untrusted.org/x"}, CaptureInto: "b"},
+					{Kind: "get_env", Args: map[string]any{"_0": "AWS_SECRET_ACCESS_KEY"}, CaptureInto: "k"},
+					// These are declared / dynamic — must NOT error:
+					{Kind: "shell", Args: map[string]any{"cmd": "echo ok"}},
+					{Kind: "http_get", Args: map[string]any{"_0": "https://api.github.com/x"}, CaptureInto: "c"},
+					{Kind: "get_env", Args: map[string]any{"_0": "HOME"}, CaptureInto: "h"},
+					{Kind: "shell", Args: map[string]any{"cmd": "${os}"}}, // dynamic (auto-bound) → skip
+				},
+			},
+		},
+	}
+	issues := Check(p, known("shell", "http_get", "get_env"))
+	if !hasErr(issues, `bin "curl"`) {
+		t.Errorf("expected bin_not_declared for curl; got %v", issues)
+	}
+	if !hasErr(issues, `host "untrusted.org"`) {
+		t.Errorf("expected host_not_declared for untrusted.org; got %v", issues)
+	}
+	if !hasErr(issues, `"AWS_SECRET_ACCESS_KEY"`) {
+		t.Errorf("expected env_not_declared for AWS_SECRET_ACCESS_KEY; got %v", issues)
+	}
+	// Exactly 3 errors — declared + dynamic usages must not add more.
+	errs := 0
+	for _, i := range issues {
+		if i.Severity == "error" {
+			errs++
+		}
+	}
+	if errs != 3 {
+		t.Errorf("expected exactly 3 errors, got %d: %v", errs, issues)
+	}
+}
+
+func TestRequiresNotDeclaredNoEnforcement(t *testing.T) {
+	// No requires block → legacy behavior, undeclared shell bins are fine.
+	p := &domain.Program{
+		Commands: map[string]*domain.Command{
+			"x": {
+				Name: "x", Description: "d",
+				Ops: []domain.Op{
+					{Kind: "shell", Args: map[string]any{"cmd": "curl https://anywhere.com"}},
+				},
+			},
+		},
+	}
+	issues := Check(p, known("shell"))
+	if hasErr(issues, "not declared") {
+		t.Errorf("no requires block should mean no enforcement; got %v", issues)
+	}
+}
+

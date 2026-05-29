@@ -359,6 +359,7 @@ func handlePerchRun(enc *json.Encoder, w *bufio.Writer, id json.RawMessage, cfgP
 	stderr := newProgressWriter(enc, w, progressToken, "stderr")
 
 	i := interpreter.New(handlers, p)
+	i.PreflightHook = ops.Preflight
 	i.Stdout = stdout
 	i.Stderr = stderr
 

@@ -89,6 +89,13 @@ type Interpreter struct {
 	// falls out naturally from RunOp's recursion — a block op's children
 	// emit their Before/After between the block's Before and After.
 	Tracer Tracer
+	// PreflightHook, when non-nil, is called once per command invocation
+	// BEFORE any op fires (after platform/args checks). Used by the
+	// `requires` block enforcer (infra/ops/requires.go) to verify the
+	// host machine satisfies the file's declared manifest. Wired up in
+	// orchestrator/main.go to avoid an infra/ops → infra/interpreter
+	// → infra/ops circular import.
+	PreflightHook func(*Interpreter, *domain.Program) error
 }
 
 // HTTPPolicy gates which URLs perch's HTTP ops will dial and which
@@ -190,6 +197,15 @@ func (i *Interpreter) runCommand(commandName string, cliArgs []string, allowPriv
 
 	if err := i.checkPlatform(cmd); err != nil {
 		return err
+	}
+
+	// File-declared `requires` manifest preflight. Hook is wired by the
+	// orchestrator to ops.Preflight; nil when running in contexts where
+	// requirements shouldn't be enforced (e.g. `perch --check`).
+	if i.PreflightHook != nil {
+		if err := i.PreflightHook(i, i.Program); err != nil {
+			return err
+		}
 	}
 
 	parsed, err := i.parseArgs(cmd, cliArgs)

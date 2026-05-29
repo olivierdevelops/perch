@@ -68,6 +68,14 @@ const (
 	ErrCommandNotFound ErrorKind = "command_not_found"
 	ErrBinNotFound     ErrorKind = "bin_not_found"
 
+	// Requires-block enforcement (file-declared manifest)
+	ErrBinNotDeclared    ErrorKind = "bin_not_declared"
+	ErrEnvNotDeclared    ErrorKind = "env_not_declared"
+	ErrHostNotDeclared   ErrorKind = "host_not_declared"
+	ErrReadNotDeclared   ErrorKind = "read_not_declared"
+	ErrWriteNotDeclared  ErrorKind = "write_not_declared"
+	ErrRequirementUnmet  ErrorKind = "requirement_unmet"
+
 	// Catch-all for handlers that haven't been migrated to tagged errors
 	// yet. Tagging is mechanical (see infra/ops/errs.go) and proceeds
 	// incrementally; this is the fallback so users always get *some*
@@ -88,6 +96,8 @@ func AllErrorKinds() []ErrorKind {
 		ErrUnresolvedVar, ErrUnresolvedTemplate,
 		ErrTimeoutExceeded, ErrSignalReceived, ErrUserFail, ErrAssertFailed,
 		ErrCommandNotFound, ErrBinNotFound,
+		ErrBinNotDeclared, ErrEnvNotDeclared, ErrHostNotDeclared,
+		ErrReadNotDeclared, ErrWriteNotDeclared, ErrRequirementUnmet,
 		ErrUnclassified,
 	}
 }

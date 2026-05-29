@@ -181,6 +181,20 @@ The shape stays clean as the project grows.
 - `write_file` cleanly handles per-OS config files.
 - The whole installer ships as one binary via `perch --build`.
 
+> **Declare what it needs.** Because this installer shells out to per-OS tools, add a `requires` block so the file states its external surface and `perch --check` can verify it before anything runs. The OS-specific installers are `optional` (only one exists per host):
+>
+> ```capy
+> requires
+>     bin "git"
+>     bin "brew"  optional        # macOS
+>     bin "sudo"  optional        # linux
+>     bin "choco" optional        # windows
+>     write "${home_dir}/.config"
+> end
+> ```
+>
+> With the block present, every external op verifies it immediately before running. See [requires.md](../requires.md) and [capability-gating.md](../capability-gating.md).
+
 ## Where to go next
 
 - Browse the [op catalog](../op-reference.md) for the full vocabulary.

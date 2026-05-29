@@ -12,13 +12,16 @@ and replaces the bash one-liners you'd otherwise reach for.
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
 curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
 
-# 2. Audit BEFORE running
+# 2. Audit BEFORE running — risk score + what it touches
 perch --scan -f redis.perch
 
-# 3. List what it does
+# 3. Verify it's feasible on THIS machine without running it
+perch -f redis.perch --check
+
+# 4. List what it does
 perch -f redis.perch --help
 
-# 4. Run it
+# 5. Run it
 perch -f redis.perch up
 perch -f redis.perch cli
 perch -f redis.perch down
@@ -26,6 +29,27 @@ perch -f redis.perch down
 
 Every recipe imports `./_lib.perch` for shared templates (`require_docker`,
 `ok`, `say`, etc.) — keep both files in the same directory.
+
+## Declared requirements
+
+Recipes declare what they need from the host in a `requires` block — the
+Docker-based recipes, for example, declare `bin "docker"`:
+
+```perch
+requires
+    bin "docker"
+end
+```
+
+With the block present perch runs in **strict mode**: any shell binary the
+file uses that *isn't* declared is refused (`bin_not_declared`), and
+`perch --check` flags it **statically — before you run anything**. That
+means a recipe can't silently shell out to a tool you didn't expect. Run
+`perch -f <recipe>.perch --check` and it either confirms the file is
+feasible on your machine or tells you exactly which bin / host / env var
+is missing or undeclared. Add a SHA-256 pin (`bin "docker" / hash "sha256:…" / end`)
+when you want preflight to verify the exact build — a read-only check, no execution.
+Full reference: [docs/requires.md](https://luowensheng.github.io/perch/requires/).
 
 ## The catalog
 

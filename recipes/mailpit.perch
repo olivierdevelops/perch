@@ -4,6 +4,13 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+    bin "open" optional
+    bin "start" optional
+    bin "xdg-open" optional
+end
+
 globals
     NAME = "perch-mailpit"
     IMAGE = "axllent/mailpit:latest"

@@ -30,5 +30,8 @@ func AllHandlers() map[string]interpreter.Handler {
 	registerInstall(m)
 	registerErrorOps(m)
 	registerVersion(m)
+	// Wrap filesystem ops so a declared `requires` block gates their
+	// read/write paths against the declared roots. No-op without the block.
+	ApplyRequiresPathGating(m)
 	return m
 }

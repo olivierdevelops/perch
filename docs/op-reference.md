@@ -9,6 +9,24 @@ Ops fall into two shapes:
 
 Most ops support both shapes (return value is discarded if you don't `let`).
 
+> **External vs pure.** Ops that touch something outside the program — subprocess (`shell`, `pkg_install`, `bin_version`, …), network (`http_*`, `dns_lookup`, …), filesystem (`read_file`, `write_file`, `cp`, …), or environment (`get_env`, `set_env`, …) — are **gated by the `requires` manifest** when a file declares one: each verifies its declaration immediately before executing, and undeclared access errors. Pure ops (strings, JSON, regex, hashing of in-memory values, version compare, path-string manipulation) and benign host-fact reads (`get_os`, `hostname`, dir-name helpers) are never gated. The authoritative per-op classification is in **[capability-gating.md](capability-gating.md)**.
+
+### Argument forms — quoted string vs bare ident
+
+A single-arg op accepts its argument two ways:
+
+```perch
+let url = get_env "API_URL"
+
+print "${url}"      # string form — interpolation
+print url           # bare ident — resolves the binding directly (no ${...})
+
+let body = http_get "${url}"   # string form
+let body = http_get url        # bare ident — same result
+```
+
+Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.message`) still need the string form, because the tokenizer treats `.` as a separator — use `match "${err.kind}"`, not `match err.kind`. Plain `match os` / `match status` work bare.
+
 ## Process & I/O
 
 | Op | Signature | Notes |
@@ -182,8 +200,11 @@ perch --allow-host api.github.com,*.docker.io,registry.npmjs.org \
 |---|---|
 | `get_os`            | `() → string` (darwin/linux/windows) |
 | `get_arch`          | `() → string` (amd64/arm64) |
-| `get_env NAME`      | `(string) → string` |
-| `set_env NAME VAL`  | `(string, string)` |
+| `get_env NAME`      | `(string) → string` (errors with `env_not_declared` if a `requires` block is present and NAME isn't declared) |
+| `set_env NAME VAL`  | `(string, string)` — process-lifetime env var |
+| `export NAME VAL`   | `(string, string)` — alias for `set_env` (familiar shell verb) |
+| `unset NAME`        | `(string)` — remove an env var (process + binding overlay); alias `unset_env` |
+| `unset_env NAME`    | `(string)` — same as `unset` |
 | `cwd`               | `() → string` |
 | `home_dir`          | `() → string` |
 | `temp_dir`          | `() → string` |

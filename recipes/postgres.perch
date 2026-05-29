@@ -4,6 +4,11 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+    bin "cat"
+end
+
 globals
     NAME = "perch-postgres"
     IMAGE = "postgres:16-alpine"

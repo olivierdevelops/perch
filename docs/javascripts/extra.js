@@ -10,6 +10,10 @@
             html: `<span class="kw">name</span>    <span class="str">"redis"</span>
 <span class="kw">about</span>   <span class="str">"Manage a local Redis Docker container"</span>
 
+<span class="kw">requires</span>
+    <span class="kw">bin</span> <span class="str">"docker"</span>
+<span class="kw">end</span>
+
 <span class="kw">command</span> run
     <span class="kw">arg</span> port
         <span class="kw">type</span> int

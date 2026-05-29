@@ -79,6 +79,13 @@ func opProcessRunning(i *interpreter.Interpreter, b *interpreter.Bindings, args 
 	if name == "" {
 		return false, nil
 	}
+	tool := "pgrep"
+	if runtime.GOOS == "windows" {
+		tool = "tasklist"
+	}
+	if err := CheckSubprocessBin(i, tool); err != nil {
+		return false, err
+	}
 	if runtime.GOOS == "windows" {
 		out, _ := exec.Command("tasklist", "/FI", "IMAGENAME eq "+name).CombinedOutput()
 		return strings.Contains(strings.ToLower(string(out)), strings.ToLower(name)), nil
@@ -92,6 +99,13 @@ func opKillByName(i *interpreter.Interpreter, b *interpreter.Bindings, args map[
 	name := argString(args, "name", "_0")
 	if name == "" {
 		return nil, nil
+	}
+	tool := "pkill"
+	if runtime.GOOS == "windows" {
+		tool = "taskkill"
+	}
+	if err := CheckSubprocessBin(i, tool); err != nil {
+		return nil, err
 	}
 	if runtime.GOOS == "windows" {
 		_ = exec.Command("taskkill", "/F", "/IM", name).Run()
@@ -131,6 +145,10 @@ func opEprintln(i *interpreter.Interpreter, b *interpreter.Bindings, args map[st
 // / $(...) / backticks). Returns nil when the command passes both
 // checks (or when neither is active).
 func checkShell(i *interpreter.Interpreter, raw string) error {
+	// File-declared manifest enforcement (no-op unless `requires` declared).
+	if err := CheckShellBinDeclared(i, raw); err != nil {
+		return err
+	}
 	if i.NoShellMetachars {
 		for _, ch := range []string{"|", ">", "<", "&", ";", "`", "$("} {
 			if strings.Contains(raw, ch) {

@@ -4,6 +4,10 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+end
+
 globals
     NAME = "perch-redis"
     IMAGE = "redis:7-alpine"

@@ -4,6 +4,10 @@ version "1.0.0"
 
 import "./_lib.perch"
 
+requires
+    bin "docker"
+end
+
 command status
     description "All running containers with disk + memory"
     do

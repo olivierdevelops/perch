@@ -114,6 +114,142 @@ function bundle_include
 `
 end
 
+# ────────────────────────────────────────────────────────────────────────────
+# requires ... end — file-declared manifest (the file states what it needs).
+#
+#   requires
+#       bin "kubectl" >= "1.28.0"
+#       bin "docker"  optional
+#       env "KUBECONFIG"
+#       env "DEBUG"   optional
+#       host "api.github.com"
+#       os   "linux"
+#       arch "amd64"
+#   end
+#
+# When this block is present, runtime enforcement is STRICT: undeclared
+# shell bins, env reads, and HTTP hosts error (bin_not_declared etc.).
+# Files without a `requires` block keep current behavior.
+# ────────────────────────────────────────────────────────────────────────────
+
+function requires
+    arg literal "requires"
+    block_closer end
+    write `{"event":"requires_begin"}
+${body}{"event":"requires_end"}
+`
+end
+
+# Sub-lines that customize the most-recent `bin ...` declaration. Indentation
+# under a `bin` line is stylistic; the loader applies these field events to
+# the last BinReq in the requires block. `hash` / `hash_file` PIN the binary's
+# bytes — a read-only check, no execution. (There is no version probe: that
+# would require running the binary before the sandbox exists, and a trojaned
+# binary lies about its version. Pin the artifact, don't ask it to self-report.)
+function requires_bin_hash
+    arg literal "hash"
+    arg capture v any
+    write `{"event":"requires_bin_field","kind":"hash","value":${v}}
+`
+end
+function requires_bin_hash_file
+    arg literal "hash_file"
+    arg capture v any
+    write `{"event":"requires_bin_field","kind":"hash_file","value":${v}}
+`
+end
+
+# bin "NAME" optional
+function requires_bin_optional
+    priority 55
+    arg literal "bin"
+    arg capture name any
+    arg literal "optional"
+    write `{"event":"requires_bin","name":${name},"optional":true}
+`
+end
+
+# bin "NAME"
+function requires_bin
+    priority 40
+    arg literal "bin"
+    arg capture name any
+    write `{"event":"requires_bin","name":${name}}
+`
+end
+
+function requires_env_optional
+    priority 55
+    arg literal "env"
+    arg capture name any
+    arg literal "optional"
+    write `{"event":"requires_env","name":${name},"optional":true}
+`
+end
+
+function requires_env
+    priority 40
+    arg literal "env"
+    arg capture name any
+    write `{"event":"requires_env","name":${name}}
+`
+end
+
+function requires_host_optional
+    priority 55
+    arg literal "host"
+    arg capture name any
+    arg literal "optional"
+    write `{"event":"requires_host","name":${name},"optional":true}
+`
+end
+
+function requires_host
+    priority 40
+    arg literal "host"
+    arg capture name any
+    write `{"event":"requires_host","name":${name}}
+`
+end
+
+# read "PATH" / write "PATH" — filesystem scopes the program may touch.
+# One path per line, repeatable. The filesystem is an external resource,
+# so it's declared like bins/hosts/env. A write root implies read.
+function requires_read
+    arg literal "read"
+    arg capture path any
+    write `{"event":"requires_read","value":${path}}
+`
+end
+
+function requires_write
+    arg literal "write"
+    arg capture path any
+    write `{"event":"requires_write","value":${path}}
+`
+end
+
+# Inside a `requires` block, the OS/arch the program supports use the
+# keywords `run_on` (OS) and `run_arch` (CPU arch) — NOT bare `os`/`arch`.
+# Bare `os`/`arch` are reserved for the `os "..." ... end` / `arch "..." ... end`
+# execution-context conditional blocks (see os_block / arch_block below); the
+# capy parser commits to a block-opener once its literal matches and cannot
+# backtrack, so a flat `os "linux"` requires-entry sharing that keyword would
+# parse non-deterministically. Distinct keywords keep both forms unambiguous.
+function requires_os
+    arg literal "run_on"
+    arg capture name any
+    write `{"event":"requires_os","name":${name}}
+`
+end
+
+function requires_arch
+    arg literal "run_arch"
+    arg capture name any
+    write `{"event":"requires_arch","name":${name}}
+`
+end
+
 # One assignment line: NAME = LITERAL. The Go side reads the JSON type.
 function global_assign
     arg capture k ident
@@ -355,11 +491,27 @@ function print
     write `{"event":"op","kind":"print","args":{"msg":${msg}}}
 `
 end
+# Bare ident form — `print msg` (no quotes, no ${...}). Emits `_msg_var`
+# which the universal resolver turns into `msg = b.Lookup(...)`.
+function print_ident
+    priority 60
+    arg literal "print"
+    arg capture name ident
+    write `{"event":"op","kind":"print","args":{"_msg_var":${toJSON name}}}
+`
+end
 
 function println
     arg literal "println"
     arg capture msg string
     write `{"event":"op","kind":"println","args":{"msg":${msg}}}
+`
+end
+function println_ident
+    priority 60
+    arg literal "println"
+    arg capture name ident
+    write `{"event":"op","kind":"println","args":{"_msg_var":${toJSON name}}}
 `
 end
 
@@ -369,11 +521,25 @@ function eprintln
     write `{"event":"op","kind":"eprintln","args":{"msg":${msg}}}
 `
 end
+function eprintln_ident
+    priority 60
+    arg literal "eprintln"
+    arg capture name ident
+    write `{"event":"op","kind":"eprintln","args":{"_msg_var":${toJSON name}}}
+`
+end
 
 function shell
     arg literal "shell"
     arg capture cmd string
     write `{"event":"op","kind":"shell","args":{"cmd":${cmd}}}
+`
+end
+function shell_ident
+    priority 60
+    arg literal "shell"
+    arg capture name ident
+    write `{"event":"op","kind":"shell","args":{"_cmd_var":${toJSON name}}}
 `
 end
 
@@ -532,6 +698,37 @@ function chmod
     arg capture path string
     arg capture mode string
     write `{"event":"op","kind":"chmod","args":{"path":${path},"mode":${mode}}}
+`
+end
+
+# Environment management:
+#   export NAME "value"   — set a process-lifetime env var (alias set_env)
+#   unset  NAME           — remove an env var (alias unset_env)
+# For env that auto-restores at block exit, use `with_env "K=v" ... end`.
+function export_env
+    arg literal "export"
+    arg capture name string
+    arg capture value string
+    write `{"event":"op","kind":"set_env","args":{"name":${name},"value":${value}}}
+`
+end
+function set_env_op
+    arg literal "set_env"
+    arg capture name string
+    arg capture value string
+    write `{"event":"op","kind":"set_env","args":{"name":${name},"value":${value}}}
+`
+end
+function unset_env_op
+    arg literal "unset"
+    arg capture name string
+    write `{"event":"op","kind":"unset_env","args":{"name":${name}}}
+`
+end
+function unset_env_op2
+    arg literal "unset_env"
+    arg capture name string
+    write `{"event":"op","kind":"unset_env","args":{"name":${name}}}
 `
 end
 
@@ -1016,6 +1213,22 @@ ${body}{"event":"op","kind":"_leave"}
 `
 end
 
+# Ident form — `match os` / `match status` / `match err` (no quotes,
+# no `${...}`). The runtime resolves args._target_var via b.Lookup.
+# Only works for plain (non-dotted) binding names — capy's `ident`
+# matcher doesn't consume `.`, so `err.kind` / `err.message` etc.
+# still need the string form `match "${err.kind}"`.
+function match_block_ident
+    priority 40
+    arg literal "match"
+    arg capture name ident
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"match","args":{"_target_var":${toJSON name}}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+
 # Two case overloads: `case "literal"` and `case bare_ident` (for enum
 # kinds). The ident form has higher priority so `case user_fail`
 # without quotes is captured as the string "user_fail" automatically.
@@ -1076,6 +1289,22 @@ function let_1arg
     arg capture op_kind ident
     arg capture a0 any
     write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0}},"capture_into":${toJSON name}}
+`
+end
+
+# Ident form — `let body = http_get url` (bare ident arg, no quotes,
+# no ${...}). Emits `_0_var` instead of `_0`; the universal resolver
+# in InterpolateArgs turns that into `_0 = b.Lookup(<name>)` before
+# the handler runs. Higher priority than let_1arg so capy picks this
+# when a0 is a bare ident.
+function let_1arg_ident
+    priority 75
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture op_kind ident
+    arg capture a0 ident
+    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0_var":${toJSON a0}},"capture_into":${toJSON name}}
 `
 end
 

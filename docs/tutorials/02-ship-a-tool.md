@@ -4,7 +4,7 @@
 
 ## The setup
 
-Suppose you maintain a small team operations CLI: `ops backup`, `ops restart-api`, `ops check-disk`. Today it's a folder of bash scripts. Half the team has the folder cloned; half doesn't. There's no help text. Onboarding takes 20 minutes.
+Suppose you maintain a small team operations CLI: `ops backup`, `ops restart_api`, `ops check_disk`. Today it's a folder of bash scripts. Half the team has the folder cloned; half doesn't. There's no help text. Onboarding takes 20 minutes.
 
 We're going to fold the whole thing into one `commands.perch` and ship the result as `ops`.
 
@@ -22,6 +22,13 @@ globals
     BACKUP_S3 = "s3://backups-bucket"
 end
 
+requires
+    bin   "pg_dump"
+    bin   "aws"
+    bin   "kubectl"
+    write "/tmp"
+end
+
 command backup
     description "Snapshot the primary DB to S3"
     do
@@ -33,7 +40,7 @@ command backup
     end
 end
 
-command restart-api
+command restart_api
     description "Roll-restart the api deployment"
     do
         shell "kubectl rollout restart deployment/api -n prod"
@@ -42,7 +49,7 @@ command restart-api
     end
 end
 
-command check-disk
+command check_disk
     description "Print disk usage on each api node"
     do
         shell "kubectl get nodes -l role=api -o name | xargs -I {} kubectl debug {} --image=busybox -- df -h"
@@ -52,13 +59,13 @@ end
 catch unknown
     do
         print "Unknown command: ${unknown}"
-        print "Try: backup | restart-api | check-disk"
+        print "Try: backup | restart_api | check_disk"
         exit 1
     end
 end
 ```
 
-You could already invoke this as `perch backup`, `perch restart-api`, etc. But we want a standalone tool the team can run without thinking about perch.
+You could already invoke this as `perch backup`, `perch restart_api`, etc. But we want a standalone tool the team can run without thinking about perch.
 
 ## Step 2 — Build the binary
 
@@ -73,7 +80,7 @@ file ./ops
 # → Mach-O 64-bit executable arm64    (or ELF / PE depending on your host)
 
 ./ops --version    # → 1.0.0
-./ops --help       # → lists backup, restart-api, check-disk
+./ops --help       # → lists backup, restart_api, check_disk
 ./ops backup       # → runs the dump+upload pipeline
 ./ops blorp        # → falls into your `catch unknown`
 ```

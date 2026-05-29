@@ -67,6 +67,9 @@ func opHasBin(i *interpreter.Interpreter, b *interpreter.Bindings, args map[stri
 // Empty string on failure (no error — callers usually want a fallback).
 func opBinVersion(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
 	name := argString(args, "name", "_0")
+	if err := CheckSubprocessBin(i, name); err != nil {
+		return "", err
+	}
 	flag := argString(args, "flag", "_1")
 	if flag == "" {
 		flag = "--version"
@@ -224,6 +227,9 @@ func opPkgInstall(i *interpreter.Interpreter, b *interpreter.Bindings, args map[
 	if cmd == nil {
 		return nil, fmt.Errorf("pkg_install: no package manager found on PATH")
 	}
+	if err := CheckSubprocessBin(i, cmd[0]); err != nil {
+		return nil, err
+	}
 	c := exec.Command(cmd[0], cmd[1:]...)
 	c.Stdout = i.Stdout
 	c.Stderr = i.Stderr
@@ -242,6 +248,9 @@ func opPkgUninstall(i *interpreter.Interpreter, b *interpreter.Bindings, args ma
 	if cmd == nil {
 		return nil, fmt.Errorf("pkg_uninstall: no package manager found on PATH")
 	}
+	if err := CheckSubprocessBin(i, cmd[0]); err != nil {
+		return nil, err
+	}
 	c := exec.Command(cmd[0], cmd[1:]...)
 	c.Stdout = i.Stdout
 	c.Stderr = i.Stderr
@@ -256,6 +265,9 @@ func opPkgInstalled(i *interpreter.Interpreter, b *interpreter.Bindings, args ma
 	cmd := pkgInstalledCmd(mgr, name)
 	if cmd == nil {
 		return false, nil
+	}
+	if err := CheckSubprocessBin(i, cmd[0]); err != nil {
+		return false, err
 	}
 	return exec.Command(cmd[0], cmd[1:]...).Run() == nil, nil
 }
