@@ -659,9 +659,9 @@ perch --report cmd    # execute + render the span tree
 command test
     description "Run unit + integration tests"
     do
-        shell "go test -race ./..."
+        exec go test -race ./...
         if exists "./integration"
-            shell "go test -tags=integration ./integration/..."
+            exec go test -tags=integration ./integration/...
         end
     end
 end
@@ -772,7 +772,7 @@ command restart_service
         if not regex_match "${host}" "^[a-z0-9.-]+$"
             fail "invalid hostname"
         end
-        shell "ssh ${host} systemctl restart ${service}"
+        exec ssh "${host}" systemctl restart "${service}"
     end
 end
 ```
@@ -815,14 +815,14 @@ The agent never sees `ssh`. It sees `restart_service(host, service)` with typed 
 
 ```perch
 requires
-    bin "docker"       # everything this file shells out to is declared
+    bin "docker"       # everything this file runs is declared
 end
 
 command up
     description "Start the dev stack"
     do
-        shell "docker compose up -d"
-        shell "docker compose exec api migrate up"
+        exec docker compose up -d                 # shell-free: structured argv, no metachar surface
+        exec docker compose exec api migrate up
         print "✓ Stack running at http://localhost:8080"
     end
 end
@@ -831,7 +831,7 @@ catch passthrough
     description "Forward unknown commands to docker"
     proxy_args                       # explicit opt-in to bind ${proxy_args}
     do
-        shell "docker ${proxy_args}"
+        shell "docker ${proxy_args}"             # proxy_args must word-split → shell (the escape case)
     end
 end
 ```
