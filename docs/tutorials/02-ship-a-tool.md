@@ -34,7 +34,7 @@ command backup
     do
         let stamp = now "unix"
         shell "pg_dump -h ${DB_HOST} -Fc > /tmp/backup-${stamp}.dump"
-        shell "aws s3 cp /tmp/backup-${stamp}.dump ${BACKUP_S3}/db-${stamp}.dump"
+        exec aws s3 cp /tmp/backup-${stamp}.dump ${BACKUP_S3}/db-${stamp}.dump
         rm "/tmp/backup-${stamp}.dump"
         print "✓ uploaded as db-${stamp}.dump"
     end
@@ -43,8 +43,8 @@ end
 command restart_api
     description "Roll-restart the api deployment"
     do
-        shell "kubectl rollout restart deployment/api -n prod"
-        shell "kubectl rollout status deployment/api -n prod"
+        exec kubectl rollout restart deployment/api -n prod
+        exec kubectl rollout status deployment/api -n prod
         print "✓ api restarted"
     end
 end

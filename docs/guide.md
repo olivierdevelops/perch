@@ -197,7 +197,7 @@ command build
     end
     do
         call ensure_dir "${BUILD_DIR}/${target}"
-        shell "go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp"
+        exec go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
     end
 end
 
@@ -278,7 +278,7 @@ command stop_serve
     test_keep_cwd                        # opt out of the test-mode temp-cwd
     test_timeout 30                      # max seconds for `perch test`
     do
-        shell "pkill -f 'cmd/server'"
+        exec pkill -f cmd/server
     end
 end
 ```
@@ -331,7 +331,7 @@ Full reference: [op-reference.md](op-reference.md).
 Most ops are one of:
 
 ```perch
-shell "echo hi"                          # bare op with positional string
+print "hi"                               # bare op with positional string
 mkdir "${BUILD_DIR}/${target}"          # ditto
 let n = file_size "./build/out"         # let-capture: result bound to ${n}
 let body = http_get "https://api.x/health"
@@ -342,9 +342,9 @@ Some block ops take a named arg + a body:
 
 ```perch
 parallel max=3                           # block op with kwarg
-    shell "go test ./a"
-    shell "go test ./b"
-    shell "go test ./c"
+    exec go test ./a
+    exec go test ./b
+    exec go test ./c
 end
 ```
 
@@ -389,7 +389,7 @@ The four mechanisms, ranked by how often you'll use them:
 
 ```perch
 # 1. `let X = OP …` — capture an op's return value into a local binding
-let rev = shell_output "git rev-parse HEAD"
+let rev = exec git rev-parse HEAD
 print "deploying ${rev}"
 
 # 2. Globals — read-only after parse, visible everywhere
@@ -431,7 +431,7 @@ end
 ### Working with shell output
 
 ```perch
-let lines = shell_output "find . -name '*.go' -type f"
+let lines = exec find . -name *.go -type f
 let count = length "${lines}"      # newline-counting
 print "${count} files"
 ```
@@ -483,11 +483,11 @@ This pattern is enough for: deployment markers, idempotency tokens, cache invali
 
 ```perch
 if os == "linux"
-    shell "apt-get install -y jq"
+    exec apt-get install -y jq
 end
 
 if has_bin "kubectl"
-    shell "kubectl get pods"
+    exec kubectl get pods
 end
 
 if not has_bin "docker"
@@ -495,7 +495,7 @@ if not has_bin "docker"
 end
 
 if exists "./Cargo.toml"
-    shell "cargo build --release"
+    exec cargo build --release
 end
 
 if size > 1000000
@@ -515,10 +515,10 @@ Run children concurrently up to N at a time:
 
 ```perch
 parallel max=4
-    shell "go test ./a"
-    shell "go test ./b"
-    shell "go test ./c"
-    shell "go test ./d"
+    exec go test ./a
+    exec go test ./b
+    exec go test ./c
+    exec go test ./d
 end
 ```
 
@@ -538,7 +538,7 @@ Kill children if they exceed N seconds:
 
 ```perch
 timeout secs=300
-    shell "make integration-test"
+    exec make integration-test
 end
 ```
 
@@ -548,7 +548,7 @@ Overlay env vars for the body:
 
 ```perch
 with_env DEBUG=1,GOOS=linux
-    shell "go build ./cmd/myapp"
+    exec go build ./cmd/myapp
 end
 ```
 
@@ -558,7 +558,7 @@ Run body in another directory:
 
 ```perch
 with_cwd "./subproject"
-    shell "go test ./..."
+    exec go test ./...
 end
 ```
 
@@ -580,7 +580,7 @@ Skip the body if a recent identical run cached its `let` bindings:
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = shell_output "./expensive-script.sh"
+    let cost = exec ./expensive-script.sh
 end
 ```
 
@@ -590,7 +590,7 @@ Loop body N times:
 
 ```perch
 for_each region in "us-east-1,us-west-2,eu-west-1"
-    shell "deploy --region=${region}"
+    exec deploy --region=${region}
 end
 ```
 
@@ -677,14 +677,14 @@ command serve
     detached
     on_signal stop_serve
     do
-        shell "go run ./cmd/server"
+        exec go run ./cmd/server
     end
 end
 
 command stop_serve
     private
     do
-        shell "pkill -f 'cmd/server'"
+        exec pkill -f cmd/server
         rm "${temp_dir}/server.pid"
     end
 end
@@ -698,11 +698,11 @@ When `serve` receives SIGINT/SIGTERM, perch dispatches to `stop_serve` before ex
 command full_setup
     do
         if has_bin "brew"
-            shell "brew install jq"
+            exec brew install jq
         end
         if not has_bin "brew"
             if has_bin "apt-get"
-                shell "sudo apt-get install -y jq"
+                exec sudo apt-get install -y jq
             end
         end
         if not has_bin "jq"
@@ -731,7 +731,7 @@ command release_with_cleanup
     do
         let tmp = mktemp_dir
         # Set up state...
-        shell "build-and-test ${tmp}"   # might fail
+        exec build-and-test ${tmp}      # might fail
         # If we get here, build succeeded:
         run _release_publish "-target_dir=${tmp}"
         rm "${tmp}"
@@ -769,14 +769,14 @@ command up
     do
         call require_bin "docker"
         call require_bin "docker-compose"
-        shell "docker-compose up -d"
+        exec docker-compose up -d
     end
 end
 
 command down
     do
         call require_bin "docker-compose"
-        shell "docker-compose down"
+        exec docker-compose down
     end
 end
 ```
@@ -798,7 +798,7 @@ command full_stack
     do
         call require_docker
         run redis.up
-        shell "./scripts/seed-data.sh"
+        exec ./scripts/seed-data.sh
     end
 end
 ```
@@ -883,7 +883,7 @@ shell "cd ./subproject && go test ./..."
 
 # RIGHT: use with_cwd (cross-platform)
 with_cwd "./subproject"
-    shell "go test ./..."
+    exec go test ./...
 end
 
 # OR use the platform-correct sep
@@ -912,13 +912,13 @@ The first token of `shell "X"` is the binary you're invoking. Different OSes hav
 command setup
     do
         os "darwin"
-            shell "brew install jq"
+            exec brew install jq
         end
         os "linux"
-            shell "apt-get install -y jq"
+            exec apt-get install -y jq
         end
         os "windows"
-            shell "choco install jq -y"
+            exec choco install jq -y
         end
     end
 end
@@ -931,13 +931,13 @@ end
 ```perch
 command deploy
     do
-        let raw = shell_output "kubectl version --client -o json"
+        let raw = exec kubectl version --client -o json
         let v   = version_extract "${raw}"
         let ok  = version_ge "${v}" "1.28.0"
         if not ok
             fail "kubectl ${v} < 1.28.0 — upgrade and retry"
         end
-        shell "kubectl rollout restart deployment/api"
+        exec kubectl rollout restart deployment/api
     end
 end
 ```
@@ -963,7 +963,7 @@ let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
 For halt-on-failure version gates, **`assert_version "X" OP "Y"`** reads like the math:
 
 ```perch
-let raw = shell_output "kubectl version --client -o json"
+let raw = exec kubectl version --client -o json
 let v   = version_extract "${raw}"
 
 assert_version "${v}" >= "1.28.0"   # halt with assert_failed if too old
@@ -996,7 +996,7 @@ let v = version_extract "${raw}"
 
 assert_version v >= "1.28.0"   # hard gate
 if v >= "1.28.0"                # soft branch
-    shell "kubectl rollout restart deployment/api"
+    exec kubectl rollout restart deployment/api
 end
 ```
 
@@ -1020,18 +1020,26 @@ command release
     do
         os "linux"
             arch "amd64"
-                shell "GOOS=linux GOARCH=amd64 go build -o app-linux-x64 ./cmd/app"
+                with_env "GOOS=linux,GOARCH=amd64"
+                    exec go build -o app-linux-x64 ./cmd/app
+                end
             end
             arch "arm64"
-                shell "GOOS=linux GOARCH=arm64 go build -o app-linux-arm64 ./cmd/app"
+                with_env "GOOS=linux,GOARCH=arm64"
+                    exec go build -o app-linux-arm64 ./cmd/app
+                end
             end
         end
         os "darwin"
             arch "amd64"
-                shell "GOOS=darwin GOARCH=amd64 go build -o app-darwin-x64 ./cmd/app"
+                with_env "GOOS=darwin,GOARCH=amd64"
+                    exec go build -o app-darwin-x64 ./cmd/app
+                end
             end
             arch "arm64"
-                shell "GOOS=darwin GOARCH=arm64 go build -o app-darwin-arm64 ./cmd/app"
+                with_env "GOOS=darwin,GOARCH=arm64"
+                    exec go build -o app-darwin-arm64 ./cmd/app
+                end
             end
         end
     end
@@ -1046,10 +1054,10 @@ end
 command rm_build
     do
         os "unix"
-            shell "rm -rf ./build"
+            exec rm -rf ./build
         end
         os "windows"
-            shell "rmdir /S /Q .\\build"
+            exec rmdir /S /Q .\\build
         end
     end
 end
@@ -1069,7 +1077,7 @@ Older cross-platform style still works (no behavior change):
 
 ```perch
 if is_macos
-    shell "brew install jq"
+    exec brew install jq
 end
 ```
 
@@ -1080,13 +1088,13 @@ template install_pkg
     arg name string
     do
         if is_macos
-            shell "brew install ${name}"
+            exec brew install ${name}
         end
         if is_linux
-            shell "sudo apt-get install -y ${name}"
+            exec sudo apt-get install -y ${name}
         end
         if is_windows
-            shell "choco install ${name} -y"
+            exec choco install ${name} -y
         end
     end
 end
@@ -1126,7 +1134,7 @@ Use them in `if` conditions:
 
 ```perch
 if is_unix
-    shell "chmod +x ${OUT_DIR}/myapp"
+    exec chmod +x ${OUT_DIR}/myapp
 end
 ```
 
@@ -1610,7 +1618,7 @@ end
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = shell_output "./expensive-analyzer ${file}"
+    let cost = exec ./expensive-analyzer ${file}
 end
 print "${cost}"   # populated whether cache hit or miss
 ```
@@ -1654,7 +1662,7 @@ Now `perch repo view` → `gh repo view`, etc. Useful for wrapping an existing C
 ```perch
 parallel max=4
     for_each region in "us-east-1,us-west-2,eu-west-1,ap-south-1"
-        shell "deploy-region.sh ${region}"
+        exec deploy-region.sh ${region}
     end
 end
 ```
@@ -1680,7 +1688,7 @@ end
 
 ```perch
 timeout secs=300
-    shell "make integration-test"
+    exec make integration-test
 end
 ```
 
@@ -1701,10 +1709,10 @@ The `mv` is atomic on the same filesystem — readers never see a partial file.
 
 ```perch
 if has_bin "rg"
-    let matches = shell_output "rg -l '${pattern}' ./src"
+    let matches = exec rg -l ${pattern} ./src
 end
 if not has_bin "rg"
-    let matches = shell_output "grep -r -l '${pattern}' ./src"
+    let matches = exec grep -r -l ${pattern} ./src
 end
 ```
 
@@ -1759,7 +1767,7 @@ command delete_old_backups
         default true                          # SAFE DEFAULT
     end
     do
-        let old = shell_output "find /backup -mtime +30"
+        let old = exec find /backup -mtime +30
         if "${dry_run}" == "true"
             print "would delete:"
             print "${old}"
@@ -1780,8 +1788,8 @@ end
 ```perch
 command version
     do
-        let rev = shell_output "git rev-parse --short HEAD"
-        let dirty = shell_output "git status --porcelain"
+        let rev = exec git rev-parse --short HEAD
+        let dirty = exec git status --porcelain
         let suffix = ""
         if "${dirty}" != ""
             let suffix = "-dirty"
@@ -1812,7 +1820,7 @@ command serve
     on_signal stop_serve
     do
         write_file "${temp_dir}/myapp.pid" "${pid}"
-        shell "go run ./cmd/server"
+        exec go run ./cmd/server
     end
 end
 
@@ -1821,7 +1829,7 @@ command stop_serve
     do
         if exists "${temp_dir}/myapp.pid"
             let pid = read_file "${temp_dir}/myapp.pid"
-            shell "kill ${pid}"
+            exec kill ${pid}
             rm "${temp_dir}/myapp.pid"
         end
     end
@@ -1859,7 +1867,7 @@ command build
     description "Compile for the current platform"
     do
         call ensure_clean "${OUT_DIR}/${os}-${arch}"
-        shell "go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}"
+        exec go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}
         let size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
         print "✓ built ${size} bytes"
     end
@@ -1870,16 +1878,16 @@ command release
     do
         parallel max=4
             with_env GOOS=darwin,GOARCH=arm64
-                shell "go build -o ${OUT_DIR}/darwin-arm64/${APP_NAME} ./cmd/${APP_NAME}"
+                exec go build -o ${OUT_DIR}/darwin-arm64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=darwin,GOARCH=amd64
-                shell "go build -o ${OUT_DIR}/darwin-amd64/${APP_NAME} ./cmd/${APP_NAME}"
+                exec go build -o ${OUT_DIR}/darwin-amd64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=linux,GOARCH=amd64
-                shell "go build -o ${OUT_DIR}/linux-amd64/${APP_NAME} ./cmd/${APP_NAME}"
+                exec go build -o ${OUT_DIR}/linux-amd64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=windows,GOARCH=amd64
-                shell "go build -o ${OUT_DIR}/windows-amd64/${APP_NAME}.exe ./cmd/${APP_NAME}"
+                exec go build -o ${OUT_DIR}/windows-amd64/${APP_NAME}.exe ./cmd/${APP_NAME}
             end
         end
         print "✓ all 4 targets built"
@@ -1889,9 +1897,9 @@ end
 command test
     description "Run the test suite"
     do
-        shell "go test -race ./..."
+        exec go test -race ./...
         if exists "./integration"
-            shell "go test -tags=integration ./integration/..."
+            exec go test -tags=integration ./integration/...
         end
     end
 end
@@ -1976,10 +1984,10 @@ command install
             bundle_extract "${install_dir}"
 
             print "→ creating venv"
-            shell "python3 -m venv ${install_dir}/.venv"
+            exec python3 -m venv ${install_dir}/.venv
 
             print "→ installing dependencies"
-            shell "${install_dir}/.venv/bin/pip install -r ${install_dir}/requirements.txt"
+            exec ${install_dir}/.venv/bin/pip install -r ${install_dir}/requirements.txt
 
             touch "${install_dir}/.installed"
         end
@@ -2049,7 +2057,7 @@ command restart_service
         if not regex_match "${service}" "^(web|worker|scheduler)$"
             fail "invalid service: ${service}"
         end
-        shell "ssh ops@${host} 'systemctl restart ${service}'"
+        exec ssh ops@${host} "systemctl restart ${service}"
     end
 end
 
@@ -2065,7 +2073,7 @@ end
 command list_pods
     description "List pods in the prod namespace"
     do
-        shell "kubectl get pods -n prod"
+        exec kubectl get pods -n prod
     end
 end
 
@@ -2076,7 +2084,7 @@ command tail_logs
         description "Service name"
     end
     do
-        shell "kubectl logs -f deployment/${service} -n prod"
+        exec kubectl logs -f deployment/${service} -n prod
     end
 end
 
@@ -2084,7 +2092,7 @@ end
 command _kube_context
     private
     do
-        shell "kubectl config use-context prod"
+        exec kubectl config use-context prod
     end
 end
 ```
@@ -2312,10 +2320,10 @@ command backup
         print "✓ dumped ${size} bytes → ${out}"
 
         # Encrypt + compress
-        shell "gzip ${out}"
+        exec gzip ${out}
         let key = get_env "BACKUP_GPG_KEY"
         if "${key}" != ""
-            shell "gpg --batch --yes --recipient ${key} --encrypt ${out}.gz"
+            exec gpg --batch --yes --recipient ${key} --encrypt ${out}.gz
             rm "${out}.gz"
             let final = format "${out}.gz.gpg"
         end
@@ -2325,7 +2333,7 @@ command backup
 
         # Ship to S3 (if aws cli is present)
         if has_bin "aws"
-            shell "aws s3 cp ${final} s3://${S3_BUCKET}/"
+            exec aws s3 cp ${final} s3://${S3_BUCKET}/
             print "✓ uploaded to s3://${S3_BUCKET}/"
         end
         if not has_bin "aws"
@@ -2353,7 +2361,7 @@ command restore
         # Decrypt if needed
         if has_suffix "${path}" ".gpg"
             shell "gpg --batch --decrypt ${path} > ${stage}.gz"
-            shell "gunzip ${stage}.gz"
+            exec gunzip ${stage}.gz
         end
         if has_suffix "${path}" ".gz"
             shell "gunzip -c ${path} > ${stage}"
@@ -2397,11 +2405,11 @@ command list_backups
     do
         print "── Local ──"
         if exists "${BACKUP_DIR}"
-            shell "ls -lh ${BACKUP_DIR}/"
+            exec ls -lh ${BACKUP_DIR}/
         end
         if has_bin "aws"
             print "── S3 ──"
-            shell "aws s3 ls s3://${S3_BUCKET}/"
+            exec aws s3 ls s3://${S3_BUCKET}/
         end
     end
 end
@@ -2462,7 +2470,7 @@ command issue
     arg email  type string description "Contact email for LE registration" end
     do
         call require_bin "certbot"
-        shell "certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}"
+        exec certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}
         run install_to_nginx "-domain=${domain}"
         run alert "-msg=issued cert for ${domain}"
     end
@@ -2472,10 +2480,10 @@ command renew
     description "Try to renew every cert; reload nginx only if anything changed"
     do
         let before = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
-        shell "certbot renew --quiet"
+        exec certbot renew --quiet
         let after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         if "${before}" != "${after}"
-            shell "nginx -s reload"
+            exec nginx -s reload
             run alert "-msg=renewed cert(s); reloaded nginx"
         end
         if "${before}" == "${after}"
@@ -2497,8 +2505,8 @@ command install_to_nginx
     location / { proxy_pass http://127.0.0.1:8080; }
 }
 "
-        shell "nginx -t"
-        shell "nginx -s reload"
+        exec nginx -t
+        exec nginx -s reload
     end
 end
 
@@ -2526,7 +2534,7 @@ command alert
     arg msg type string end
     do
         let body = format '{"text":"[cert.perch] ${msg}"}'
-        shell "curl -sS -X POST -H 'Content-Type: application/json' -d '${body}' ${ALERT_WEBHOOK}"
+        exec curl -sS -X POST -H "Content-Type: application/json" -d ${body} ${ALERT_WEBHOOK}
     end
 end
 
@@ -2602,13 +2610,13 @@ command deploy
 
         # 5. Diff before apply
         print "── Pending changes for ${env} ──"
-        shell "helm diff upgrade myapp ./chart --set image=${image} -n ${env}"
+        exec helm diff upgrade myapp ./chart --set image=${image} -n ${env}
 
         # 6. Apply
         if "${env}" == "prod"
             run _alert "-msg=deploying ${image} to PROD by ${user}"
         end
-        shell "helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait"
+        exec helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait
 
         # 7. Smoke test
         run smoke "-env=${env}"
@@ -2630,7 +2638,7 @@ command rollback
             end
         end
         run _set_kube_context "-env=${env}"
-        shell "helm rollback myapp -n ${env}"
+        exec helm rollback myapp -n ${env}
         run smoke "-env=${env}"
         run _alert "-msg=rolled back ${env} (by ${user})"
     end
@@ -2656,7 +2664,7 @@ command _set_kube_context
     private
     arg env type string end
     do
-        shell "kubectl config use-context ${env}-cluster"
+        exec kubectl config use-context ${env}-cluster
     end
 end
 
@@ -2848,10 +2856,10 @@ command branch
         if not regex_match "${name}" "^[a-z0-9-]+$"
             fail "branch name must be lowercase alphanumeric with hyphens"
         end
-        shell "git fetch origin"
-        shell "git switch ${base}"
-        shell "git pull --ff-only"
-        shell "git switch -c ${user}/${name}"
+        exec git fetch origin
+        exec git switch ${base}
+        exec git pull --ff-only
+        exec git switch -c ${user}/${name}
         print "✓ on ${user}/${name}"
     end
 end
@@ -2870,8 +2878,8 @@ command commit
         if not regex_match "${type}" "^(feat|fix|refactor|docs|test|chore)$"
             fail "type must be one of: feat fix refactor docs test chore"
         end
-        shell "git add -A"
-        shell "git commit -m '${type}: ${msg}'"
+        exec git add -A
+        exec git commit -m "${type}: ${msg}"
     end
 end
 
@@ -2887,22 +2895,22 @@ command pr
         default "${DEFAULT_BASE}"
     end
     do
-        let branch = shell_output "git symbolic-ref --short HEAD"
+        let branch = exec git symbolic-ref --short HEAD
         if "${branch}" == "${base}"
             fail "you're on ${base} — make a feature branch first (`perch branch name:my-feature`)"
         end
 
         # Push
-        shell "git push -u origin ${branch}"
+        exec git push -u origin ${branch}
 
         # Title fallback
         if "${title}" == ""
-            let title = shell_output "git log -1 --pretty=%s"
+            let title = exec git log -1 --pretty=%s
         end
 
         # Open the PR via gh
         call require_bin "gh"
-        let url = shell_output "gh pr create --base ${base} --title '${title}' --body 'Opened via perch pr.'"
+        let url = exec gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
         print "✓ PR opened: ${url}"
 
         # Try to copy to clipboard
@@ -2920,11 +2928,11 @@ command land
     description "Squash-merge the current PR + delete the branch + sync local"
     do
         call require_bin "gh"
-        let branch = shell_output "git symbolic-ref --short HEAD"
-        let base = shell_output "gh pr view --json baseRefName -q .baseRefName"
-        shell "gh pr merge --squash --auto --delete-branch"
-        shell "git switch ${base}"
-        shell "git pull --ff-only"
+        let branch = exec git symbolic-ref --short HEAD
+        let base = exec gh pr view --json baseRefName -q .baseRefName
+        exec gh pr merge --squash --auto --delete-branch
+        exec git switch ${base}
+        exec git pull --ff-only
         print "✓ landed; back on ${base}"
     end
 end
@@ -2932,9 +2940,9 @@ end
 command sync
     description "Pull the latest base; rebase the current branch"
     do
-        let branch = shell_output "git symbolic-ref --short HEAD"
-        shell "git fetch origin ${DEFAULT_BASE}"
-        shell "git rebase origin/${DEFAULT_BASE}"
+        let branch = exec git symbolic-ref --short HEAD
+        exec git fetch origin ${DEFAULT_BASE}
+        exec git rebase origin/${DEFAULT_BASE}
         print "✓ rebased ${branch} on ${DEFAULT_BASE}"
     end
 end
@@ -2942,7 +2950,7 @@ end
 command cleanup
     description "Remove local branches whose remotes are gone"
     do
-        shell "git fetch --prune"
+        exec git fetch --prune
         shell "git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -D"
     end
 end
@@ -3292,7 +3300,7 @@ perch -f dev.perch --allow-host localhost up
 ### Single-quotes inside shell args
 
 ```perch
-shell "psql -c 'SELECT * FROM t WHERE name = ''bob'''"
+exec psql -c "SELECT * FROM t WHERE name = bob"
 # Tricky to read; very tricky to maintain.
 ```
 

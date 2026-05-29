@@ -47,14 +47,16 @@ command build
     end
     do
         mkdir "${BIN_DIR}/${target}"
-        shell "GOOS=${target} go build -o ${BIN_DIR}/${target}/${APP_NAME} ./cmd/${APP_NAME}"
+        with_env "GOOS=${target}"
+            exec go build -o ${BIN_DIR}/${target}/${APP_NAME} ./cmd/${APP_NAME}
+        end
     end
 end
 
 command test
     description "Run tests"
     do
-        shell "go test -race ./..."
+        exec go test -race ./...
     end
 end
 
@@ -62,7 +64,7 @@ command ci
     description "Lint + test + release"
     do
         run test
-        shell "go vet ./..."
+        exec go vet ./...
     end
 end
 ```
@@ -96,7 +98,7 @@ command backup
     do
         let stamp = now "unix"
         shell "pg_dump -h db-primary.internal -Fc > /tmp/db-${stamp}.dump"
-        shell "aws s3 cp /tmp/db-${stamp}.dump s3://backups/db-${stamp}.dump"
+        exec aws s3 cp /tmp/db-${stamp}.dump s3://backups/db-${stamp}.dump
         rm "/tmp/db-${stamp}.dump"
     end
 end
@@ -104,8 +106,8 @@ end
 command restart_api
     description "Roll-restart the api deployment"
     do
-        shell "kubectl rollout restart deployment/api -n prod"
-        shell "kubectl rollout status deployment/api -n prod"
+        exec kubectl rollout restart deployment/api -n prod
+        exec kubectl rollout status deployment/api -n prod
     end
 end
 
@@ -151,7 +153,7 @@ end
 command install
     description "Pull the Redis Docker image"
     do
-        shell "docker pull ${IMAGE}"
+        exec docker pull ${IMAGE}
     end
 end
 
@@ -163,7 +165,7 @@ command run
         description "Host port to expose Redis on"
     end
     do
-        shell "docker run -d --rm --name ${CONTAINER} -p ${port}:6379 ${IMAGE}"
+        exec docker run -d --rm --name ${CONTAINER} -p ${port}:6379 ${IMAGE}
         print "Redis running on port ${port}. Use 'redis cli' to connect."
     end
 end
@@ -171,28 +173,28 @@ end
 command cli
     description "Open a redis-cli session into the running container"
     do
-        shell "docker exec -it ${CONTAINER} redis-cli"
+        exec docker exec -it ${CONTAINER} redis-cli
     end
 end
 
 command logs
     description "Stream container logs"
     do
-        shell "docker logs -f ${CONTAINER}"
+        exec docker logs -f ${CONTAINER}
     end
 end
 
 command status
     description "Is Redis running?"
     do
-        shell "docker ps --filter name=${CONTAINER}"
+        exec docker ps --filter name=${CONTAINER}
     end
 end
 
 command stop
     description "Stop the running container"
     do
-        shell "docker stop ${CONTAINER}"
+        exec docker stop ${CONTAINER}
     end
 end
 
@@ -200,7 +202,7 @@ command uninstall
     description "Stop and remove the image"
     do
         run stop
-        shell "docker rmi ${IMAGE}"
+        exec docker rmi ${IMAGE}
     end
 end
 ```
@@ -287,18 +289,18 @@ command ship
         description "Commit message"
     end
     do
-        shell "git add -A"
-        shell "git commit -m '${msg}'"
-        shell "git push -u origin HEAD"
-        shell "gh pr create --fill"
+        exec git add -A
+        exec git commit -m ${msg}
+        exec git push -u origin HEAD
+        exec gh pr create --fill
     end
 end
 
 command fixup
     description "Amend the most recent commit with current changes"
     do
-        shell "git add -A"
-        shell "git commit --amend --no-edit"
+        exec git add -A
+        exec git commit --amend --no-edit
     end
 end
 
@@ -353,7 +355,7 @@ about "AI-safe surface for production kubectl ops"
 command get_pods
     description "List pods in prod"
     do
-        shell "kubectl get pods -n prod"
+        exec kubectl get pods -n prod
     end
 end
 
@@ -369,14 +371,14 @@ command logs
         description "How many lines"
     end
     do
-        shell "kubectl logs -n prod ${pod} --tail=${lines}"
+        exec kubectl logs -n prod ${pod} --tail=${lines}
     end
 end
 
 command status
     description "Cluster snapshot"
     do
-        shell "kubectl get all -n prod"
+        exec kubectl get all -n prod
     end
 end
 
@@ -393,8 +395,8 @@ command restart_api
             fail "restart_api requires -confirm=YES (got: '${confirm}')"
         end
         print "Restarting api in prod…"
-        shell "kubectl rollout restart deployment/api -n prod"
-        shell "kubectl rollout status deployment/api -n prod"
+        exec kubectl rollout restart deployment/api -n prod
+        exec kubectl rollout status deployment/api -n prod
     end
 end
 
@@ -479,11 +481,11 @@ command install_node
         end
         if not exists "/usr/local/bin/node"
             if os == "darwin"
-                shell "brew install node@${NODE_VER}"
+                exec brew install node@${NODE_VER}
             end
             if os == "linux"
                 shell "curl -fsSL https://deb.nodesource.com/setup_${NODE_VER}.x | sudo bash -"
-                shell "sudo apt-get install -y nodejs"
+                exec sudo apt-get install -y nodejs
             end
         end
     end
@@ -492,10 +494,10 @@ end
 command install_postgres
     do
         if os == "darwin"
-            shell "brew install postgresql@${PG_VER}"
+            exec brew install postgresql@${PG_VER}
         end
         if os == "linux"
-            shell "sudo apt-get install -y postgresql-${PG_VER}"
+            exec sudo apt-get install -y postgresql-${PG_VER}
         end
     end
 end
@@ -538,10 +540,10 @@ command uninstall_all
             fail "Pass -confirm=YES to actually uninstall"
         end
         if os == "darwin"
-            shell "brew uninstall node@${NODE_VER} postgresql@${PG_VER} redis kubectl helm terraform jq ripgrep gh"
+            exec brew uninstall node@${NODE_VER} postgresql@${PG_VER} redis kubectl helm terraform jq ripgrep gh
         end
         if os == "linux"
-            shell "sudo apt-get remove -y nodejs postgresql-${PG_VER} redis kubectl jq ripgrep gh"
+            exec sudo apt-get remove -y nodejs postgresql-${PG_VER} redis kubectl jq ripgrep gh
         end
     end
 end
@@ -608,15 +610,15 @@ command install
             print "→ Extracting"
             bundle_extract "${INSTALL_BASE}/${h}"
             cd "${INSTALL_BASE}/${h}"
-            shell "python3 -m venv .venv"
-            shell ".venv/bin/pip install --quiet -r requirements.txt"
+            exec python3 -m venv .venv
+            exec .venv/bin/pip install --quiet -r requirements.txt
             write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
             mkdir "${HOME}/.local/bin"
             # Compose the launcher line-by-line — capy strings are
             # single-line; for multi-line files we use append_line.
             write_file  "${LAUNCHER}" "#!/usr/bin/env bash"
             append_line "${LAUNCHER}" 'exec ${INSTALL_BASE}/${h}/.venv/bin/python ${INSTALL_BASE}/${h}/main.py "$@"'
-            shell "chmod +x ${LAUNCHER}"
+            exec chmod +x ${LAUNCHER}
             print "✓ Installed.  Run: stt example.wav"
         end
     end
@@ -694,16 +696,16 @@ command setup
     description "Bootstrap a fresh dev machine"
     do
         if os == "darwin"
-            shell "brew install jq ripgrep watchexec gh"
+            exec brew install jq ripgrep watchexec gh
         end
         if os == "linux"
-            shell "sudo apt-get install -y jq ripgrep gh"
+            exec sudo apt-get install -y jq ripgrep gh
         end
         if os == "windows"
-            shell "choco install jq ripgrep watchexec gh -y"
+            exec choco install jq ripgrep watchexec gh -y
         end
         if not exists "${HOME}/.team-config"
-            shell "git clone git@github.com:org/team-config ${HOME}/.team-config"
+            exec git clone git@github.com:org/team-config ${HOME}/.team-config
         end
         write_file "${HOME}/.zshrc.team" "export TEAM_CONFIG=${HOME}/.team-config\n"
         print "Done. Add 'source ~/.zshrc.team' to your shell rc."
@@ -737,7 +739,7 @@ command flush_cache
         description "Customer UUID"
     end
     do
-        shell "redis-cli DEL cache:${customer_id}"
+        exec redis-cli DEL cache:${customer_id}
         print "Cache cleared for ${customer_id}."
     end
 end
@@ -782,24 +784,30 @@ end
 
 command lint
     do
-        shell "go vet ./..."
+        exec go vet ./...
         if exists "${HOME}/go/bin/staticcheck"
-            shell "${HOME}/go/bin/staticcheck ./..."
+            exec ${HOME}/go/bin/staticcheck ./...
         end
     end
 end
 
 command test
     do
-        shell "go test -race -cover ./..."
+        exec go test -race -cover ./...
     end
 end
 
 command release
     do
-        shell "GOOS=darwin  go build -o bin/darwin/myapp  ./cmd/myapp"
-        shell "GOOS=linux   go build -o bin/linux/myapp   ./cmd/myapp"
-        shell "GOOS=windows go build -o bin/windows/myapp.exe ./cmd/myapp"
+        with_env "GOOS=darwin"
+            exec go build -o bin/darwin/myapp ./cmd/myapp
+        end
+        with_env "GOOS=linux"
+            exec go build -o bin/linux/myapp ./cmd/myapp
+        end
+        with_env "GOOS=windows"
+            exec go build -o bin/windows/myapp.exe ./cmd/myapp
+        end
     end
 end
 ```
@@ -885,11 +893,11 @@ command runbook_db_failover
     description "Failover the primary DB to the standby"
     do
         print "Step 1: drain connections"
-        shell "kubectl exec -n prod db-primary -- pg_drain"
+        exec kubectl exec -n prod db-primary -- pg_drain
         print "Step 2: promote standby"
-        shell "kubectl exec -n prod db-standby -- pg_ctl promote -D /var/lib/postgresql/data"
+        exec kubectl exec -n prod db-standby -- pg_ctl promote -D /var/lib/postgresql/data
         print "Step 3: update DNS"
-        shell "aws route53 change-resource-record-sets --hosted-zone-id Z123 ..."
+        exec aws route53 change-resource-record-sets --hosted-zone-id Z123 ...
         print "Done. Verify with: perch runbook_db_status"
     end
 end
@@ -897,7 +905,7 @@ end
 command runbook_db_status
     description "Read replication lag from each replica"
     do
-        shell "kubectl exec -n prod db-primary -- psql -c 'SELECT * FROM pg_stat_replication'"
+        exec kubectl exec -n prod db-primary -- psql -c "SELECT * FROM pg_stat_replication"
     end
 end
 ```
@@ -917,8 +925,8 @@ command provision_box
     description "Bring a fresh VM up to spec"
     do
         if os == "linux"
-            shell "sudo apt-get update -qq"
-            shell "sudo apt-get install -y nginx postgresql-client"
+            exec sudo apt-get update -qq
+            exec sudo apt-get install -y nginx postgresql-client
         end
         write_file "/etc/nginx/sites-available/myapp" "
 server {
@@ -929,8 +937,8 @@ server {
     }
 }
 "
-        shell "sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/"
-        shell "sudo systemctl reload nginx"
+        exec sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/
+        exec sudo systemctl reload nginx
     end
 end
 ```
@@ -960,8 +968,8 @@ end
 command build_ios
     require_os "darwin"
     do
-        shell "xcodebuild -scheme MyGame -configuration Release archive"
-        shell "xcodebuild -exportArchive -archivePath ...  -exportPath ./build/ios"
+        exec xcodebuild -scheme MyGame -configuration Release archive
+        exec xcodebuild -exportArchive -archivePath ... -exportPath ./build/ios
     end
 end
 
@@ -982,8 +990,8 @@ Personal automation. The kind of thing where you'd otherwise have `~/bin/blog-de
 command deploy_blog
     do
         cd "${HOME}/projects/blog"
-        shell "hugo --minify"
-        shell "rsync -av public/ user@host:/var/www/blog/"
+        exec hugo --minify
+        exec rsync -av public/ user@host:/var/www/blog/
     end
 end
 
@@ -991,7 +999,7 @@ command backup
     do
         let stamp = now "date"
         tar_create "${HOME}/Documents" "/tmp/docs-${stamp}.tar.gz"
-        shell "rclone copy /tmp/docs-${stamp}.tar.gz dropbox:Backups/"
+        exec rclone copy /tmp/docs-${stamp}.tar.gz dropbox:Backups/
         rm "/tmp/docs-${stamp}.tar.gz"
     end
 end
@@ -1022,14 +1030,14 @@ command new_service
         description "Service name (kebab-case)"
     end
     do
-        shell "git clone git@github.com:org/service-template ${name}"
+        exec git clone git@github.com:org/service-template ${name}
         cd "${name}"
         rm ".git"
-        shell "git init -q"
+        exec git init -q
         # find/replace placeholders
-        shell "find . -type f -exec sed -i '' 's/__NAME__/${name}/g' {} +"
+        exec find . -type f -exec sed -i "" s/__NAME__/${name}/g {} +
         shell "echo '${name}' > .servicename"
-        shell "gh repo create org/${name} --private --source ."
+        exec gh repo create org/${name} --private --source .
         print "Created ${name}. cd into it and start hacking."
     end
 end
@@ -1049,18 +1057,18 @@ command preview
         shell_detached "mkdocs serve"
         sleep 2
         if os == "darwin"
-            shell "open http://127.0.0.1:8000"
+            exec open http://127.0.0.1:8000
         end
         if os == "linux"
-            shell "xdg-open http://127.0.0.1:8000"
+            exec xdg-open http://127.0.0.1:8000
         end
     end
 end
 
 command publish
     do
-        shell "mkdocs build --strict"
-        shell "rsync -av site/ user@host:/var/www/docs/"
+        exec mkdocs build --strict
+        exec rsync -av site/ user@host:/var/www/docs/
     end
 end
 ```
@@ -1104,11 +1112,11 @@ Internal tools that combine human-driven and AI-driven operations:
 command migrate_to_v2
     description "Run the v2 migration on this repo"
     do
-        shell "go mod edit -droprequire github.com/old/lib"
-        shell "go mod edit -require github.com/new/lib@latest"
-        shell "find . -name '*.go' -exec sed -i '' 's/old.Foo/new.Foo/g' {} +"
-        shell "go mod tidy"
-        shell "go vet ./..."
+        exec go mod edit -droprequire github.com/old/lib
+        exec go mod edit -require github.com/new/lib@latest
+        exec find . -name *.go -exec sed -i "" s/old.Foo/new.Foo/g {} +
+        exec go mod tidy
+        exec go vet ./...
         print "Migration applied. Review the diff and run tests."
     end
 end

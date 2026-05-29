@@ -794,7 +794,7 @@ Inside the module: `bufio.NewReader(os.Stdin)` works. perch's stdin is wired thr
 `wasm_run` itself returns no value, but you can use `shell_output` to capture another perch op's view of the module's stdout:
 
 ```capy
-let result = shell_output "perch -f pipeline.perch invoke ${input}"
+let result = exec perch -f pipeline.perch invoke ${input}
 # Now ${result} contains the module's stdout
 ```
 

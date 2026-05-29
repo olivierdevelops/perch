@@ -123,7 +123,7 @@ template install_pkg
         default "latest"
     end
     do
-        shell "brew install ${pkg}@${version}"
+        exec brew install ${pkg}@${version}
     end
 end
 
@@ -156,7 +156,7 @@ template install_pkg
     end
     do
         call log_step "Installing ${pkg}"
-        shell "brew install ${pkg}"
+        exec brew install ${pkg}
     end
 end
 
@@ -233,8 +233,8 @@ Cap wall-clock for the body:
 
 ```capy
 timeout "30s"
-    shell "kubectl apply -f manifest.yaml"
-    shell "wait-for-rollout deploy/api"
+    exec kubectl apply -f manifest.yaml
+    exec wait-for-rollout deploy/api
 end
 ```
 
@@ -253,7 +253,7 @@ Retry the body on error:
 
 ```capy
 retry 3
-    shell "curl -fsSL https://flaky.example.com/api"
+    exec curl -fsSL https://flaky.example.com/api
 end
 ```
 
@@ -274,7 +274,7 @@ Overlay env vars for the duration of the body:
 
 ```capy
 with_env "GOOS=linux,CGO_ENABLED=0"
-    shell "go build -o bin/linux/app ./cmd"
+    exec go build -o bin/linux/app ./cmd
 end
 ```
 
@@ -289,8 +289,8 @@ Bracketed `cd` that auto-restores:
 
 ```capy
 with_cwd "./subproject"
-    shell "npm install"
-    shell "npm run build"
+    exec npm install
+    exec npm run build
 end
 # back to the previous cwd here, even if the body errored
 ```
@@ -350,7 +350,7 @@ User-keyed body cache:
 
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
-    shell "go build -o bin/${target} ./cmd"
+    exec go build -o bin/${target} ./cmd
     let size = file_size "bin/${target}"
 end
 ```
@@ -407,7 +407,7 @@ $ perch --report release
    ├─ ✓ with_lock "prod-deploy" (4.18s) [from template with_lock]
    │  ├─ ✓ acquire_lock "prod-deploy" (12ms)
    │  ├─ ✓ retry attempts=3 (4.10s)
-   │  │  └─ ✗ shell "kubectl apply ..." (5.00s)
+   │  │  └─ ✗ exec kubectl apply ... (5.00s)
    │  │     ↳ error: timeout after 5m
    │  └─ ✓ release_lock "prod-deploy" (8ms)
    └─ ✓ swap_traffic (4ms)
@@ -498,17 +498,23 @@ command release
                 parallel
                     cache "build-darwin-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
-                            shell "GOOS=darwin go build -o bin/darwin/app ./cmd"
+                            with_env "GOOS=darwin"
+                                exec go build -o bin/darwin/app ./cmd
+                            end
                         end
                     end
                     cache "build-linux-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
-                            shell "GOOS=linux go build -o bin/linux/app ./cmd"
+                            with_env "GOOS=linux"
+                                exec go build -o bin/linux/app ./cmd
+                            end
                         end
                     end
                     cache "build-windows-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
-                            shell "GOOS=windows go build -o bin/windows/app.exe ./cmd"
+                            with_env "GOOS=windows"
+                                exec go build -o bin/windows/app.exe ./cmd
+                            end
                         end
                     end
                 end
@@ -518,12 +524,12 @@ command release
         # Network needed for signing + publish; sandbox above doesn't apply here
         call with_log "Signing"
         retry 3
-            shell "cosign sign --key cosign.key bin/*/app"
+            exec cosign sign --key cosign.key bin/*/app
         end
 
         call with_log "Publishing"
         retry 3
-            shell "scp -r bin/ releases-server:/srv/releases/v${version}/"
+            exec scp -r bin/ releases-server:/srv/releases/v${version}/
         end
     end
 end
@@ -546,19 +552,19 @@ Output (truncated):
 │     └─ ✓ parallel (45s)
 │        ├─ ✓ cache "build-darwin-..." (45s)
 │        │  └─ ✓ timeout "5m" (45s)
-│        │     └─ ✓ shell "GOOS=darwin go build ..." (45s)
+│        │     └─ ✓ exec go build ... (45s)
 │        ├─ ✓ cache "build-linux-..." (38s)
 │        │  └─ ✓ timeout "5m" (38s)
-│        │     └─ ✓ shell "GOOS=linux go build ..." (38s)
+│        │     └─ ✓ exec go build ... (38s)
 │        └─ ✓ cache "build-windows-..." (52s)
 │           └─ ✓ timeout "5m" (52s)
-│              └─ ✓ shell "GOOS=windows go build ..." (52s)
+│              └─ ✓ exec go build ... (52s)
 ├─ ✓ print "==> Signing" (4µs) [from template with_log]
 ├─ ✓ retry attempts=3 (8s)
-│  └─ ✓ shell "cosign sign ..." (8s)
+│  └─ ✓ exec cosign sign ... (8s)
 ├─ ✓ print "==> Publishing" (4µs) [from template with_log]
 └─ ✓ retry attempts=3 (49s)
-   └─ ✓ shell "scp -r bin/ ..." (49s)
+   └─ ✓ exec scp -r bin/ ... (49s)
 ```
 
 Note: the three `parallel` build children show their own wall-clock
