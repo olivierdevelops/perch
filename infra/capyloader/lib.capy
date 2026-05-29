@@ -1332,35 +1332,29 @@ ${body}{"event":"op","kind":"_leave"}
 `
 end
 
-function try_block
-    arg literal "try"
-    block_closer end
-    write `{"event":"op","kind":"_enter","name":"try","args":{}}
-${body}{"event":"op","kind":"_leave"}
-`
-end
-
-# `rescue BIND` — opens the rescue arm of the surrounding `try`. BIND
-# is the identifier the rescue body uses to access ${BIND.kind} etc.
-# Conventionally `err`.
+# `try ... rescue ... finally ... end` — structured error handling.
 #
-# Naming note: perch uses Ruby-style `try / rescue / finally` (rather
-# than `try / catch / finally`) because the keyword `catch` is already
-# used at file scope to declare a catch-all command (`catch unknown
-# ... end`). They're semantically different — file-level `catch` is a
-# fallback verb for unknown CLI commands; this is exception handling.
-# Distinct keywords keep both clear.
-function rescue_arm
-    arg literal "rescue"
-    arg capture bind ident
-    write `{"event":"op","kind":"_catch","args":{"bind":${toJSON bind}}}
-`
-end
-
-# `finally` — opens the finally arm of the surrounding `try`.
-function finally_arm
-    arg literal "finally"
-    write `{"event":"op","kind":"_finally","args":{}}
+# Uses capy `block_sections` (capy >= 5102dec): `rescue` and `finally` are
+# interior section keywords, `end` the closer. Each section's sub-body
+# renders into a same-named local (`${body}` / `${rescue}` / `${finally}`),
+# empty when that section is omitted. We reconstruct the flat `_enter /
+# _catch / _finally / _leave` marker stream the loader + opTry handler
+# already consume, so the interpreter is unchanged. The error binding is
+# always `err` (the universal convention; `${err.kind}` etc. inside rescue).
+#
+# Naming note: perch uses Ruby-style `try / rescue / finally` (not `catch`)
+# because `catch` is the file-scope catch-all-command keyword. Distinct.
+#
+# opTry treats an EMPTY rescue body as "no catch arm" (the error propagates
+# after finally), so `try … end` and `try … finally … end` correctly
+# re-raise — only a non-empty `rescue` swallows.
+function try
+    arg literal "try"
+    block_sections rescue finally closer end
+    write `{"event":"op","kind":"_enter","name":"try","args":{}}
+${body}{"event":"op","kind":"_catch","args":{"bind":"err"}}
+${rescue}{"event":"op","kind":"_finally"}
+${finally}{"event":"op","kind":"_leave"}
 `
 end
 
@@ -1389,15 +1383,16 @@ ${body}{"event":"op","kind":"_leave"}
 `
 end
 
-# Ident form — `match os` / `match status` / `match err` (no quotes,
-# no `${...}`). The runtime resolves args._target_var via b.Lookup.
-# Only works for plain (non-dotted) binding names — capy's `ident`
-# matcher doesn't consume `.`, so `err.kind` / `err.message` etc.
-# still need the string form `match "${err.kind}"`.
+# Ident form — `match os` / `match status` / `match err.kind` (no quotes,
+# no `${...}`). Uses capy `dotted_ident` (>= 5102dec), which captures both a
+# plain binding (`os`) and a dotted member path (`err.kind`) as one token.
+# The runtime resolves args._target_var via b.Lookup — and error bindings
+# are stored under their literal dotted key (`err.kind`), so `match err.kind`
+# resolves directly. (Previously dotted names required `match "${err.kind}"`.)
 function match_block_ident
     priority 40
     arg literal "match"
-    arg capture name ident
+    arg capture name dotted_ident
     block_closer end
     write `{"event":"op","kind":"_enter","name":"match","args":{"_target_var":${toJSON name}}}
 ${body}{"event":"op","kind":"_leave"}

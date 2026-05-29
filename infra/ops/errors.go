@@ -4,11 +4,11 @@
 // dividers — `_catch` and `_finally`. The handler walks the list,
 // splits on the sentinels, and dispatches:
 //
-//   1. Try-body: every op before _catch (and before _finally if no _catch).
-//   2. Catch-body: every op after _catch and before _finally. Only runs
-//      if the try-body errored; populates ${BIND.kind} etc.
-//   3. Finally-body: every op after _finally. Runs unconditionally,
-//      AFTER catch (or after try-body if no catch and no error).
+//  1. Try-body: every op before _catch (and before _finally if no _catch).
+//  2. Catch-body: every op after _catch and before _finally. Only runs
+//     if the try-body errored; populates ${BIND.kind} etc.
+//  3. Finally-body: every op after _finally. Runs unconditionally,
+//     AFTER catch (or after try-body if no catch and no error).
 //
 // match works the same way: `_case <value>` and `_else` are sentinels;
 // the handler picks the first matching case (or _else) and runs that
@@ -51,9 +51,12 @@ func opTry(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]
 	// Run try-body; capture the error (if any) without aborting yet.
 	tryErr := i.RunOps(tryBody, b)
 
-	// Catch arm — only if try errored AND a catch arm exists.
+	// Catch arm — only if try errored AND a NON-EMPTY rescue arm exists.
+	// (The grammar always emits the `_catch` marker via block_sections, so
+	// an absent or empty `rescue` yields an empty catchBody; that must NOT
+	// swallow the error — `try … end` / `try … finally … end` re-raise.)
 	var catchErr error
-	if tryErr != nil && catchBody != nil {
+	if tryErr != nil && len(catchBody) > 0 {
 		oe := domain.ClassifyError("", tryErr)
 		populateErrBindings(b, catchBind, oe)
 		catchErr = i.RunOps(catchBody, b)

@@ -167,7 +167,7 @@ print url             # bare ident — resolves the binding directly
 let u = upper url     # let-captured op with a bare-ident arg
 ```
 
-Bare idents work for plain binding names. **Dotted names still need the string form** — use `match "${err.kind}"`, not `match err.kind`.
+Bare idents work for plain binding names **and dotted member paths** — `match err.kind` and `match os` both work (capy `dotted_ident`). The string form `match "${err.kind}"` still works too.
 
 ### Environment
 
@@ -237,9 +237,9 @@ These compose AND-wise with any `requires`/`sandbox` declarations in the file �
 
 ## Gotchas in the current build
 
-- **No comments.** `# …` does not parse. Put explanatory prose in a README, not in the `.perch`. (Fix tracked.)
-- **`try / rescue / finally` does not parse** in the current build (a pre-existing bug). The error model and `match` on `${err.kind}` are documented in [errors.md](errors.md), but the `try` block itself isn't usable yet — avoid it until fixed.
-- **Dotted bindings in `match`** need the string form: `match "${err.kind}"`, not `match err.kind`. Plain names (`match os`) can be bare.
+- **Comments work.** `# …` (leading or trailing) parses and is ignored.
+- **`try / rescue / finally` works.** Built on capy `block_sections`; a `finally`-only `try` re-raises after cleanup (only a non-empty `rescue` swallows).
+- **`match` takes bare idents and dotted paths.** `match os` and `match err.kind` both work; the string form `match "${err.kind}"` still works too.
 - **No version checking in `requires`.** Removed deliberately (it required executing the binary). Use `hash` pins, or check versions inside a command.
 - **Indentation is significant** — 4 spaces or 1 tab per level.
 

@@ -606,7 +606,7 @@ By default, **any op that errors halts the command** and the process exits non-z
 
 ### General error handling — `try / rescue / finally` + `match`
 
-> **Status:** the `match` op and the error-kind enum below work today. The `try / rescue / finally` block itself **currently fails to parse** (a known grammar bug — see [errors.md](errors.md) and [using-perch-today.md](using-perch-today.md#gotchas-in-the-current-build)). Until it's fixed, rely on the default "halt on any error" model plus `perch --check` / `simulate` for failure paths; the `try` examples here are the intended design.
+> **Status:** the `match` op (including bare `match err.kind`), the error-kind enum, **and** the `try / rescue / finally` block all work today — the block is built on capy `block_sections`. A `finally`-only `try` re-raises after cleanup; only a non-empty `rescue` arm swallows the error.
 
 ```perch
 try

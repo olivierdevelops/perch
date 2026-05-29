@@ -18,8 +18,8 @@
 | 5 | No context-sensitivity / lookahead | `when_followed_by` / `when_not_followed_by indent` | ✅ (bare `os`/`arch` in `requires`) |
 | 6 | No varargs / overload-ladder boilerplate | `tail` capture | partial (kept a `word` ladder — see below) |
 | 7 | `#` line comments don't parse | `comments { line "#" }` | ✅ |
-| 8 | `try`/`rescue`/`finally` don't parse | `block_sections` | roadmap (grammar exists; interpreter wiring pending) |
-| 9 | Dotted access not captured bare | `dotted_ident` | roadmap (`match "${err.kind}"` still the shipped form) |
+| 8 | `try`/`rescue`/`finally` don't parse | `block_sections` | ✅ (`try … rescue … finally … end` ships) |
+| 9 | Dotted access not captured bare | `dotted_ident` | ✅ (bare `match err.kind` ships) |
 
 ## What perch adopted, concretely
 
@@ -37,8 +37,10 @@
 
 - **Deterministic flat/block keyword sharing (§1 + §2 + §5).** The `requires` block's `os "linux"` / `arch "amd64"` allowlist entries now share the bare `os`/`arch` keyword with the `os "…" … end` / `arch "…" … end` conditional blocks, disambiguated by `when_not_followed_by indent` (flat entry) vs `when_followed_by indent` (block). This **undid the earlier `run_on` / `run_arch` rename** that the collision had forced.
 
-## Notes on the two not-yet-adopted
+- **`try`/`rescue`/`finally` (§8) via `block_sections`.** `try` is declared with `block_sections rescue finally closer end`; the grammar reconstructs the flat `_enter / _catch / _finally / _leave` marker stream the existing `opTry` handler already consumes, so the interpreter was unchanged. One semantic refinement: because the `_catch` marker is now always emitted, `opTry` treats an *empty* rescue body as "no catch arm," so `try … end` and `try … finally … end` correctly re-raise — only a non-empty `rescue` swallows. The error binding is fixed to `err` (the universal convention).
+
+- **Bare `match err.kind` (§9) via `dotted_ident`.** The `match`-ident grammar uses `dotted_ident`, which captures both a plain binding (`os`) and a dotted member path (`err.kind`) as one token. Error bindings are stored under their literal dotted key, so `match err.kind` resolves directly. The string form `match "${err.kind}"` still works.
+
+## Note on the one adopted-with-a-caveat
 
 - **§6 `tail` (unbounded varargs).** `tail` removes the arity cap, but it **strips quotes** when rejoining tokens, so `exec git commit -m "fix the bug"` would collapse to `commit -m fix the bug` — losing the slot boundary for spaced args. perch therefore kept a `word`-ladder (capped at bin + 8 args), which is lossless for both bare flags and spaced args. If a future capy `tail` preserves quoting (or yields a token array), the ladder can collapse to one function.
-
-- **§8 `try`/`rescue`/`finally` and §9 `dotted_ident`.** The capy grammar primitives now exist (`block_sections`, `dotted_ident`). Wiring them through perch's loader + interpreter (a `try` block op with `rescue`/`finally` sub-bodies; a bare `match err.kind`) is tracked but not yet shipped — `match "${err.kind}"` remains the working error-discrimination form today.

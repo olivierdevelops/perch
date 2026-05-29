@@ -2,8 +2,8 @@
 
 > **What this enables.** Catch op failures, branch on what *kind* of error happened, run cleanup unconditionally, and re-raise after you've decided to. Composes with `retry`, `parallel`, `timeout`, and every other block op — errors propagate UP through blocks until something catches them.
 
-!!! warning "Current status — the `try` block doesn't parse yet"
-    The error model below (the error-kind enum, the `${err.*}` bindings, and `match`) is shipped and works. **The `try / rescue / finally` block itself currently fails to parse** in the released build (a known grammar bug, tracked). Until it's fixed: an op that fails propagates the error up and halts the command (the normal model); use `perch --check` / `perch simulate` to catch failure paths ahead of time, and use `match "${...}"` for value dispatch. The `match`/enum sections on this page are accurate today; the `try`-wrapped examples are the *intended* design and will work once the parse bug is resolved. See [using-perch-today.md](using-perch-today.md#gotchas-in-the-current-build).
+!!! success "Status — `try / rescue / finally` ships"
+    The full error model on this page is live: the error-kind enum, the `${err.*}` bindings, `match` (including bare `match err.kind`), **and** the `try / rescue / finally` block. The block is built on capy's `block_sections` (capy ≥ `5102dec`). A `try` whose only failure handling is `finally` (no `rescue`) correctly **re-raises** after cleanup; only a non-empty `rescue` arm swallows the error.
 
 ---
 
@@ -44,7 +44,7 @@ finally
 end
 ```
 
-Both `rescue` and `finally` are **optional**, but at least one must be present (a bare `try ... end` is a parse error — you wrote a block but didn't say what to do with it).
+Both `rescue` and `finally` are **optional**. A bare `try ... end` parses but is pointless — with no `rescue` it just runs the body and propagates any error (same as not wrapping it). Add `rescue` to handle, `finally` to clean up, or both.
 
 ### Why `rescue` and not `catch`?
 
@@ -398,7 +398,7 @@ end
 
 - **No exception hierarchies.** Error kinds are flat — there's no "all `http_*` matches `case http_error`." If you want grouping, list each kind explicitly or use `else`.
 - **`match` is exact-match only.** No regex, no prefix matching, no guards. Future work.
-- **`try` requires either `rescue` or `finally`** (or both). Bare `try ... end` is a parse error.
+- **`try` is only useful with `rescue` and/or `finally`.** A bare `try ... end` parses but does nothing beyond running its body (errors propagate as if unwrapped).
 - **Capability denials currently produce `unclassified`.** Tagging in progress; existing CLI flag combinations still work, just without the precise kind name.
 - **`http_4xx` and `http_5xx`** are reserved kinds — they exist in the enum but the current `http_get` op returns the body without raising on non-2xx status. A future `http_get_strict` op will surface them.
 - **Errors in `finally` override the original error.** If you want the original to take precedence, don't let finally throw — wrap it in its own `try`.
