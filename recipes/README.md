@@ -5,6 +5,11 @@ Ready-made `.perch` files that solve real problems. Download one, audit it with
 already use — Redis, Postgres, Docker, kubectl, the whole local-LLM lab —
 and replaces the bash one-liners you'd otherwise reach for.
 
+> **Note:** these recipes still use the `shell` op. `shell` is now **deprecated**
+> in favor of the shell-free **`exec`** (with `pipe`, `with_env`, `&&`/`||`/`;`
+> chaining, and the line-toolbox) — see [language.md](../docs/language.md). The
+> recipes remain valid (`shell` still works) and are being migrated to `exec`.
+
 ## How to use a recipe
 
 ```sh
