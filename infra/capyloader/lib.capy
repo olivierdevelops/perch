@@ -601,6 +601,11 @@ end
 # -10`); quote a token to keep embedded spaces (`exec git commit -m "fix it"`).
 # Captured stdout is the op's value and is also streamed. One function, no
 # arity cap (capy >= ac128fb: quote-preserving `tail`). Core of §3.1–3.2.
+# Chaining (§3.3): `exec a && exec b`, `exec a || exec b`, `exec a ; exec b`.
+# The `&&` / `||` / `;` arrive as literal argv tokens (tail is greedy); the
+# loader (splitExecArgv → splitChain) folds them into an `exec_chain` op whose
+# Body is one child exec per clause. They're literal SOURCE tokens, so an
+# interpolated `${x}` can never become an operator (the §3.3 keystone holds).
 function exec
     arg literal "exec"
     arg capture bin word

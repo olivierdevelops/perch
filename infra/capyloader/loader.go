@@ -818,8 +818,29 @@ func splitExecArgv(ops []domain.Op) {
 		if op.Kind == "exec" && op.Args != nil {
 			if raw, ok := op.Args["argv_raw"].(string); ok {
 				delete(op.Args, "argv_raw")
-				for n, tok := range shellSplitArgs(raw) {
-					op.Args[fmt.Sprintf("_%d", n)] = tok
+				tokens := shellSplitArgs(raw)
+				bin, _ := op.Args["bin"].(string)
+				// Full token stream for this exec line: bin + argv.
+				full := append([]string{bin}, tokens...)
+				if clauses, opsBetween := splitChain(full); len(opsBetween) > 0 {
+					// `exec a && exec b ; exec c` — fold into an exec_chain
+					// block op whose Body holds one child exec per clause.
+					// The operators (literal source tokens, never from ${…})
+					// drive short-circuit evaluation at runtime (§3.3).
+					capture := op.CaptureInto
+					*op = domain.Op{
+						Kind:        "exec_chain",
+						Args:        map[string]any{"ops": toAnySlice(opsBetween)},
+						CaptureInto: capture,
+						Line:        op.Line,
+					}
+					for _, clause := range clauses {
+						op.Body = append(op.Body, makeExecOp(clause))
+					}
+				} else {
+					for n, tok := range tokens {
+						op.Args[fmt.Sprintf("_%d", n)] = tok
+					}
 				}
 			}
 		}
@@ -827,6 +848,54 @@ func splitExecArgv(ops []domain.Op) {
 			splitExecArgv(op.Body)
 		}
 	}
+}
+
+// splitChain partitions a flat exec token stream on top-level `&&` / `||` /
+// `;` operator tokens. Returns the per-clause token slices and the operators
+// between them. A clause after an operator begins with the user's repeated
+// `exec` keyword, which is stripped. Returns no operators when the line is a
+// single command (the common case).
+func splitChain(tokens []string) (clauses [][]string, ops []string) {
+	var cur []string
+	flush := func() {
+		// Strip a leading "exec" keyword on chained clauses (the 1st clause's
+		// bin came from the grammar, so it has no leading "exec").
+		if len(clauses) > 0 && len(cur) > 0 && cur[0] == "exec" {
+			cur = cur[1:]
+		}
+		clauses = append(clauses, cur)
+		cur = nil
+	}
+	for _, t := range tokens {
+		if t == "&&" || t == "||" || t == ";" {
+			flush()
+			ops = append(ops, t)
+			continue
+		}
+		cur = append(cur, t)
+	}
+	flush()
+	return clauses, ops
+}
+
+// makeExecOp builds a single exec Op from a clause's tokens (bin + argv).
+func makeExecOp(clause []string) domain.Op {
+	args := map[string]any{}
+	if len(clause) > 0 {
+		args["bin"] = clause[0]
+		for n, tok := range clause[1:] {
+			args[fmt.Sprintf("_%d", n)] = tok
+		}
+	}
+	return domain.Op{Kind: "exec", Args: args}
+}
+
+func toAnySlice(ss []string) []any {
+	out := make([]any, len(ss))
+	for i, s := range ss {
+		out[i] = s
+	}
+	return out
 }
 
 // shellSplitArgs splits a tail-captured argv string into tokens, honoring

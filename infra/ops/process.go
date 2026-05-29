@@ -23,6 +23,7 @@ func registerProcess(m map[string]interpreter.Handler) {
 	m["shell_output"] = opShellOutput
 	m["shell_detached"] = opShellDetached
 	m["exec"] = opExec
+	m["exec_chain"] = opExecChain
 	m["pipe"] = opPipe
 	m["fail"] = opFail
 	m["exit"] = opExit
@@ -302,6 +303,70 @@ func opExec(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 		return strings.TrimRight(out.String(), "\n"), tagShellErr(runErr, display)
 	}
 	return strings.TrimRight(out.String(), "\n"), nil
+}
+
+// opExecChain runs `exec a && exec b || exec c ; exec d` — a chain of exec
+// clauses joined by perch-level operators (NOT shell metachars; they're
+// literal source tokens the loader folded into Body + Args["ops"], so an
+// interpolated ${x} can never become an operator — the §3.3 keystone).
+//
+// Each clause is a child exec op in Body. Operators drive short-circuit
+// evaluation on the previous clause's exit status:
+//
+//	&&  run next only if the previous clause SUCCEEDED
+//	||  run next only if the previous clause FAILED
+//	;   always run next
+//
+// The chain's result is the error of the LAST actually-run clause (so a bare
+// chain aborts on a real failure; wrap in `try` or use `||` to continue).
+func opExecChain(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	body, _ := args["_body"].([]domain.Op)
+	ops := toStringSlice(args["ops"])
+	if len(body) == 0 {
+		return nil, nil
+	}
+	runClause := func(op domain.Op) error {
+		a, err := interpreter.InterpolateArgs(op.Args, b)
+		if err != nil {
+			return err
+		}
+		_, e := opExec(i, b, a)
+		return e
+	}
+	lastErr := runClause(body[0])
+	for k := 1; k < len(body); k++ {
+		op := ""
+		if k-1 < len(ops) {
+			op = ops[k-1]
+		}
+		run := false
+		switch op {
+		case "&&":
+			run = lastErr == nil
+		case "||":
+			run = lastErr != nil
+		default: // ";"
+			run = true
+		}
+		if run {
+			lastErr = runClause(body[k])
+		}
+	}
+	return nil, lastErr
+}
+
+func toStringSlice(v any) []string {
+	switch xs := v.(type) {
+	case []string:
+		return xs
+	case []any:
+		out := make([]string, 0, len(xs))
+		for _, x := range xs {
+			out = append(out, interpreter.ToStringValue(x))
+		}
+		return out
+	}
+	return nil
 }
 
 // opPipe runs a `pipe ... end` block: each body stage is an `exec BIN …`,
