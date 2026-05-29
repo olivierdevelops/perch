@@ -81,21 +81,33 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 
 </div>
 
-<p style="font-size:.92em;color:var(--md-default-fg-color--light);margin-top:1em">
-<strong>Also recently shipped:</strong>
-📜 <a href="requires/"><strong><code>requires</code> — file-declared manifest</strong></a> — top-level block declares every external resource the file touches: <code>bin</code>, <code>env</code>, <code>host</code>, <strong>filesystem <code>read</code>/<code>write</code> scopes</strong>, OS, and arch (with <code>optional</code>). When present, <strong>every external op verifies the manifest before it runs</strong> — undeclared <code>shell</code> bins, <code>http</code> hosts, <code>get_env</code> reads, or filesystem paths ERROR (<code>bin_not_declared</code> / <code>host_not_declared</code> / <code>env_not_declared</code> / <code>read_not_declared</code> / <code>write_not_declared</code>). <strong>Pin SHA-256 hashes</strong> on bins (<code>hash "sha256:..."</code> or <code>hash_file "bundle:..."</code>) — read-only, never executes the binary. <a href="capability-gating/">every external op is gated, every time →</a> ·
-🖥️ <strong>OS + arch execution-context blocks (<code>os "PLATFORM" ... end</code> · <code>arch "ARCH" ... end</code>)</strong> — declare cross-platform AND cross-architecture branches structurally; compose for matrix builds (linux/amd64, linux/arm64, darwin/arm64, …). simulate prunes mismatched leaves as known dead code on the target host ·
-🪢 <strong><code>run NAME "-arg=value"</code> — CLI-consistent arg passing (breaking)</strong> — internal <code>run</code> calls now use the same flag syntax as <code>perch NAME -arg=value</code> from a shell. One parser, one mental model. (The old <code>colon:value</code> shape never actually worked; docs were misleading.) ·
-🔒 <strong>Catch <code>${proxy_args}</code> requires <code>proxy_args</code> modifier (breaking)</strong> — the catch→shell forwarding pattern that <code>--scan</code> flagged as HIGH risk can no longer happen implicitly. Without the modifier, <code>${proxy_args}</code> is unbound and referencing it errors. Aligns catch with command (where the modifier was already required). ·
-🔢 <strong>Version checks that read like math</strong> — <code>assert_version "${v}" >= "1.28.0"</code> (infix). Plus <code>version_extract "${shell_output}"</code> to pull a version out of any tool's output. No per-binary parsers; user controls the regex, perch handles the numeric ordering (semver-aware). ·
-🎯 <strong>Risk score in <code>--scan</code></strong> — one-glance 🟢 SAFE / 🟡 LOW / 🟠 MED / 🔴 HIGH summary with concrete reasons (uses sudo, executes shell, catch forwards proxy_args, …); web UI's Scan tab surfaces the score as a colored pill ·
-🛟 <a href="errors/"><strong>Error handling — <code>try/rescue/finally</code> + <code>match</code></strong></a> — 30-kind error enum (<code>shell_exit_nonzero</code>, <code>http_ssrf_blocked</code>, <code>wasm_module_exited</code>, …) for structured recovery + cleanup, no more "halt on any error" ·
-🪟 <a href="web-ui/"><strong>Web UI for non-devs</strong></a> — same <code>.perch</code> file, served as a tabbed localhost web app (Run / Simulate / Scan / Check / About) ·
-📡 <a href="mcp/#streaming-progress"><strong>MCP live streaming</strong></a> — per-line stdout/stderr emitted as <code>notifications/progress</code> events; no more silent waits for long-running verbs ·
-📦 <a href="recipes/"><strong>22 ready-made recipes</strong></a> — Redis / Postgres / devstack / aistack / observe / kafka / modern-unix / gh-flow / docker-mgr / mkcert / backup / scan-secrets · one curl, audit with <code>--scan</code>, run ·
-🧪 <a href="wasm-walkthroughs/"><strong>3 runnable <code>wasm_run</code> demos</strong></a> — schema validator, K8s policy check, agent-safe diff summarizer ·
-📦 <a href="wasm/#embedded-modules-declare-once-with-as-name"><strong>Declarative <code>bundle</code> + aliases</strong></a> — <code>include "./mod.wasm" as mod</code> → <code>wasm_run mod</code> (bare ident, zero disk reads)
-</p>
+<style>
+.shipped-head{font-size:.95em;font-weight:700;margin:1.2em 0 .5em}
+.shipped-head .bk{font-size:.75em;font-weight:600;color:var(--md-default-fg-color--light)}
+ul.shipped{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,1fr);gap:6px 22px}
+@media (max-width:720px){ul.shipped{grid-template-columns:1fr}}
+ul.shipped li{font-size:.86em;line-height:1.5;color:var(--md-default-fg-color--light);padding:5px 0;border-top:1px solid var(--md-default-fg-color--lightest)}
+ul.shipped li .lead{color:var(--md-default-fg-color);font-weight:700}
+ul.shipped .brk{font-size:.72em;font-weight:700;color:#d97706;border:1px solid #fcd34d;border-radius:3px;padding:0 4px;margin-left:4px;vertical-align:middle}
+</style>
+
+<p class="shipped-head">Also recently shipped <span class="bk">— everything else that landed</span></p>
+
+<ul class="shipped">
+<li>📜 <a href="requires/"><span class="lead"><code>requires</code> manifest</span></a> — declare every external resource (<code>bin</code> · <code>env</code> · <code>host</code> · <code>read</code>/<code>write</code> · OS · arch). Every external op verifies it before running; undeclared access errors. <a href="capability-gating/">Gated, every time →</a></li>
+<li>🔐 <span class="lead">SHA-256 bin pinning</span> — <code>hash "sha256:…"</code> / <code>hash_file "bundle:…"</code> compares bytes on disk; never executes the binary.</li>
+<li>🖥️ <span class="lead">OS + arch context blocks</span> — <code>os "…" … end</code> · <code>arch "…" … end</code> declare cross-platform/arch branches structurally; compose for matrix builds. <code>simulate</code> prunes mismatched leaves as dead code.</li>
+<li>🪢 <span class="lead"><code>run NAME -arg=value</code></span><span class="brk">breaking</span> — internal <code>run</code> uses the same flag syntax as the CLI. One parser, one mental model.</li>
+<li>🔒 <span class="lead">Catch needs <code>proxy_args</code></span><span class="brk">breaking</span> — the catch→shell forwarding <code>--scan</code> flagged HIGH can't happen implicitly; <code>${proxy_args}</code> is unbound without the modifier.</li>
+<li>🔢 <span class="lead">Version checks like math</span> — <code>assert_version "${v}" >= "1.28.0"</code> (infix) + <code>version_extract</code> to pull a version from any tool's output. Semver-aware.</li>
+<li>🎯 <span class="lead">Risk score in <code>--scan</code></span> — one glance: 🟢 SAFE / 🟡 LOW / 🟠 MED / 🔴 HIGH with concrete reasons; surfaced as a colored pill in the web UI.</li>
+<li>🛟 <a href="errors/"><span class="lead"><code>try/rescue/finally</code> + <code>match</code></span></a> — 30-kind error enum (<code>shell_exit_nonzero</code>, <code>http_ssrf_blocked</code>, …) for structured recovery + cleanup.</li>
+<li>🪟 <a href="web-ui/"><span class="lead">Web UI for non-devs</span></a> — the same <code>.perch</code> file served as a tabbed localhost app (Run / Simulate / Scan / Check / About).</li>
+<li>📡 <a href="mcp/#streaming-progress"><span class="lead">MCP live streaming</span></a> — per-line stdout/stderr as <code>notifications/progress</code> events; no silent waits on long verbs.</li>
+<li>📦 <a href="recipes/"><span class="lead">22 ready-made recipes</span></a> — Redis · Postgres · devstack · aistack · kafka · modern-unix · gh-flow · docker-mgr · mkcert · backup · scan-secrets.</li>
+<li>🧪 <a href="wasm-walkthroughs/"><span class="lead">3 runnable <code>wasm_run</code> demos</span></a> — schema validator, K8s policy check, agent-safe diff summarizer.</li>
+<li>📦 <a href="wasm/#embedded-modules-declare-once-with-as-name"><span class="lead">Declarative <code>bundle</code> + aliases</span></a> — <code>include "./mod.wasm" as mod</code> → <code>wasm_run mod</code> (bare ident, zero disk reads).</li>
+</ul>
 
 ---
 
