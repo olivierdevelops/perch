@@ -41,6 +41,9 @@ end
 // and a quoted token keeps embedded spaces as a single slot.
 func TestExec_BareFlagsAndSpacedArgs(t *testing.T) {
 	src := `name "x"
+requires
+    bin "echo"
+end
 command t
     do
         exec echo hello --flag -x world
@@ -66,6 +69,9 @@ end
 // (matches the old shell vs shell_output split — internal probes don't leak).
 func TestExec_CapturedIsSilent(t *testing.T) {
 	src := `name "x"
+requires
+    bin "echo"
+end
 command t
     do
         exec echo BARE
@@ -93,6 +99,9 @@ end
 
 func TestExec_InterpolatesArgv(t *testing.T) {
 	src := `name "x"
+requires
+    bin "echo"
+end
 command t
     arg who
         type string
@@ -131,21 +140,19 @@ end
 	}
 }
 
-// No requires block ⇒ ambient: exec of any bin runs (echo here).
-func TestExec_AmbientWithoutRequires(t *testing.T) {
+// A file with no requires block is treated as empty manifest: undeclared exec
+// fails at load with bin_not_declared (same as explicit empty requires/end).
+func TestExec_MissingRequiresTreatedAsEmpty(t *testing.T) {
 	src := `name "x"
 command t
     do
-        exec echo "ambient-ok"
+        exec echo "no-manifest"
     end
 end
 `
-	out, err := runSource(t, src, "t")
-	if err != nil {
-		t.Fatalf("ambient exec should run: %v", err)
-	}
-	if !strings.Contains(out, "ambient-ok") {
-		t.Errorf("ambient exec did not run; out=%q", out)
+	_, err := runSource(t, src, "t")
+	if !isOpKind(err, domain.ErrBinNotDeclared) {
+		t.Fatalf("missing requires (empty manifest) should reject undeclared exec at load, got %v", err)
 	}
 }
 
@@ -153,6 +160,9 @@ end
 // and is never re-parsed — shell metacharacters in the value are inert data.
 func TestExec_InterpolationIsOneArgvSlot(t *testing.T) {
 	src := `name "x"
+requires
+    bin "echo"
+end
 command t
     arg msg
         type string

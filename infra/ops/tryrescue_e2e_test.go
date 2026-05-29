@@ -9,6 +9,8 @@ import (
 
 func TestTry_RescueAndFinally(t *testing.T) {
 	src := `name "x"
+requires
+end
 command t
     do
         try
@@ -37,6 +39,8 @@ end
 // the always-emitted _catch marker with an empty body must not swallow it.
 func TestTry_FinallyOnlyReRaises(t *testing.T) {
 	src := `name "x"
+requires
+end
 command t
     do
         try
@@ -63,6 +67,8 @@ end
 // Bare `match err.kind` (dotted ident) dispatches on the error binding.
 func TestMatch_DottedIdent(t *testing.T) {
 	src := `name "x"
+requires
+end
 command t
     do
         try

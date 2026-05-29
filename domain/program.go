@@ -82,11 +82,10 @@ type BundleAlias struct {
 // Requirements is the parsed `requires ... end` block — the file's
 // self-declared manifest of what the host machine must provide.
 //
-// Declared is true when the user wrote a `requires` block at all (vs
-// the block being absent). Strict runtime enforcement only kicks in
-// when Declared is true; legacy files without the block keep their
-// current behavior. The CLI flag `--strict-requires` flips the global
-// default so undeclared files fail loudly too.
+// Declared is true when the file has an explicit `requires` block, or when
+// Load normalizes a missing block to an empty manifest. Strict runtime
+// enforcement applies whenever Declared is true (including the implicit-empty
+// case). Parse-time Declared is false only until Load runs normalizeRequirements.
 type Requirements struct {
 	Declared bool      `json:"declared,omitempty"`
 	Bins     []BinReq  `json:"bins,omitempty"`

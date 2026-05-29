@@ -134,16 +134,35 @@ end
 #       arch "amd64"
 #   end
 #
-# When this block is present, runtime enforcement is STRICT: undeclared
-# shell bins, env reads, and HTTP hosts error (bin_not_declared etc.).
-# Files without a `requires` block keep current behavior.
+# When this block is present (or omitted — a missing block is treated as empty),
+# runtime enforcement is STRICT: undeclared shell bins, env reads, and HTTP
+# hosts error (bin_not_declared etc.). An empty block means pure ops only.
 # ────────────────────────────────────────────────────────────────────────────
 
+# Non-empty manifest: `requires` followed by an indented body, closed by `end`.
+# The `when_followed_by indent` lookahead splits this from the empty form below
+# so both share the `requires` keyword and disambiguate purely by whether a body
+# follows — the same INDENT-lookahead trick os_block/requires_os already use.
 function requires
     arg literal "requires"
+    when_followed_by indent
     block_closer end
     write `{"event":"requires_begin"}
 ${body}{"event":"requires_end"}
+`
+end
+
+# Empty manifest: `requires` immediately followed by `end` (no indented body).
+# The engine can't parse a zero-body block (parseBlockBody demands an INDENT),
+# so the empty form is a FLAT statement that emits begin+end together; the
+# trailing `end` line then matches the no-op `end` closer. Without this, the
+# bare implicit-exec catch-all would swallow `requires` as `exec requires`.
+# This is the documented "pure ops only, spawns nothing" manifest.
+function requires_empty
+    arg literal "requires"
+    when_not_followed_by indent
+    write `{"event":"requires_begin"}
+{"event":"requires_end"}
 `
 end
 
@@ -621,6 +640,30 @@ function exec_args
 `
 end
 
+# ── implicit exec — bare invocation of a DECLARED binary, no `exec` keyword ──
+# A body line whose leading token is neither a known op/keyword nor `let`/block
+# resolves here: `docker ps -q` ≡ `exec docker ps -q`. This is the lowest
+# priority in the grammar, so every literal-keyword op/config function wins
+# first; only a genuinely-unrecognised leading token reaches this catch-all.
+# The loader then resolves the bin against the `requires` manifest at load time
+# (declared → subprocess; undeclared → bin_not_declared error). Emits the SAME
+# exec event shape, so splitExecArgv/splitChain handle it unchanged.
+function implicit_exec_args
+    priority -100
+    bare
+    arg capture bin word
+    arg capture argv tail
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv},"implicit":true}}
+`
+end
+function implicit_exec_bare
+    priority -101
+    bare
+    arg capture bin word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"implicit":true}}
+`
+end
+
 function fail
     arg literal "fail"
     arg capture msg string
@@ -645,6 +688,13 @@ end
 function list_commands
     arg literal "list_commands"
     write `{"event":"op","kind":"list_commands","args":{}}
+`
+end
+
+function export_ops_catalog
+    arg literal "export_ops_catalog"
+    arg capture path string
+    write `{"event":"op","kind":"export_ops_catalog","args":{"path":${path}}}
 `
 end
 
@@ -1409,6 +1459,31 @@ function let_exec_args
     arg capture bin word
     arg capture argv tail
     write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv}},"capture_into":${toJSON name}}
+`
+end
+
+# `let X = BIN …` — implicit-exec capture form (no `exec` keyword). Mirrors
+# let_exec/let_exec_args but with the bin captured as a `word` directly after
+# `=`. Priority sits just BELOW the keyworded let_exec* (so `let x = exec …`
+# still routes there) but ABOVE the generic let_Nargs op-capture forms, so a
+# bare binary on the RHS is treated as a subprocess rather than an op lookup.
+function let_implicit_exec_args
+    priority -50
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture bin word
+    arg capture argv tail
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv},"implicit":true},"capture_into":${toJSON name}}
+`
+end
+function let_implicit_exec
+    priority -51
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture bin word
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"implicit":true},"capture_into":${toJSON name}}
 `
 end
 

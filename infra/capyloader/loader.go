@@ -27,6 +27,9 @@ import (
 //go:embed lib.capy
 var librarySource string
 
+// LibrarySource returns the embedded lib.capy grammar source.
+func LibrarySource() string { return librarySource }
+
 // Load parses a .perch source file and returns a Program, recursively
 // resolving any `import "PATH"` directives.
 //
@@ -41,7 +44,14 @@ var librarySource string
 // command set — flat by default, namespaced when written as
 // `import "X" as ALIAS` (commands become callable as `ALIAS.name`).
 func Load(path string) (*domain.Program, error) {
-	return loadRecursive(path, map[string]bool{})
+	prog, err := loadRecursive(path, map[string]bool{})
+	if err != nil {
+		return nil, err
+	}
+	if err := enforceZeroAmbient(prog); err != nil {
+		return nil, err
+	}
+	return prog, nil
 }
 
 // LoadFromString is Load but reads from an in-memory string. Imports
@@ -53,7 +63,14 @@ func LoadFromString(scriptSrc string) (*domain.Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return resolveImports(prog, imports, "", map[string]bool{})
+	merged, err := resolveImports(prog, imports, "", map[string]bool{})
+	if err != nil {
+		return nil, err
+	}
+	if err := enforceZeroAmbient(merged); err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 // loadRecursive is the file-backed entry point. `visited` tracks every
@@ -341,10 +358,84 @@ func mergeProgram(into, from *domain.Program, alias string) error {
 			into.Templates[name] = tpl
 		}
 	}
+	// Requirements union. Under zero-ambient-authority the spawnable-bin set
+	// is the manifest, so an imported file's declared bins/hosts/env/fs must
+	// count toward the merged program's allowlist — otherwise a command
+	// imported from a file that legitimately declared `bin "docker"` would
+	// fail bin_not_declared at load. We union (dedup) rather than parent-wins:
+	// capabilities are additive across the import graph. Declared is OR'd so a
+	// root that imports a manifest-bearing partial counts as declared.
+	if from.Requirements.Declared {
+		into.Requirements.Declared = true
+	}
+	into.Requirements.Bins = unionBins(into.Requirements.Bins, from.Requirements.Bins)
+	into.Requirements.Envs = unionEnvs(into.Requirements.Envs, from.Requirements.Envs)
+	into.Requirements.Hosts = unionHosts(into.Requirements.Hosts, from.Requirements.Hosts)
+	into.Requirements.ReadRoots = unionStrings(into.Requirements.ReadRoots, from.Requirements.ReadRoots)
+	into.Requirements.WriteRoots = unionStrings(into.Requirements.WriteRoots, from.Requirements.WriteRoots)
+	into.Requirements.OS = unionStrings(into.Requirements.OS, from.Requirements.OS)
+	into.Requirements.Arch = unionStrings(into.Requirements.Arch, from.Requirements.Arch)
+
 	// Catch handlers don't propagate via import — only the root file's
 	// catch (if any) is active. Imported catches would race with the
 	// importer's, and there's no clear right answer for what wins.
 	return nil
+}
+
+func unionBins(a, b []domain.BinReq) []domain.BinReq {
+	seen := map[string]bool{}
+	for _, x := range a {
+		seen[x.Name] = true
+	}
+	for _, x := range b {
+		if !seen[x.Name] {
+			a = append(a, x)
+			seen[x.Name] = true
+		}
+	}
+	return a
+}
+
+func unionEnvs(a, b []domain.EnvReq) []domain.EnvReq {
+	seen := map[string]bool{}
+	for _, x := range a {
+		seen[x.Name] = true
+	}
+	for _, x := range b {
+		if !seen[x.Name] {
+			a = append(a, x)
+			seen[x.Name] = true
+		}
+	}
+	return a
+}
+
+func unionHosts(a, b []domain.HostReq) []domain.HostReq {
+	seen := map[string]bool{}
+	for _, x := range a {
+		seen[x.Name] = true
+	}
+	for _, x := range b {
+		if !seen[x.Name] {
+			a = append(a, x)
+			seen[x.Name] = true
+		}
+	}
+	return a
+}
+
+func unionStrings(a, b []string) []string {
+	seen := map[string]bool{}
+	for _, x := range a {
+		seen[x] = true
+	}
+	for _, x := range b {
+		if !seen[x] {
+			a = append(a, x)
+			seen[x] = true
+		}
+	}
+	return a
 }
 
 // event is one line of NDJSON emitted by lib.capy.

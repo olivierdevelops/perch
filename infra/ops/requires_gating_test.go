@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/luowensheng/perch/domain"
+	"github.com/luowensheng/perch/infra/capyloader"
 	"github.com/luowensheng/perch/infra/interpreter"
 )
 
@@ -151,18 +152,28 @@ func TestGate_Filesystem(t *testing.T) {
 	_ = call(i, b, "rm", map[string]any{"_0": "./allowed_write"})
 }
 
-// ── no requires block → ambient (nothing gated) ──────────────────────────
+// ── no requires block → normalized to empty manifest at Load ─────────────
 
-func TestGate_NoRequiresBlock_IsAmbient(t *testing.T) {
-	p := &domain.Program{Commands: map[string]*domain.Command{}} // Requirements.Declared == false
-	i := interpreter.New(AllHandlers(), p)
-	b := interpreter.NewBindings(".")
-	// undeclared everything is fine when there's no requires block
-	if err := call(i, b, "get_env", map[string]any{"_0": "PATH"}); err != nil {
-		t.Fatalf("no requires block → get_env should be ungated: %v", err)
+func TestGate_NoRequiresBlock_IsStrictAfterLoad(t *testing.T) {
+	// Programs from Load always have Declared=true (missing block → empty manifest).
+	p, err := capyloader.LoadFromString(`name "x"
+command t
+    do
+        print "ok"
+    end
+end
+`)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := call(i, b, "shell", map[string]any{"cmd": "echo ambient"}); err != nil {
-		t.Fatalf("no requires block → shell should be ungated: %v", err)
+	if !p.Requirements.Declared {
+		t.Fatal("Load must normalize missing requires to Declared=true")
+	}
+	i := interpreter.New(AllHandlers(), p)
+	i.PreflightHook = Preflight
+	b := interpreter.NewBindings(".")
+	if err := call(i, b, "shell", map[string]any{"cmd": "curl x"}); !isKind(err, domain.ErrBinNotDeclared) {
+		t.Fatalf("normalized empty manifest must gate shell, got %v", err)
 	}
 }
 

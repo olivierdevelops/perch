@@ -10,6 +10,10 @@ import (
 
 func TestExecChain_AndAllRun(t *testing.T) {
 	out, err := runSource(t, `name "x"
+requires
+    bin "echo"
+    bin "false"
+end
 command t
     do
         exec echo one && exec echo two && exec echo three
@@ -28,6 +32,10 @@ end
 
 func TestExecChain_AndShortCircuitsAndAborts(t *testing.T) {
 	out, err := runSource(t, `name "x"
+requires
+    bin "echo"
+    bin "false"
+end
 command t
     do
         exec false && exec echo nope
@@ -44,6 +52,10 @@ end
 
 func TestExecChain_OrRecovers(t *testing.T) {
 	out, err := runSource(t, `name "x"
+requires
+    bin "echo"
+    bin "false"
+end
 command t
     do
         exec false || exec echo recovered
@@ -60,6 +72,10 @@ end
 
 func TestExecChain_SemicolonAlwaysRuns(t *testing.T) {
 	out, err := runSource(t, `name "x"
+requires
+    bin "echo"
+    bin "false"
+end
 command t
     do
         exec echo a ; exec echo b

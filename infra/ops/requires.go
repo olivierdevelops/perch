@@ -517,20 +517,42 @@ func checkPathDeclared(i *interpreter.Interpreter, b *interpreter.Bindings, raw 
 	}
 	r := i.Program.Requirements
 	abs := absUnder(raw, b.Cwd)
+	writeRoots := expandRoots(r.WriteRoots, b)
 	if isWrite {
-		if pathWithinAny(abs, r.WriteRoots, b.Cwd) {
+		if pathWithinAny(abs, writeRoots, b.Cwd) {
 			return nil
 		}
 		return domain.NewOpError("fs", domain.ErrWriteNotDeclared,
 			fmt.Sprintf("write to %q is outside every declared `write` root in `requires`", raw)).
 			WithDetail(raw)
 	}
-	if pathWithinAny(abs, r.ReadRoots, b.Cwd) || pathWithinAny(abs, r.WriteRoots, b.Cwd) {
+	if pathWithinAny(abs, expandRoots(r.ReadRoots, b), b.Cwd) || pathWithinAny(abs, writeRoots, b.Cwd) {
 		return nil
 	}
 	return domain.NewOpError("fs", domain.ErrReadNotDeclared,
 		fmt.Sprintf("read of %q is outside every declared `read` root in `requires`", raw)).
 		WithDetail(raw)
+}
+
+// expandRoots interpolates ${…} placeholders (script_dir, temp_dir, home,
+// declared globals, …) in each declared root against the live bindings, so a
+// manifest can scope writes to a runtime-resolved location like
+// "${script_dir}/.ignore" — the documented behavior (requires.md: roots are
+// matched "at runtime after ${…} interpolation"). A root that fails to
+// interpolate (unknown placeholder) is dropped: it can never match a concrete
+// path, and surfacing the gate error (read/write_not_declared) is clearer than
+// an opaque interpolation failure from inside the path check.
+func expandRoots(roots []string, b *interpreter.Bindings) []string {
+	if len(roots) == 0 {
+		return roots
+	}
+	out := make([]string, 0, len(roots))
+	for _, root := range roots {
+		if expanded, err := interpreter.Interpolate(root, b); err == nil {
+			out = append(out, expanded)
+		}
+	}
+	return out
 }
 
 // absUnder cleans p and makes it absolute, resolving relatives under cwd.

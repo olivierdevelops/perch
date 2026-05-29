@@ -18,7 +18,9 @@ func runSource(t *testing.T, src, command string, args ...string) (string, error
 	t.Helper()
 	prog, err := capyloader.LoadFromString(src)
 	if err != nil {
-		t.Fatalf("load: %v", err)
+		// Load-time errors (bin_not_declared from the zero-ambient gate) are
+		// returned so tests can assert on them.
+		return "", err
 	}
 	i := interpreter.New(ops.AllHandlers(), prog)
 	i.PreflightHook = ops.Preflight
@@ -33,6 +35,8 @@ func runSource(t *testing.T, src, command string, args ...string) (string, error
 // `let v = upper name` must capture op output from a bare-ident arg.
 func TestE2E_BareIdentArgs(t *testing.T) {
 	src := `name "x"
+requires
+end
 command greet
     arg who
         type string
@@ -56,6 +60,8 @@ end
 // match on a bare ident (`match os`) must dispatch on the host fact.
 func TestE2E_MatchIdent(t *testing.T) {
 	src := `name "x"
+requires
+end
 command pick
     do
         match os
@@ -98,25 +104,20 @@ end
 	}
 }
 
-// No requires block ⇒ ambient: an undeclared write still runs (Declared=false
-// means the gate is a no-op). We write inside a temp dir to avoid touching the
-// real FS outside the test sandbox.
-func TestE2E_NoRequiresIsAmbient(t *testing.T) {
+// A file with no requires block is treated as empty manifest: pure ops run,
+// undeclared filesystem writes fail at runtime with write_not_declared.
+func TestE2E_MissingRequiresTreatedAsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	src := `name "x"
 command w
     do
-        write_file "` + dir + `/ambient.txt" "hi"
-        print "wrote"
+        write_file "` + dir + `/x.txt" "hi"
     end
 end
 `
-	out, err := runSource(t, src, "w")
-	if err != nil {
-		t.Fatalf("ambient write should succeed without a requires block: %v", err)
-	}
-	if !strings.Contains(out, "wrote") {
-		t.Errorf("expected ambient write to complete; out=%q", out)
+	_, err := runSource(t, src, "w")
+	if !isOpKind(err, domain.ErrWriteNotDeclared) {
+		t.Fatalf("missing requires (empty manifest) must refuse undeclared write, got %v", err)
 	}
 }
 

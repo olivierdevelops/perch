@@ -2,6 +2,13 @@ name    "perch"
 about   "perch — a cross-platform command runner driven by capy"
 version "0.1.0"
 
+requires
+    bin "go"
+    bin "bman"
+    bin "perch"
+    write "${script_dir}/.ignore"
+end
+
 globals
     BUILD_DIR = "${script_dir}/.ignore"
     BUILD_OUT = "${script_dir}/.ignore/perch"
@@ -34,6 +41,15 @@ command tidy
     description "Run go mod tidy"
     do
         exec go mod tidy
+    end
+end
+
+command export_ops_catalog
+    description "Write a JSON catalog of all built-in perch ops (requirements, args, descriptions) to .ignore/ops-catalog.json"
+    do
+        mkdir "${BUILD_DIR}"
+        export_ops_catalog "${BUILD_DIR}/ops-catalog.json"
+        print "Wrote ops catalog to ${BUILD_DIR}/ops-catalog.json"
     end
 end
 

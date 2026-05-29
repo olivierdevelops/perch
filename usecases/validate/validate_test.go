@@ -289,9 +289,10 @@ func TestRequiresStaticEnforcement(t *testing.T) {
 	}
 }
 
-func TestRequiresNotDeclaredNoEnforcement(t *testing.T) {
-	// No requires block → legacy behavior, undeclared shell bins are fine.
+func TestRequiresEmptyManifestEnforcement(t *testing.T) {
+	// Missing `requires` normalizes to Declared=true with no entries — same as empty block.
 	p := &domain.Program{
+		Requirements: domain.Requirements{Declared: true},
 		Commands: map[string]*domain.Command{
 			"x": {
 				Name: "x", Description: "d",
@@ -302,8 +303,8 @@ func TestRequiresNotDeclaredNoEnforcement(t *testing.T) {
 		},
 	}
 	issues := Check(p, known("shell"))
-	if hasErr(issues, "not declared") {
-		t.Errorf("no requires block should mean no enforcement; got %v", issues)
+	if !hasErr(issues, "not declared") {
+		t.Errorf("empty manifest should enforce shell bins; got %v", issues)
 	}
 }
 

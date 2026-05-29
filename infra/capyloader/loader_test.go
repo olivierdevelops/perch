@@ -12,6 +12,8 @@ func TestLoadMinimal(t *testing.T) {
 	src := `name "app"
 about "hi"
 version "0.1"
+requires
+end
 `
 	p, err := LoadFromString(src)
 	if err != nil {
@@ -30,6 +32,8 @@ version "0.1"
 
 func TestGlobals(t *testing.T) {
 	src := `name "x"
+requires
+end
 globals
     flag = true
     n = 42
@@ -54,6 +58,8 @@ end
 
 func TestCommandWithArgsAndOps(t *testing.T) {
 	src := `name "x"
+requires
+end
 command build
     description "compile"
     arg target
@@ -101,6 +107,8 @@ end
 
 func TestArgBlockFields(t *testing.T) {
 	src := `name "x"
+requires
+end
 command t
     arg count
         type int
@@ -162,6 +170,8 @@ end
 
 func TestNestedBlockOps(t *testing.T) {
 	src := `name "x"
+requires
+end
 command setup
     do
         if os == "darwin"
@@ -196,6 +206,8 @@ end
 
 func TestLetCapture(t *testing.T) {
 	src := `name "x"
+requires
+end
 command t
     do
         let h = sha256_file "./bin"
@@ -221,6 +233,8 @@ end
 
 func TestCatch(t *testing.T) {
 	src := `name "x"
+requires
+end
 catch unknown
     description "fallback"
     do
@@ -275,6 +289,8 @@ command imported_cmd
 end
 `)
 	main := mustWrite("main.perch", `name "main"
+requires
+end
 import "./child.perch"
 command local_cmd
     description "from main.perch"
@@ -309,6 +325,8 @@ end
 	}
 	mainPath := dir + "/main.perch"
 	if err := os.WriteFile(mainPath, []byte(`name "main"
+requires
+end
 import "./aws.perch" as aws
 command deploy
     description "d"
@@ -413,6 +431,8 @@ command from_lib
 end
 `), 0644)
 	os.WriteFile(dir+"/main.perch", []byte(`name "main"
+requires
+end
 import "${file_dir}/shared/lib.perch"
 command main_cmd
     description "main"
@@ -443,6 +463,8 @@ end
 	t.Setenv("PERCH_TEST_DIR", dir)
 	mainPath := dir + "/main.perch"
 	os.WriteFile(mainPath, []byte(`name "main"
+requires
+end
 import "${PERCH_TEST_DIR}/lib.perch"
 command m
     description "m"

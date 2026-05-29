@@ -8,6 +8,10 @@ import "testing"
 // let-capture form `let x = exec BIN …`.
 func TestExecGrammar(t *testing.T) {
 	src := `name "x"
+requires
+    bin "git"
+    bin "docker"
+end
 command t
     do
         exec git status

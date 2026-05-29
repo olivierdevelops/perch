@@ -69,7 +69,10 @@ const (
 	ErrBinNotFound     ErrorKind = "bin_not_found"
 
 	// Requires-block enforcement (file-declared manifest)
-	ErrBinNotDeclared   ErrorKind = "bin_not_declared"
+	// ErrRequirementBlockMissing is reserved; a missing `requires` block is
+	// normalized to an empty manifest at load rather than rejected.
+	ErrRequirementBlockMissing ErrorKind = "requirement_block_missing"
+	ErrBinNotDeclared          ErrorKind = "bin_not_declared"
 	ErrEnvNotDeclared   ErrorKind = "env_not_declared"
 	ErrHostNotDeclared  ErrorKind = "host_not_declared"
 	ErrReadNotDeclared  ErrorKind = "read_not_declared"

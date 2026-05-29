@@ -3,6 +3,8 @@ package capyloader
 import (
 	"strings"
 	"testing"
+
+	"github.com/luowensheng/perch/domain"
 )
 
 // TestRequiresBlockParsing verifies the loader hydrates a full `requires`
@@ -105,15 +107,49 @@ end
 	}
 }
 
-// TestNoRequiresBlockIsNotDeclared confirms a file without a requires block
-// leaves Requirements.Declared false (ambient — the gate is a no-op).
-func TestNoRequiresBlockIsNotDeclared(t *testing.T) {
+// TestNoRequiresBlockIsNormalized confirms a file without a `requires`
+// block loads as if it had an empty `requires`/`end`: Declared==true, no
+// bins, pure ops allowed.
+func TestNoRequiresBlockIsNormalized(t *testing.T) {
 	p, err := LoadFromString("name \"x\"\ncommand t\n    do\n        print \"hi\"\n    end\nend\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Requirements.Declared {
-		t.Error("a file with no requires block must have Declared=false")
+	if !p.Requirements.Declared {
+		t.Error("missing requires must normalize to Declared=true")
+	}
+	if len(p.Requirements.Bins) != 0 {
+		t.Errorf("implicit empty manifest must declare no bins, got %v", p.Requirements.Bins)
+	}
+}
+
+// A file with no requires block rejects undeclared exec at load (same as empty).
+func TestNoRequiresBlockRejectsUndeclaredExec(t *testing.T) {
+	_, err := LoadFromString(`name "x"
+command t
+    do
+        exec echo hi
+    end
+end
+`)
+	oe, ok := err.(*domain.OpError)
+	if !ok || oe.Kind != domain.ErrBinNotDeclared {
+		t.Fatalf("want bin_not_declared at load, got %v", err)
+	}
+}
+
+// An empty `requires`/`end` block is the legal "pure ops only" manifest: it
+// loads cleanly and marks the program Declared with no spawnable surface.
+func TestEmptyRequiresBlockIsDeclared(t *testing.T) {
+	p, err := LoadFromString("name \"x\"\nrequires\nend\ncommand t\n    do\n        print \"hi\"\n    end\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.Requirements.Declared {
+		t.Error("an empty requires block must set Declared=true")
+	}
+	if len(p.Requirements.Bins) != 0 {
+		t.Errorf("empty requires must declare no bins, got %v", p.Requirements.Bins)
 	}
 }
 
