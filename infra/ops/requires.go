@@ -326,6 +326,32 @@ func CheckSubprocessBin(i *interpreter.Interpreter, name string) error {
 		WithDetail(base)
 }
 
+// checkExecBin gates the `exec` op: when a `requires` block is present, the
+// binary must be a declared `bin "…"` or the op fails bin_not_declared. This
+// is the same control as `shell`'s first-token check, but exec names the bin
+// structurally (no command-line parsing), so the check is exact — there is
+// no string to mis-tokenize. No-op when no requires block is declared.
+func checkExecBin(i *interpreter.Interpreter, name string) error {
+	if i == nil || i.Program == nil || !i.Program.Requirements.Declared {
+		return nil
+	}
+	if name == "" {
+		return nil
+	}
+	base := name
+	if idx := strings.LastIndexAny(base, "/\\"); idx >= 0 {
+		base = base[idx+1:]
+	}
+	for _, b := range i.Program.Requirements.Bins {
+		if b.Name == base {
+			return nil
+		}
+	}
+	return domain.NewOpError("exec", domain.ErrBinNotDeclared,
+		fmt.Sprintf("bin %q is not declared in `requires`", base)).
+		WithDetail(base)
+}
+
 // hostOfURL extracts the hostname from a URL for host-allowlist checks.
 func hostOfURL(u string) string {
 	s := u
@@ -405,22 +431,22 @@ type fsPathSpec struct {
 
 var fsPathOps = map[string]fsPathSpec{
 	// write-only (single path)
-	"mkdir":           {writeKeys: [][]string{{"path", "_0"}}},
-	"rm":              {writeKeys: [][]string{{"path", "_0"}}},
-	"touch":           {writeKeys: [][]string{{"path", "_0"}}},
-	"chmod":           {writeKeys: [][]string{{"path", "_0"}}},
-	"write_file":      {writeKeys: [][]string{{"path", "_0"}}},
-	"append_file":     {writeKeys: [][]string{{"path", "_0"}}},
-	"append_line":     {writeKeys: [][]string{{"path", "_0"}}},
-	"ensure_dir":      {writeKeys: [][]string{{"path", "_0"}}},
-	"make_executable": {writeKeys: [][]string{{"path", "_0"}}},
+	"mkdir":               {writeKeys: [][]string{{"path", "_0"}}},
+	"rm":                  {writeKeys: [][]string{{"path", "_0"}}},
+	"touch":               {writeKeys: [][]string{{"path", "_0"}}},
+	"chmod":               {writeKeys: [][]string{{"path", "_0"}}},
+	"write_file":          {writeKeys: [][]string{{"path", "_0"}}},
+	"append_file":         {writeKeys: [][]string{{"path", "_0"}}},
+	"append_line":         {writeKeys: [][]string{{"path", "_0"}}},
+	"ensure_dir":          {writeKeys: [][]string{{"path", "_0"}}},
+	"make_executable":     {writeKeys: [][]string{{"path", "_0"}}},
 	"ensure_line_in_file": {writeKeys: [][]string{{"path", "_0"}}},
-	"replace_in_file": {writeKeys: [][]string{{"path", "_0"}}},
-	"symlink":         {writeKeys: [][]string{{"link", "_1"}}},
+	"replace_in_file":     {writeKeys: [][]string{{"path", "_0"}}},
+	"symlink":             {writeKeys: [][]string{{"link", "_1"}}},
 	// read+write (src read, dst write)
-	"cp":         {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
-	"mv":         {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
-	"copy_dir":   {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
+	"cp":          {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
+	"mv":          {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
+	"copy_dir":    {readKeys: [][]string{{"src", "_0"}}, writeKeys: [][]string{{"dst", "_1"}}},
 	"backup_file": {readKeys: [][]string{{"path", "_0"}}, writeKeys: [][]string{{"path", "_0"}}},
 	// read-only
 	"read_file":   {readKeys: [][]string{{"path", "_0"}}},

@@ -49,10 +49,10 @@ const (
 	ErrCapWriteDenied      ErrorKind = "cap_write_denied"
 
 	// WASM ops
-	ErrWasmCompileFailed     ErrorKind = "wasm_compile_failed"
-	ErrWasmModuleExited      ErrorKind = "wasm_module_exited"
-	ErrWasmCapabilityDenied  ErrorKind = "wasm_capability_denied"
-	ErrWasmHTTPRefused       ErrorKind = "wasm_http_refused"
+	ErrWasmCompileFailed    ErrorKind = "wasm_compile_failed"
+	ErrWasmModuleExited     ErrorKind = "wasm_module_exited"
+	ErrWasmCapabilityDenied ErrorKind = "wasm_capability_denied"
+	ErrWasmHTTPRefused      ErrorKind = "wasm_http_refused"
 
 	// Interpolation
 	ErrUnresolvedVar      ErrorKind = "unresolved_var"
@@ -69,12 +69,27 @@ const (
 	ErrBinNotFound     ErrorKind = "bin_not_found"
 
 	// Requires-block enforcement (file-declared manifest)
-	ErrBinNotDeclared    ErrorKind = "bin_not_declared"
-	ErrEnvNotDeclared    ErrorKind = "env_not_declared"
-	ErrHostNotDeclared   ErrorKind = "host_not_declared"
-	ErrReadNotDeclared   ErrorKind = "read_not_declared"
-	ErrWriteNotDeclared  ErrorKind = "write_not_declared"
-	ErrRequirementUnmet  ErrorKind = "requirement_unmet"
+	ErrBinNotDeclared   ErrorKind = "bin_not_declared"
+	ErrEnvNotDeclared   ErrorKind = "env_not_declared"
+	ErrHostNotDeclared  ErrorKind = "host_not_declared"
+	ErrReadNotDeclared  ErrorKind = "read_not_declared"
+	ErrWriteNotDeclared ErrorKind = "write_not_declared"
+	ErrRequirementUnmet ErrorKind = "requirement_unmet"
+
+	// Capability gate (docs/sandboxed-by-design.md §4). These are the
+	// default-deny vocabulary: an effectful op whose capability was never
+	// granted fails with the matching kind. Distinct from the *_not_declared
+	// kinds above, which are the finer-grained "capability is on but this
+	// specific bin/host/env/path isn't allowlisted" failures.
+	ErrShellNotPermitted      ErrorKind = "shell_not_permitted"
+	ErrReadNotPermitted       ErrorKind = "read_not_permitted"
+	ErrWriteNotPermitted      ErrorKind = "write_not_permitted"
+	ErrNetNotPermitted        ErrorKind = "net_not_permitted"
+	ErrEnvNotPermitted        ErrorKind = "env_not_permitted"
+	ErrSubprocessNotPermitted ErrorKind = "subprocess_not_permitted"
+	// Static (surfaced by `perch --check`) for the named-handle layer (§3.1).
+	ErrUnknownCapability      ErrorKind = "unknown_capability"
+	ErrCapabilityKindMismatch ErrorKind = "capability_kind_mismatch"
 
 	// Catch-all for handlers that haven't been migrated to tagged errors
 	// yet. Tagging is mechanical (see infra/ops/errs.go) and proceeds
@@ -98,6 +113,9 @@ func AllErrorKinds() []ErrorKind {
 		ErrCommandNotFound, ErrBinNotFound,
 		ErrBinNotDeclared, ErrEnvNotDeclared, ErrHostNotDeclared,
 		ErrReadNotDeclared, ErrWriteNotDeclared, ErrRequirementUnmet,
+		ErrShellNotPermitted, ErrReadNotPermitted, ErrWriteNotPermitted,
+		ErrNetNotPermitted, ErrEnvNotPermitted, ErrSubprocessNotPermitted,
+		ErrUnknownCapability, ErrCapabilityKindMismatch,
 		ErrUnclassified,
 	}
 }

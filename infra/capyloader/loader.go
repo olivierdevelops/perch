@@ -719,9 +719,12 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			}
 			if ev.Kind == "_enter" {
 				// Push a new nested op whose body becomes the active target.
+				// CaptureInto lets a block op's value be bound (e.g.
+				// `let out = pipe ... end` captures the last stage's stdout).
 				newOp := domain.Op{
-					Kind: ev.Name,
-					Args: ev.Args,
+					Kind:        ev.Name,
+					Args:        ev.Args,
+					CaptureInto: ev.CaptureInto,
 				}
 				*opStack[len(opStack)-1] = append(*opStack[len(opStack)-1], newOp)
 				// Reslice the just-appended op so we can grow its Body.

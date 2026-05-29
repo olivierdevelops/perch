@@ -550,6 +550,126 @@ function shell_detached
 `
 end
 
+# ── exec — run a DECLARED binary with structured argv, no shell ────────────
+#
+# `exec BIN token token …` spawns BIN directly (os/exec, never `sh -c`).
+# Each token is exactly one argv slot — there is no word-splitting, no
+# globbing, no metachar surface. BIN must be a declared `bin` in `requires`
+# (when a requires block is present) or the op fails `bin_not_declared`.
+#
+# Token rules (capy tokenizer): bare identifiers (`status`, `build`) work
+# unquoted; flags / paths / anything with `-` `/` `.` `=` must be quoted
+# (`exec docker "run" "-d" "--name" "web"`); `${x}` interpolates one slot
+# when written as `"${x}"`. The captured stdout is the op's value
+# (`let out = exec git "rev-parse" "HEAD"`) and is also streamed.
+#
+# This is the core of docs/sandboxed-by-design.md §3.1–3.2: the only way to
+# run a subprocess without a shell. See also `with_exec` (§3.4).
+
+function exec
+    arg literal "exec"
+    arg capture bin ident
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin}}}
+`
+end
+
+# `pipe ... end` — wire stdout→stdin between exec stages with in-process
+# pipes (no shell). Each body line is an `exec BIN …` stage; perch connects
+# stage N's stdout to stage N+1's stdin. The block's value is the LAST
+# stage's stdout (capture with `let out = ...`). docs/sandboxed-by-design §3.5.
+#
+#   let names =
+#       pipe
+#           exec kubectl "get" "pods" "-o" "json"
+#           exec jq "-r" ".items[].metadata.name"
+#           exec sort
+#       end
+function pipe
+    arg literal "pipe"
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"pipe","args":{}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+
+# `let NAME = pipe ... end` — capture the pipeline's final stdout. The
+# capture_into rides on the _enter event; the loader binds the block op's
+# return value (opPipe returns the last stage's stdout).
+function let_pipe
+    priority 300
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "pipe"
+    block_closer end
+    write `{"event":"op","kind":"_enter","name":"pipe","args":{},"capture_into":${toJSON name}}
+${body}{"event":"op","kind":"_leave"}
+`
+end
+function exec_1arg
+    priority 50
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0}}}
+`
+end
+function exec_2args
+    priority 100
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1}}}
+`
+end
+function exec_3args
+    priority 150
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2}}}
+`
+end
+function exec_4args
+    priority 200
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    arg capture a3 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3}}}
+`
+end
+function exec_5args
+    priority 250
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    arg capture a3 string
+    arg capture a4 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3},"_4":${a4}}}
+`
+end
+function exec_6args
+    priority 300
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    arg capture a3 string
+    arg capture a4 string
+    arg capture a5 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3},"_4":${a4},"_5":${a5}}}
+`
+end
+
 function fail
     arg literal "fail"
     arg capture msg string
@@ -1317,6 +1437,74 @@ function let_2args
     arg capture a0 any
     arg capture a1 any
     write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
+`
+end
+
+# `let NAME = exec BIN token …` — capture a subprocess's stdout.
+# `exec` is a LITERAL here (not the generic op_kind capture) so the bin
+# routes to "bin" and the remaining tokens to argv slots "_0".."_N",
+# exactly like the statement-form exec overloads above. High priority so
+# these win over the generic let_Nargs forms (which would mis-route the
+# bin into "_0"). Token rules match inline exec: bare idents OK, quote
+# flags/paths.
+function let_exec_0args
+    priority 235
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin ident
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin}},"capture_into":${toJSON name}}
+`
+end
+function let_exec_1arg
+    priority 240
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0}},"capture_into":${toJSON name}}
+`
+end
+function let_exec_2args
+    priority 245
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
+`
+end
+function let_exec_3args
+    priority 250
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2}},"capture_into":${toJSON name}}
+`
+end
+function let_exec_4args
+    priority 255
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg literal "exec"
+    arg capture bin ident
+    arg capture a0 string
+    arg capture a1 string
+    arg capture a2 string
+    arg capture a3 string
+    write `{"event":"op","kind":"exec","args":{"bin":${toJSON bin},"_0":${a0},"_1":${a1},"_2":${a2},"_3":${a3}},"capture_into":${toJSON name}}
 `
 end
 

@@ -149,12 +149,27 @@ These fire only in files that declared a `requires ... end` block. See [docs/req
 
 | Kind | When it fires |
 |---|---|
-| `bin_not_declared` | A `shell` op's first token isn't listed under `bin` in the `requires` block. |
+| `bin_not_declared` | A `shell` op's first token — or an `exec` / `pipe`-stage binary — isn't listed under `bin` in the `requires` block. |
 | `env_not_declared` | `get_env "X"` where `X` isn't listed under `env`. |
 | `host_not_declared` | An HTTP op targets a host not listed under `host` (or its `*.suffix` form). |
 | `read_not_declared` | A filesystem read op touches a path outside every declared `read` (and `write`) root. |
 | `write_not_declared` | A filesystem write op touches a path outside every declared `write` root. |
 | `requirement_unmet` | Preflight failure — required bin missing, version doesn't satisfy comparator, required env not set, or host OS/arch not in declared list. |
+
+### Capability gate (8)
+
+The default-deny vocabulary from [sandboxed-by-design.md §4](sandboxed-by-design.md). The runtime `*_not_permitted` kinds fire when an effectful op's capability was never granted (distinct from the `*_not_declared` kinds above, which mean "the capability is on but this specific bin/host/env/path isn't allowlisted"). The two static kinds are surfaced by `perch --check` for the named-handle layer (§3.1). These are reserved as the model lands across [its phased plan](sandboxed-by-design.md#11-phased-plan); today's enforcement still primarily uses the `*_not_declared` kinds.
+
+| Kind | When it fires |
+|---|---|
+| `shell_not_permitted` | A `shell`/`exec` op ran without the `shell` capability granted. |
+| `read_not_permitted` | A read op's path is outside every granted `read` root. |
+| `write_not_permitted` | A write op's path is outside every granted `write` root. |
+| `net_not_permitted` | A network op ran without the `net` capability granted. |
+| `env_not_permitted` | An env op ran without the `env` capability granted. |
+| `subprocess_not_permitted` | A non-shell subprocess ran without the `subprocess` capability granted. |
+| `unknown_capability` | (static) A named handle referenced in the body was never declared in `requires`. |
+| `capability_kind_mismatch` | (static) A handle used in the wrong position (e.g. a *path* handle where a *bin* is expected). |
 
 ### Catch-all (1)
 

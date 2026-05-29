@@ -37,6 +37,7 @@ var restrictBlocks = map[string][]string{
 		// without going through the `shell` op. These can leak host env
 		// vars, network access, file access into the spawned process
 		// just like `shell` can, so they belong to the same category.
+		"exec", // shell-free direct subprocess (sandboxed-by-design §3.2)
 		"pkg_install", "pkg_uninstall",
 		"kill_by_name", "process_running",
 		"bin_version",   // runs `BIN --version`

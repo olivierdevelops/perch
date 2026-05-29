@@ -37,6 +37,8 @@ Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.
 | `shell CMD`              | `(string)` | Runs `CMD` via bash (POSIX) or cmd.exe (Windows). Inherits stdout/stderr. |
 | `shell_output CMD`       | `(string) → string` | Same, but captures stdout as the return value. Usually used in `let`. |
 | `shell_detached CMD`     | `(string)` | Starts and returns immediately. Use with `detached` modifier. |
+| `exec BIN "arg"…`        | `(ident, string…) → string` | **Shell-free** subprocess: runs `BIN` directly (no `sh -c`). Bin is a bare handle; each argv token is a quoted string passed as one slot (no word-split, no glob, no metachar surface). Streams *and* captures stdout. Gated like `shell` (`bin_not_declared`). See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
+| `pipe … end`             | `block → string` | Wires stdout→stdin between `exec` stages with in-process pipes — no shell. `let out = pipe … end` captures the final stage. Each stage is a declared-bin `exec`. |
 | `fail MSG`               | `(string)` | Exits non-zero with the message. |
 | `exit N`                 | `(int)`    | Exits with code `N`. |
 | `sleep SECS`             | `(any)`    | Sleeps for `SECS` seconds. Accepts float. |
@@ -96,6 +98,21 @@ Each block op wraps a body that runs only when the condition holds.
 | `join LIST SEP`       | `([]any, string) → string` |
 | `repeat STR N`        | `(string, int) → string` |
 | `format FMT VAL`      | `(string, any) → string` — Go `fmt.Sprintf` semantics |
+
+## Line toolbox (pure)
+
+Operate on captured multi-line output (e.g. from `exec` / `pipe`) as lines — the perch-native replacements for the middle stages of a shell pipeline. All pure, no capability. The text is the **last** argument. See [sandboxed-by-design.md §3.5](sandboxed-by-design.md).
+
+| Op | Signature |
+|---|---|
+| `grep PAT TEXT`       | `(string, string) → string` — keep lines matching regex `PAT` |
+| `reject PAT TEXT`     | `(string, string) → string` — keep lines NOT matching `PAT` |
+| `cut N TEXT`          | `(int, string) → string` — Nth whitespace field (1-indexed) of each line |
+| `head N TEXT`         | `(int, string) → string` — first `N` lines |
+| `tail N TEXT`         | `(int, string) → string` — last `N` lines |
+| `sort_lines TEXT`     | `(string) → string` — lines sorted lexicographically |
+| `uniq_lines TEXT`     | `(string) → string` — collapse **adjacent** duplicate lines (pair with `sort_lines`) |
+| `count_lines TEXT`    | `(string) → int` — number of lines |
 
 ## Hashing
 

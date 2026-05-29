@@ -78,6 +78,7 @@ nav:
   - "🛡️ Capability gating — every external op checked": capability-gating.md
   - "🔒 Sandboxed by design — zero ambient authority (roadmap)": sandboxed-by-design.md
   - "🔭 Trust by manifest (roadmap)": trust-by-manifest.md
+  - "🧩 capy grammar limitations": capy-limitations.md
   - Testing (`perch test`): testing.md
   - "🪟 Web UI (`--server`) — for non-devs": web-ui.md
   - "🔒 WASM (`wasm_run`)": wasm.md

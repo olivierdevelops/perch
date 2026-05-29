@@ -22,6 +22,8 @@ func registerProcess(m map[string]interpreter.Handler) {
 	m["shell"] = opShell
 	m["shell_output"] = opShellOutput
 	m["shell_detached"] = opShellDetached
+	m["exec"] = opExec
+	m["pipe"] = opPipe
 	m["fail"] = opFail
 	m["exit"] = opExit
 	m["sleep"] = opSleep
@@ -241,6 +243,142 @@ func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map
 		return strings.TrimRight(out.String(), "\n"), tagShellErr(err, raw)
 	}
 	return strings.TrimRight(out.String(), "\n"), nil
+}
+
+// opExec runs a DECLARED binary directly — never through a shell. The
+// first arg ("bin") is the binary; "_0".."_N" are argv slots, each passed
+// untouched (no word-splitting, no glob, no metachar surface). This is the
+// shell-free subprocess primitive from docs/sandboxed-by-design.md §3.2.
+//
+// Gating: identical to `shell`'s first-token check — when a `requires`
+// block is present, the bin must be a declared `bin "…"` or the op fails
+// bin_not_declared. The capability mask (`sandbox no_subprocess`) and any
+// hash pin still apply through the same paths shell uses.
+//
+// stdout is tee'd to the program's stdout AND captured as the op's return
+// value, so a bare `exec git status` streams while `let h = exec git
+// "rev-parse" "HEAD"` captures.
+func opExec(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	bin := argString(args, "bin")
+	if bin == "" {
+		return nil, domain.NewOpError("exec", domain.ErrUnclassified, "exec: missing binary")
+	}
+	// Capability + manifest gate. Reuses the same declared-bin enforcement
+	// as `shell` (and the CapMask no_subprocess / allow-bin checks).
+	if err := checkExecBin(i, bin); err != nil {
+		return nil, err
+	}
+	// Collect argv slots _0.._N in order until the first gap.
+	var argv []string
+	for n := 0; ; n++ {
+		v, ok := args[fmt.Sprintf("_%d", n)]
+		if !ok {
+			break
+		}
+		argv = append(argv, interpreter.ToStringValue(v))
+	}
+	cmd := exec.Command(bin, argv...)
+	applyEnv(cmd, b)
+	cmd.Dir = b.Cwd
+	// Capture stdout into a buffer (so `let x = exec …` works), then tee
+	// the captured bytes to the program's stdout so a bare `exec …` streams.
+	// We capture-then-write rather than io.MultiWriter(i.Stdout, …) because
+	// the latter races with exec's stdout-copy goroutine against a plain
+	// bytes.Buffer (the buffer the caller reads can be a different alias of
+	// the writer the goroutine flushes into).
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = i.Stderr
+	cmd.Stdin = i.Stdin
+	display := bin
+	if len(argv) > 0 {
+		display = bin + " " + strings.Join(argv, " ")
+	}
+	runErr := cmd.Run()
+	if i.Stdout != nil {
+		_, _ = i.Stdout.Write(out.Bytes())
+	}
+	if runErr != nil {
+		return strings.TrimRight(out.String(), "\n"), tagShellErr(runErr, display)
+	}
+	return strings.TrimRight(out.String(), "\n"), nil
+}
+
+// opPipe runs a `pipe ... end` block: each body stage is an `exec BIN …`,
+// and perch wires stage N's stdout into stage N+1's stdin with in-process
+// OS pipes — no shell, no `sh -c`. The block's value is the final stage's
+// stdout (captured for `let out = pipe … end`) and is also streamed.
+// docs/sandboxed-by-design.md §3.5. Each stage's bin is gated exactly like
+// a standalone `exec`.
+func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {
+	body, _ := args["_body"].([]domain.Op)
+	var stages []*exec.Cmd
+	var display []string
+	for _, op := range body {
+		if op.Kind != "exec" {
+			return nil, domain.NewOpError("pipe", domain.ErrUnclassified,
+				fmt.Sprintf("pipe: every stage must be `exec`, got %q", op.Kind))
+		}
+		a, err := interpreter.InterpolateArgs(op.Args, b)
+		if err != nil {
+			return nil, err
+		}
+		bin := argString(a, "bin")
+		if bin == "" {
+			return nil, domain.NewOpError("pipe", domain.ErrUnclassified, "pipe: exec stage missing binary")
+		}
+		if err := checkExecBin(i, bin); err != nil {
+			return nil, err
+		}
+		var argv []string
+		for n := 0; ; n++ {
+			v, ok := a[fmt.Sprintf("_%d", n)]
+			if !ok {
+				break
+			}
+			argv = append(argv, interpreter.ToStringValue(v))
+		}
+		c := exec.Command(bin, argv...)
+		applyEnv(c, b)
+		c.Dir = b.Cwd
+		c.Stderr = i.Stderr
+		stages = append(stages, c)
+		d := bin
+		if len(argv) > 0 {
+			d = bin + " " + strings.Join(argv, " ")
+		}
+		display = append(display, d)
+	}
+	if len(stages) == 0 {
+		return "", nil
+	}
+	// Wire stage[k-1].stdout -> stage[k].stdin via OS pipes.
+	for k := 1; k < len(stages); k++ {
+		pr, err := stages[k-1].StdoutPipe()
+		if err != nil {
+			return "", err
+		}
+		stages[k].Stdin = pr
+	}
+	stages[0].Stdin = i.Stdin
+	var out bytes.Buffer
+	stages[len(stages)-1].Stdout = &out
+	for _, c := range stages {
+		if err := c.Start(); err != nil {
+			return "", tagShellErr(err, strings.Join(display, " | "))
+		}
+	}
+	var firstErr error
+	for k, c := range stages {
+		if err := c.Wait(); err != nil && firstErr == nil {
+			firstErr = tagShellErr(err, display[k])
+		}
+	}
+	if i.Stdout != nil {
+		_, _ = i.Stdout.Write(out.Bytes())
+	}
+	res := strings.TrimRight(out.String(), "\n")
+	return res, firstErr
 }
 
 func opShellDetached(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string]any) (any, error) {

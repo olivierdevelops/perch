@@ -4,6 +4,8 @@
 >
 > This is the [object-capability](https://en.wikipedia.org/wiki/Object-capability_model) / default-deny model applied to the whole language: **the file is a sealed box; the only holes in the box are the ones the author cut on purpose, in writing.**
 
+> **Status (what ships today).** The shell-free subprocess core of this design is now implemented and tested: the **`exec`** op (run a declared binary with structured argv — no shell, no metachar surface), the **`pipe … end`** block (wire stdout→stdin between `exec` stages with in-process pipes), the **`glob`** op (read-scoped wildcard expansion), and the pure line-toolbox (**`grep` `reject` `cut` `head` `tail` `sort_lines` `uniq_lines` `count_lines`**). `exec` is gated by the same declared-`bin` check as `shell`. Still on the roadmap: the inline `|` / `&&` / `||` operators (§3.3), `with_exec` (§3.4), named capability handles (§3.1), and flipping the *default* from ambient to deny (§8, §11). The per-primitive status table is in [§3.5](#35-the-shell-toolbox-perch-native). A few surface compromises (argv tokens must be quoted, `with_exec` is blocked) trace to limits in the capy grammar engine, not to design — those are catalogued in [capy-limitations.md](capy-limitations.md).
+
 ---
 
 ## 1. Why
@@ -201,10 +203,13 @@ The strongest version of this model **deletes the `shell` op altogether.** There
 # Today
 shell "docker ps -q -f name=^web$ | wc -l"
 
-# Sandboxed-by-design, shell removed
-let ids   = exec docker ps -q -f name=^web$
-let lines = split ids "\n"
-let n     = length lines
+# Sandboxed-by-design, shell removed (ships today). The bin is a bare
+# handle; every argv token is a quoted string (flags/filters included).
+let n =
+    pipe
+        exec docker "ps" "-q" "-f" "name=^web$"
+        exec wc "-l"
+    end
 ```
 
 A subprocess is always `exec <declared-bin-handle> <token> <token> …`. Each token is one argv slot; nothing is ever handed to a shell to re-interpret.
@@ -536,13 +541,13 @@ let payload = format '{"name":"${name}","count":${count}}'
 
 | Primitive | Status |
 |---|---|
-| `exec` of a declared bin with structured argv | proposed (core of §3.2) |
+| `exec` of a declared bin with structured argv | **ships** (core of §3.2) — `exec BIN "arg"…`, bin a bare handle, every argv token a quoted string |
+| `pipe … end` block (stdout→stdin between exec stages, no shell) | **ships** — `let out = pipe … end` captures the final stage |
+| `glob` | **ships** (read-scoped) |
+| `grep` / `reject` / `cut` / `head` / `tail` / `sort_lines` / `uniq_lines` / `count_lines` | **ships** (pure ops) |
 | `&&` / `\|\|` / `;` between execs | proposed (§3.3) |
 | `with_exec BIN … end` | proposed (§3.4) |
-| `\|` pipe operator + `pipe … end` block | proposed |
-| string-on-left of `\|` (stdin feed) | proposed |
-| `glob` | proposed sugar (over existing `walk_dir`) |
-| `grep` / `reject` / `cut` / `head` / `tail` / `sort_lines` / `uniq_lines` / `count_lines` | proposed pure-op sugar |
+| `\|` inline pipe operator + string-on-left (stdin feed) | proposed (the `pipe … end` block ships; the inline `\|` operator does not) |
 | `split` / `join` / `slice` / `regex_match` / `regex_replace` / `regex_find_all` / `length` / `contains` / `format` / `trim` / `lower` / `upper` | **exists** |
 | `json_parse` / `json_get` / `json_count` / `json_stringify` / `csv_parse` | **exists** |
 | `read_file` / `write_file` / `walk_dir` / `list_dir` / `for_each` | **exists** |
