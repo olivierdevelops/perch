@@ -238,7 +238,14 @@ exec docker compose up -d             # shell-free: BIN + structured argv
   end
   ```
 
-This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.md) §3.2/§3.5, shipping today. The line-toolbox (`grep` / `cut` / `head` / `sort_lines` / …) composes with captured output to replace a pipeline's middle stages.
+- **Chaining** — `exec a && exec b`, `exec a || exec b`, `exec a ; exec b` join clauses by exit status (perch operators, not shell metachars): `&&` runs the next clause only on success, `||` only on failure, `;` always. They're literal source tokens, so an interpolated `${x}` can never *become* an operator.
+
+  ```perch
+  exec git pull && exec go build && exec go test   # stop at first failure
+  exec which gh || exec brew install gh            # fallback
+  ```
+
+This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.md) §3.2/§3.5, shipping today. The line-toolbox (`grep` / `cut` / `head` / `sort_lines` / …) composes with captured output to replace a pipeline's middle stages. **`shell` is deprecated** in favor of `exec` — keep it only for genuine shell needs (a value that must word-split, e.g. `${proxy_args}`, or a gnarly one-off `awk`/`sed` chain).
 
 ### Error handling — `try / rescue / finally`
 
