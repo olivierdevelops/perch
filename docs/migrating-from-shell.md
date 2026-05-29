@@ -209,7 +209,23 @@ For each `shell` op in your translated file:
 | `for x in *.txt; do …; done` | `let files = glob "*.txt"` + `for_each "${files}" x ... end` |
 | `sleep N` | `sleep N` |
 | `kill -9 $(pgrep X)` | `kill_by_name "X"` |
+| `tool --flag arg` (a tool with no native op) | **`exec tool --flag arg`** — runs the binary directly, no shell. Bare flags work; quote only spaced args. Still cross-platform and injection-free. |
+| `a \| b \| c` (a pipeline) | **`pipe ... end`** of `exec` stages — perch wires the pipes in-process, no shell (see below) |
 | anything truly bash-specific | leave as `shell "..."` — and accept that this file will need `--allow-bin` to ship safely |
+
+**Prefer `exec` over `shell` for the "no native op, but I just call a binary" case.** `exec git status` / `exec docker run -d --name web nginx` run the binary directly with structured argv — cross-platform, no metachar/injection surface, statically analyzable (the bin is structural, not buried in a string). `shell` is only needed for genuine shell features (`&&`, redirects, env-expansion-in-string). See [language.md](language.md) "shell vs exec".
+
+Pipelines compose without a shell, too:
+
+```perch
+# bash:  docker ps -q | wc -l
+let n = pipe
+    exec docker ps -q
+    exec wc -l
+end
+```
+
+The pure line-toolbox (`grep` / `reject` / `cut` / `head` / `tail` / `sort_lines` / `uniq_lines` / `count_lines`) replaces the `grep`/`sed`/`awk` middle stages on captured output.
 
 See [op-reference.md](op-reference.md) for the full catalog and [language.md](language.md#string-literals) for the quote-delimiter rule that makes JSON / SQL / shell-with-quotes painless.
 
@@ -233,7 +249,7 @@ If you'd like one of these prioritised, open an issue on [GitHub](https://github
 Be honest about the cases where bash is the right tool:
 
 - **One-off scripts.** A 5-line file you'll run twice doesn't need typed args, an MCP surface, or an audit log. `bash one-thing.sh` is fine.
-- **Heavy text-munging pipelines** (`awk` / `sed` / `grep` chained with pipes). perch's `shell` op runs these correctly but doesn't replace them with native ops — and the shell-pipeline composition is genuinely concise.
+- **Heavy text-munging pipelines** (`awk` / `sed` / `grep` chained with pipes). perch now has a shell-free `pipe ... end` block + a pure line-toolbox (`grep`/`cut`/`head`/`sort_lines`/…) that cover most of these natively — but for a genuinely gnarly one-off `awk`/`sed` chain, the bash one-liner is still more concise, and `shell` runs it verbatim.
 - **Scripts that ARE bash idioms.** Things using process substitution `<(…)`, named pipes `mkfifo`, complex `trap` chains. Perch's ops cover the common cases; the deep bash stuff is best left in bash.
 
 Wrap (Option 1) those — keep the bash, gain the perch UX over the top. Don't translate or rewrite them.
