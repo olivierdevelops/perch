@@ -296,7 +296,10 @@ func opExec(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 		display = bin + " " + strings.Join(argv, " ")
 	}
 	runErr := cmd.Run()
-	if i.Stdout != nil {
+	// Tee stdout to the program's stdout for a bare `exec …`, but stay quiet
+	// when the result is bound (`let x = exec …`) — matching the old
+	// shell (stream) vs shell_output (silent capture) split.
+	if i.Stdout != nil && !truthyValue(args["_capture"]) {
 		_, _ = i.Stdout.Write(out.Bytes())
 	}
 	if runErr != nil {
@@ -439,7 +442,7 @@ func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 			firstErr = tagShellErr(err, display[k])
 		}
 	}
-	if i.Stdout != nil {
+	if i.Stdout != nil && !truthyValue(args["_capture"]) {
 		_, _ = i.Stdout.Write(out.Bytes())
 	}
 	res := strings.TrimRight(out.String(), "\n")

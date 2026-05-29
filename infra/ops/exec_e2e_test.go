@@ -62,6 +62,35 @@ end
 	}
 }
 
+// A bare `exec` streams its stdout; a captured `let x = exec …` stays silent
+// (matches the old shell vs shell_output split — internal probes don't leak).
+func TestExec_CapturedIsSilent(t *testing.T) {
+	src := `name "x"
+command t
+    do
+        exec echo BARE
+        let q = exec echo CAPTURED
+        print "q=${q}"
+    end
+end
+`
+	out, err := runSource(t, src, "t")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(out, "BARE") {
+		t.Errorf("bare exec should stream; out=%q", out)
+	}
+	if !strings.Contains(out, "q=CAPTURED") {
+		t.Errorf("captured value should bind; out=%q", out)
+	}
+	// The captured exec must NOT have streamed its own output: "CAPTURED"
+	// should appear only once (in the print), not twice.
+	if strings.Count(out, "CAPTURED") != 1 {
+		t.Errorf("captured exec leaked its stdout; out=%q", out)
+	}
+}
+
 func TestExec_InterpolatesArgv(t *testing.T) {
 	src := `name "x"
 command t

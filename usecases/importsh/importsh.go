@@ -66,7 +66,8 @@ func (i *Impl) Execute(srcPath, outPath string) error {
 	fmt.Printf("  1. perch --check -f %s\n", outPath)
 	fmt.Printf("  2. perch -f %s --help\n", outPath)
 	fmt.Println("  3. Review the file — most lines became `shell` ops. Promote to")
-	fmt.Println("     native ops (cp, mkdir, http_get, …) where it makes sense.")
+	fmt.Println("     native ops (cp, mkdir, http_get, …) or `exec BIN args` (the")
+	fmt.Println("     shell-free way to run a binary; `shell` is deprecated).")
 	fmt.Println("  4. Once nothing needs `shell`, add `--no-shell` to your invocation")
 	fmt.Println("     for cross-platform + audit-friendly guarantees.")
 	return nil

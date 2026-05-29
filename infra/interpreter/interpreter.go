@@ -27,10 +27,10 @@ type Handler func(i *Interpreter, b *Bindings, args map[string]any) (any, error)
 type OpAction int
 
 const (
-	ActRun     OpAction = iota // execute as normal
-	ActSkip                    // don't execute; if `let X = …` set X to ""
-	ActRunAll                  // execute this op, then clear BeforeOp
-	ActQuit                    // stop the whole command immediately
+	ActRun    OpAction = iota // execute as normal
+	ActSkip                   // don't execute; if `let X = …` set X to ""
+	ActRunAll                 // execute this op, then clear BeforeOp
+	ActQuit                   // stop the whole command immediately
 )
 
 // ErrQuit is returned by Run / RunOps when the BeforeOp hook returns
@@ -297,6 +297,19 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 		}
 		argsWithBody["_body"] = op.Body
 		args = argsWithBody
+	}
+	// Signal capture intent so output-producing ops (exec, pipe) can stay
+	// quiet when their result is bound (`let x = exec …`) but stream when
+	// used as a bare statement — matching the old shell vs shell_output split.
+	if op.CaptureInto != "" {
+		if _, ok := args["_capture"]; !ok {
+			argsWithCap := make(map[string]any, len(args)+1)
+			for k, v := range args {
+				argsWithCap[k] = v
+			}
+			argsWithCap["_capture"] = true
+			args = argsWithCap
+		}
 	}
 	if i.Tracer != nil {
 		i.Tracer.Before(op, args)
