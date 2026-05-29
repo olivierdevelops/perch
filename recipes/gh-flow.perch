@@ -45,7 +45,14 @@ command cleanup
     description "Delete every local branch that no longer has a remote"
     do
         exec git fetch -p
-        shell "git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D"
+        # gone branches: filter `git branch -vv` for ": gone]", take the name
+        # (1st field), delete each — no shell, awk, or xargs.
+        let raw = exec git branch -vv
+        let gone = grep ": gone]" "${raw}"
+        for_each "${gone}" line
+            let name = cut "1" "${line}"
+            exec git branch -D ${name}
+        end
         call ok "stale local branches deleted"
     end
 end

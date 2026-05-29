@@ -12,8 +12,14 @@ command install
             exec brew install fnm pnpm
         end
         if os == "linux"
-            shell "curl -fsSL https://fnm.vercel.app/install | bash"
-            shell "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+            pipe
+                exec curl -fsSL https://fnm.vercel.app/install
+                exec bash
+            end
+            pipe
+                exec curl -fsSL https://get.pnpm.io/install.sh
+                exec sh -
+            end
         end
         if os == "windows"
             call require_bin "winget"

@@ -55,7 +55,9 @@ command rebuild
     description "Recompile policy-check.wasm (needs Go 1.21+)"
     do
         with_cwd "${script_dir}"
-            shell "GOOS=wasip1 GOARCH=wasm go build -o policy-check.wasm ."
+            with_env "GOOS=wasip1,GOARCH=wasm"
+                exec go build -o policy-check.wasm .
+            end
         end
         let size = file_size "${script_dir}/policy-check.wasm"
         print "✓ rebuilt policy-check.wasm (${size} bytes)"

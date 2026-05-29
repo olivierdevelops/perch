@@ -40,7 +40,9 @@ command rebuild
     description "Recompile hello.wasm from main.go (needs Go 1.21+)"
     do
         with_cwd "${script_dir}"
-            shell "GOOS=wasip1 GOARCH=wasm go build -o hello.wasm ."
+            with_env "GOOS=wasip1,GOARCH=wasm"
+                exec go build -o hello.wasm .
+            end
         end
         let size = file_size "${script_dir}/hello.wasm"
         print "✓ rebuilt hello.wasm (${size} bytes)"

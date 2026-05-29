@@ -6,6 +6,7 @@ import "./_lib.perch"
 
 requires
     bin "docker"
+    bin "sort"
 end
 
 command status
@@ -19,7 +20,10 @@ end
 command images_by_size
     description "List all local images sorted by size (largest first)"
     do
-        shell "docker image ls --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}' | sort -k2 -h -r"
+        pipe
+            exec docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
+            exec sort -k2 -h -r
+        end
     end
 end
 
@@ -38,7 +42,9 @@ command stop_all
             call ok "nothing running"
             exit 0
         end
-        shell "docker stop $(docker ps -q)"
+        for_each "${running}" id
+            exec docker stop ${id}
+        end
         call ok "all containers stopped"
     end
 end
@@ -51,7 +57,9 @@ command restart_all
             call ok "nothing to restart"
             exit 0
         end
-        shell "docker restart $(docker ps -q)"
+        for_each "${running}" id
+            exec docker restart ${id}
+        end
         call ok "all containers restarted"
     end
 end

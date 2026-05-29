@@ -12,7 +12,10 @@ command install_uv
             exec brew install uv
         end
         if os == "linux"
-            shell "curl -LsSf https://astral.sh/uv/install.sh | sh"
+            pipe
+                exec curl -LsSf https://astral.sh/uv/install.sh
+                exec sh
+            end
         end
         if os == "windows"
             call require_bin "winget"

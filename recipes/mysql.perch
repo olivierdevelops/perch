@@ -82,7 +82,8 @@ command dump
         default "dump.sql"
     end
     do
-        shell "docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} > ${out}"
+        exec docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} -r /tmp/perch-dump.sql
+        exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
         call ok "wrote ${out}"
     end
 end
@@ -97,7 +98,10 @@ command restore
         index 1
     end
     do
-        shell "cat ${file} | docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}"
+        pipe
+            exec cat "${file}"
+            exec docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
+        end
         call ok "restored ${file} → ${db}"
     end
 end

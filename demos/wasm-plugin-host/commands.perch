@@ -95,8 +95,25 @@ end
 command rebuild
     description "Recompile every plugin (needs Go 1.21+)"
     do
+        # one build per plugin — no shell loop; env via with_env
         with_cwd "${script_dir}"
-            shell "for p in tax discount shipping format evil; do (cd plugins-src/$p && GOOS=wasip1 GOARCH=wasm go build -o ../../plugins/$p.wasm .); done"
+            with_env "GOOS=wasip1,GOARCH=wasm"
+                with_cwd "plugins-src/tax"
+                    exec go build -o ../../plugins/tax.wasm .
+                end
+                with_cwd "plugins-src/discount"
+                    exec go build -o ../../plugins/discount.wasm .
+                end
+                with_cwd "plugins-src/shipping"
+                    exec go build -o ../../plugins/shipping.wasm .
+                end
+                with_cwd "plugins-src/format"
+                    exec go build -o ../../plugins/format.wasm .
+                end
+                with_cwd "plugins-src/evil"
+                    exec go build -o ../../plugins/evil.wasm .
+                end
+            end
         end
         print "✓ rebuilt 5 plugins"
     end

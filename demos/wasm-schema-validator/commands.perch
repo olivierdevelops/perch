@@ -62,7 +62,9 @@ command rebuild
     description "Recompile the .wasm from main.go (needs Go 1.21+)"
     do
         with_cwd "${script_dir}"
-            shell "GOOS=wasip1 GOARCH=wasm go build -o schema-validator.wasm ."
+            with_env "GOOS=wasip1,GOARCH=wasm"
+                exec go build -o schema-validator.wasm .
+            end
         end
         let size = file_size "${script_dir}/schema-validator.wasm"
         print "✓ rebuilt schema-validator.wasm (${size} bytes)"

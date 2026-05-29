@@ -100,7 +100,8 @@ command dump
         default "dump.sql"
     end
     do
-        shell "docker exec ${NAME} pg_dump -U ${USER} ${db} > ${out}"
+        exec docker exec ${NAME} pg_dump -U ${USER} ${db} -f /tmp/perch-dump.sql
+        exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
         call ok "wrote ${out}"
     end
 end
@@ -116,7 +117,10 @@ command restore
         index 1
     end
     do
-        shell "cat ${file} | docker exec -i ${NAME} psql -U ${USER} ${db}"
+        pipe
+            exec cat "${file}"
+            exec docker exec -i ${NAME} psql -U ${USER} ${db}
+        end
         call ok "restored ${file} → ${db}"
     end
 end
