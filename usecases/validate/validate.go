@@ -214,6 +214,11 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 
 	// Walk the body.
 	known := autoBoundNames()
+	// A command declaring the `proxy_args` modifier binds ${proxy_args}
+	// (the full argv joined), same as a catch block does.
+	if cmd.Modifiers.ProxyArgs {
+		known["proxy_args"] = true
+	}
 	for _, a := range cmd.Args {
 		known[a.Name] = true
 		// A rest arg also exposes ${NAME_count}.

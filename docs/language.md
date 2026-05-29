@@ -218,6 +218,42 @@ Inside the body:
 
 See the [op catalog](op-reference.md) for every built-in op.
 
+### Running external tools — `shell` vs `exec`
+
+Two ways to run a subprocess:
+
+```perch
+shell "docker compose up -d"          # via the host shell (bash/cmd.exe)
+exec docker compose up -d             # shell-free: BIN + structured argv
+```
+
+- **`shell "…"`** hands the string to bash (POSIX) / `cmd.exe` (Windows). Pipes/globs/`&&` work because the shell expands them — at the cost of per-OS quoting differences and an injection surface.
+- **`exec BIN tok…`** runs `BIN` directly (`os/exec`, never a shell). Each token is exactly one argv slot — bare flags/paths work unquoted (`exec git log --oneline -10`); quote a token only to keep embedded spaces (`exec git commit -m "fix the bug"`); `${x}` always fills exactly one slot, even if its value has spaces or metacharacters (no injection). Captures stdout *and* streams it. When a `requires` block is present, `BIN` must be a declared `bin`.
+- **`pipe … end`** wires `stdout → stdin` between `exec` stages with in-process pipes — no shell:
+
+  ```perch
+  let n = pipe
+      exec docker ps -q
+      exec wc -l
+  end
+  ```
+
+This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.md) §3.2/§3.5, shipping today. The line-toolbox (`grep` / `cut` / `head` / `sort_lines` / …) composes with captured output to replace a pipeline's middle stages.
+
+### Error handling — `try / rescue / finally`
+
+```perch
+try
+    exec flaky-deploy
+rescue
+    print "deploy failed: ${err.kind} / ${err.message}"
+finally
+    exec cleanup-temp
+end
+```
+
+`rescue` runs only if the body raised (with `${err.kind}`, `${err.message}`, … bound); `finally` always runs. Both are optional — a `finally`-only `try` re-raises after cleanup; only a non-empty `rescue` swallows. Discriminate kinds with `match err.kind` (bare dotted ident) or `match "${err.kind}"`. Full model: [errors.md](errors.md).
+
 ## `catch NAME … end`
 
 A fallback dispatched when the user types a command we don't have. The unknown name is bound to `NAME` inside the body.
@@ -443,8 +479,16 @@ Unknown names produce an error at op-run time. To pass a literal `${VAR}` throug
 
 ## Comments
 
-!!! warning "Comments currently don't parse"
-    `# ...` line comments are the intended design, but the current build's grammar **rejects them** (a known bug — no real `.perch` file uses `#` comments yet). Until it's fixed, keep explanatory prose *outside* the `.perch` file (in a README), or rely on descriptive command/arg `description` text. Don't put `#` lines in a file you intend to run.
+`# ...` line comments parse and are ignored — both whole-line and trailing:
+
+```perch
+# Build the release artifacts
+command build
+    do
+        exec go build -o ./bin/app ./cmd/app   # cross-platform, no shell
+    end
+end
+```
 
 ## Reserved words
 

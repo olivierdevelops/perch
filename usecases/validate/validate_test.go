@@ -80,6 +80,28 @@ func TestUnknownPlaceholder(t *testing.T) {
 	}
 }
 
+// A command declaring the `proxy_args` modifier may reference ${proxy_args}
+// in its body (same as a catch block). Regression: the validator used to only
+// register proxy_args for catch, so a command form errored.
+func TestProxyArgsOnCommand(t *testing.T) {
+	p := &domain.Program{
+		Commands: map[string]*domain.Command{
+			"run": {
+				Name:        "run",
+				Description: "d",
+				Modifiers:   domain.Modifiers{ProxyArgs: true},
+				Ops:         []domain.Op{{Kind: "shell", Args: map[string]any{"cmd": "python3 main.py ${proxy_args}"}}},
+			},
+		},
+	}
+	issues := Check(p, known("shell"))
+	for _, i := range issues {
+		if i.Severity == "error" {
+			t.Errorf("proxy_args command should not error; got %s", i)
+		}
+	}
+}
+
 func TestEnvLookingPlaceholderPasses(t *testing.T) {
 	p := &domain.Program{
 		Commands: map[string]*domain.Command{

@@ -21,7 +21,7 @@ The gate is enforced in `infra/ops/requires.go` and wired into each external op 
 
 | Capability | Declared with | Undeclared error | What it gates |
 |---|---|---|---|
-| **subprocess (shell)** | `bin "name"` | `bin_not_declared` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell` (first token), plus non-shell spawners: `pkg_install`, `pkg_uninstall`, `pkg_installed`, `bin_version`, `os_version`, `process_running`, `kill_by_name` (the program they spawn) |
+| **subprocess (shell)** | `bin "name"` | `bin_not_declared` | `shell`, `shell_output`, `shell_detached`, `shell_in`, `try_shell` (first token), `exec` + `pipe` stages (the named bin), plus non-shell spawners: `pkg_install`, `pkg_uninstall`, `pkg_installed`, `bin_version`, `os_version`, `process_running`, `kill_by_name` (the program they spawn) |
 | **network host** | `host "x.com"` | `host_not_declared` | `http_get/post/put/delete`, `http_status`, `download`, `dns_lookup`, `port_check`, `wait_for_port`, `wait_for_url`, `public_ip` |
 | **network (general)** | any `host` declared | `host_not_declared` | hostless network ops: `local_ip`, `interfaces`, `mac_address`, `port_free`, `find_free_port` |
 | **filesystem read** | `read "./path"` | `read_not_declared` | `read_file`, `exists`, `is_dir`, `is_file`, `file_size`, `list_dir`, `read_link`, `sha256_file`, `sha1_file`, `md5_file`, `glob`, `verify_sha256`, `cp`/`mv`/`copy_dir` (src), archive `src` |
