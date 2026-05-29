@@ -4,7 +4,7 @@ The built-in "standard library" — every op the perch runtime can dispatch. Eac
 
 Ops fall into two shapes:
 
-- **Statement ops** — invoked as a body line for their side effects. e.g. `shell "go build"`.
+- **Statement ops** — invoked as a body line for their side effects. e.g. `exec go build`.
 - **Capturable ops** — invoked via `let NAME = OP ARGS` to capture their return value. e.g. `let h = sha256_file "./bin"`.
 
 Most ops support both shapes (return value is discarded if you don't `let`).

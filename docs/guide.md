@@ -906,7 +906,7 @@ let normalized = replace "${raw}" "\r\n" "\n"
 
 ### Shell vs OS — use `os "PLATFORM" ... end` for explicit OS context
 
-The first token of `shell "X"` is the binary you're invoking. Different OSes have different binaries. **Use the `os "PLATFORM" ... end` block** to declare which body is meant for which OS — explicit beats hidden:
+The first token of `exec X` (or `shell "X"`) is the binary you're invoking. Different OSes have different binaries. **Use the `os "PLATFORM" ... end` block** to declare which body is meant for which OS — explicit beats hidden:
 
 ```perch
 command setup

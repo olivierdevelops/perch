@@ -22,7 +22,7 @@ $ perch simulate deploy --sim-os=linux --sim-have-bin=kubectl \
 ✓ print "==> deploy starting"
 ✓ if os eq linux
    ↳ condition os eq "linux" evaluates TRUE (sim os="linux") — body runs
-   ✓ shell "kubectl apply -f manifest.yaml"
+   ✓ exec kubectl apply -f manifest.yaml
 ✓ if os eq darwin
    ↳ condition os eq "darwin" evaluates FALSE (sim os="linux") — body skipped
 ? http_get "https://api.github.com/repos/foo/bar"
@@ -98,20 +98,20 @@ All flags compose. They mirror perch's runtime `--no-*` / `--allow-*` / `--env` 
 
 ### Capability mismatches
 
-`shell "kubectl ..."` when the sim env doesn't have `kubectl` in `--sim-have-bin`:
+`exec kubectl ...` when the sim env doesn't have `kubectl` in `--sim-have-bin`:
 
 ```
-✗ shell "kubectl apply -f manifest.yaml"
-   ↳ shell binary "kubectl" not in sim --allow-bin allowlist (have: docker, git)
+✗ exec kubectl apply -f manifest.yaml
+   ↳ exec binary "kubectl" not in sim --allow-bin allowlist (have: docker, git)
 ```
 
 ### Sandbox-style flags
 
-`shell` when the sim env declares `--sim-no-shell`:
+`exec` when the sim env declares `--sim-no-subprocess`:
 
 ```
-✗ shell "echo hello"
-   ↳ shell capability denied by sim --no-shell
+✗ exec echo hello
+   ↳ subprocess capability denied by sim --no-subprocess
 ```
 
 ### Write outside allowed roots
@@ -133,7 +133,7 @@ All flags compose. They mirror perch's runtime `--no-*` / `--allow-*` / `--env` 
 With `--sim-env-only` plus `--sim-env=HOME=/x`:
 
 ```
-✗ shell "deploy --token=${API_TOKEN}"
+✗ exec deploy --token=${API_TOKEN}
    ↳ references ${API_TOKEN} but sim --env restricts host envs to HOME
 ```
 
@@ -142,7 +142,7 @@ With `--sim-env-only` plus `--sim-env=HOME=/x`:
 ```
 ✓ if os eq linux
    ↳ condition os eq "linux" evaluates TRUE (sim os="linux") — body runs
-   ✓ shell "apt-get install jq"
+   ✓ exec apt-get install jq
 
 ✓ if os eq darwin
    ↳ condition os eq "darwin" evaluates FALSE (sim os="linux") — body skipped
@@ -176,10 +176,10 @@ When the simulator can't reach a definite verdict:
 Each block-op modifies the simulated environment for its body. `sandbox` narrows capabilities; `with_env` adds env vars; both compose with the outer sim env.
 
 ```
-✓ sandbox "no_shell,no_network"
-   ✗ shell "echo hi"
-      ↳ shell capability denied by sim --no-shell (within sandbox block)
-   ✓ print "still works — no shell needed"
+✓ sandbox "no_subprocess,no_network"
+   ✗ exec echo hi
+      ↳ subprocess capability denied by sim --no-subprocess (within sandbox block)
+   ✓ print "still works — no subprocess needed"
 ```
 
 ## Cross-command dispatch

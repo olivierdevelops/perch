@@ -272,7 +272,7 @@ $ perch --report deploy
 ✓ deploy (1.32s)
 └─ ✓ sandbox "no_network" (1.32s)
    ├─ ✓ wasm_run "./validate.wasm" (124ms)
-   └─ ✓ shell "kubectl apply ..." (1.20s)
+   └─ ✓ exec kubectl apply ... (1.20s)
 ```
 
 `--audit FILE.ndjson` records `wasm_run` events with the module's hash

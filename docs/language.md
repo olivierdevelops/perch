@@ -99,7 +99,7 @@ command build
     # ── body ──
     do
         print "Building for ${target}"
-        shell "go build -o ./bin/${target}/myapp"
+        exec go build -o ./bin/${target}/myapp
     end
 end
 ```
@@ -319,7 +319,7 @@ template install_pkg
         default "latest"
     end
     do
-        shell "brew install ${pkg}@${version}"
+        exec brew install ${pkg}@${version}
     end
 end
 
@@ -364,7 +364,7 @@ Each direct child of `parallel` runs in its own goroutine; the block exits when 
 
 ```capy
 timeout "30s"
-    shell "kubectl apply -f manifest.yaml"
+    exec kubectl apply -f manifest.yaml
 end
 ```
 
@@ -374,7 +374,7 @@ Caps wall-clock for the body. A long-running op can't be interrupted mid-call; t
 
 ```capy
 retry 3
-    shell "curl -fsSL https://flaky.example.com/"
+    exec curl -fsSL https://flaky.example.com/
 end
 ```
 
@@ -384,7 +384,7 @@ Runs the body up to N times. On non-nil error, sleeps with exponential backoff (
 
 ```capy
 with_env "GOOS=linux,CGO_ENABLED=0"
-    shell "go build ./cmd"
+    exec go build ./cmd
 end
 ```
 
@@ -402,8 +402,8 @@ The three env-management forms, by lifetime:
 
 ```capy
 with_cwd "./subproject"
-    shell "npm install"
-    shell "npm run build"
+    exec npm install
+    exec npm run build
 end
 ```
 
@@ -423,7 +423,7 @@ Narrows the active capability mask for the body. Available flags inside the stri
 
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
-    shell "go build -o bin/${target} ./cmd"
+    exec go build -o bin/${target} ./cmd
     let size = file_size "bin/${target}"
 end
 ```
@@ -444,7 +444,7 @@ $ perch --report release
    ├─ ✓ with_lock "prod-deploy" (4.18s) [from template with_lock]
    │  ├─ ✓ acquire_lock "prod-deploy" (12ms)
    │  ├─ ✓ retry attempts=3 (4.10s)
-   │  │  └─ ✗ shell "kubectl apply ..." (5.00s)
+   │  │  └─ ✗ exec kubectl apply ... (5.00s)
    │  │     ↳ error: timeout after 5m
    │  └─ ✓ release_lock "prod-deploy" (8ms)
    └─ ✓ swap_traffic (4ms)

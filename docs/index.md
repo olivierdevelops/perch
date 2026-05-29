@@ -211,8 +211,8 @@ perch -f commands.perch --server --port 8080
       <div class="out">
 <span class="di">[started]</span>
 ▸ <span class="hi">if</span> has_bin "kubectl"  → true
-  ✓ <span class="ok">shell "kubectl apply -f canary.yaml -n prod"</span>
-  ✓ <span class="ok">shell "kubectl rollout status deploy/api-canary"</span>
+  ✓ <span class="ok">exec kubectl apply -f canary.yaml -n prod</span>
+  ✓ <span class="ok">exec kubectl rollout status deploy/api-canary</span>
 ▸ <span class="hi">retry max=3</span>
   ✓ <span class="ok">http_get "https://api.example.com/health"</span> → 200
 ▸ wait 15m
@@ -264,7 +264,7 @@ perch -f commands.perch --server --port 8080
       <div class="out">
 <span class="hi">═══ Scenario: happy-path ═══</span>
 ✓ <span class="ok">if has_bin "kubectl"</span>  oracle: true → body runs
-  ✓ <span class="ok">shell "kubectl apply -f canary.yaml -n prod"</span>
+  ✓ <span class="ok">exec kubectl apply -f canary.yaml -n prod</span>
   ✓ <span class="ok">http_get "https://api.example.com/health"</span>  oracle: 200 OK
 <span class="di">summary: 4 will-run · 0 will-fail · 0 uncertain</span>
 

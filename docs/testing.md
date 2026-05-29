@@ -226,9 +226,9 @@ $ perch test --filter release --report -v
     ✗ test_release_pipeline (8s)
     └─ ✗ timeout "30s" (8s)
        └─ ✗ retry attempts=3 (8s)
-          ├─ ✗ shell "kubectl apply ..." (30s)
-          ├─ ✗ shell "kubectl apply ..." (30s)
-          └─ ✗ shell "kubectl apply ..." (30s)
+          ├─ ✗ exec kubectl apply ... (30s)
+          ├─ ✗ exec kubectl apply ... (30s)
+          └─ ✗ exec kubectl apply ... (30s)
 
 0 passed, 1 failed in 8s.
 ```

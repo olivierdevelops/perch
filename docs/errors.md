@@ -240,11 +240,11 @@ Semantics:
 ```perch
 match "${os}"
     case darwin
-        shell "brew install jq"
+        exec brew install jq
     case linux
-        shell "apt-get install -y jq"
+        exec apt-get install -y jq
     case windows
-        shell "choco install jq -y"
+        exec choco install jq -y
     else
         fail "unsupported os: ${os}"
 end
@@ -328,7 +328,7 @@ end
 let tmp = mktemp_dir
 try
     cp "./src/big-file" "${tmp}/staged"
-    shell "process ${tmp}/staged"
+    exec process ${tmp}/staged
     mv "${tmp}/staged" "./out/"
 finally
     rm "${tmp}"        # always cleans up, even if process failed
