@@ -43,7 +43,7 @@ Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.
 | `fail MSG`               | `(string)` | Exits non-zero with the message. |
 | `exit N`                 | `(int)`    | Exits with code `N`. |
 | `sleep SECS`             | `(any)`    | Sleeps for `SECS` seconds. Accepts float. |
-| `run TARGET`             | `(ident)`  | Calls another command. Bindings persist into the called command. |
+| `NAME args…`             | bare name  | Invoke another **command** (or expand a **template**) by its name — no `run`/`call` keyword. Bindings persist into the callee. Names are globally unique, so resolution is unambiguous; `exec NAME` forces the subprocess reading. |
 | `list_commands`          | `()`       | Prints the visible commands in the program. |
 
 ## File system

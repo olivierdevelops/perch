@@ -188,7 +188,7 @@ common library at `recipes/_lib.perch` providing four templates:
 - `warn "msg"` → `⚠ msg` (stderr; doesn't fail)
 
 This shows off perch's **import system** (the recipe imports a helper file)
-and **template system** (one declaration, used everywhere via `call`).
+and **template system** (one declaration, used everywhere by name).
 
 ## Compose your own
 

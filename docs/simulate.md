@@ -184,7 +184,7 @@ Each block-op modifies the simulated environment for its body. `sandbox` narrows
 
 ## Cross-command dispatch
 
-`run other_command` recurses — the simulator follows the call and simulates that command's body too, with the same sim env. Useful for catching that `run setup` depends on `--sim-have-bin=brew` even if the parent command looks fine.
+a bare command invocation recurses — the simulator follows the call and simulates that command's body too, with the same sim env. Useful for catching that a bare `setup` invocation depends on `--sim-have-bin=brew` even if the parent command looks fine.
 
 ## Stateful simulation, oracles, and scenarios
 

@@ -102,7 +102,7 @@ Reads the `.sh`, produces a best-effort `.perch` scaffold, and prints next steps
 
 - It does not parse bash control flow (`if`/`while`/`case`). Those land inside one `shell` op each and execute correctly — but they show up as opaque to perch's static analysis. Promote them to `if EXPR ... end` blocks when you're ready.
 - It does not type-check arguments. `${1}`, `${2}`, `$@` pass through to `shell` as bash positionals. Add `arg NAME ... end` declarations where you want CLI-level typing.
-- It does not unify duplicate logic. If you had two functions that mostly did the same thing, the translation has two commands; refactor with `run` calls when convenient.
+- It does not unify duplicate logic. If you had two functions that mostly did the same thing, the translation has two commands; refactor with bare command calls when convenient.
 - It does not pick the right quote delimiter when content has `"`, `'`, AND `` ` ``. Those lines get a `# TODO: fix quoting` comment.
 
 ### Round-trip example

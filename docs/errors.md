@@ -125,7 +125,7 @@ These fire when the runtime restriction layer refuses an op outright (before the
 | Kind | When it fires |
 |---|---|
 | `unresolved_var` | `${name}` had no binding (no arg, no global, no let, not in the env allowlist). |
-| `unresolved_template` | `call NAME args:val` where `NAME` isn't a declared template. |
+| `unresolved_template` | a bare `NAME args…` invocation where `NAME` isn't a declared template (or command/op/bin). |
 
 ### Runtime (4)
 
@@ -140,7 +140,7 @@ These fire when the runtime restriction layer refuses an op outright (before the
 
 | Kind | When it fires |
 |---|---|
-| `command_not_found` | `run X` where `X` isn't a declared command. |
+| `command_not_found` | a bare `X` invocation where `X` isn't a declared command. |
 | `bin_not_found` | `has_bin` returned false in a context that required the binary (e.g. inside `require_bin`). |
 
 ### Requires-manifest (4)

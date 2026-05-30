@@ -13,7 +13,7 @@ Pick any operating system. Strip away the hardware story and what's left is a sm
 | # | OS concept | perch equivalent | Status |
 |---|---|---|---|
 | 1 | **System calls** (the API surface) | ~140 first-class ops (`shell`, `cp`, `http_get`, `tar_create`, `pkg_install`, …) | shipped |
-| 2 | **Process model** (fork/exec, lifecycle) | `shell`, `shell_detached`, `run TARGET`, `on_signal HANDLER`, `kill_by_name` | shipped |
+| 2 | **Process model** (fork/exec, lifecycle) | `shell`, `shell_detached`, a bare command name, `on_signal HANDLER`, `kill_by_name` | shipped |
 | 3 | **Capability system** (which calls a process may make) | `--no-shell`, `--no-subprocess`, `--no-network`, `--no-write`, `--allow-bin`, `--no-shell-metachars` | shipped |
 | 4 | **Identity / environment** (whose env vars can be read) | `--env A,B,C` (with automatic subprocess scrubbing) | shipped |
 | 5 | **Resource limits** (CPU, memory, wall clock) | `--max-runtime SECS` (more designed in [sandbox §3](sandbox.md#3-the-sandbox-block-grammar)) | **shipped (wall clock)**, rest designed |
@@ -51,7 +51,7 @@ A perch `command` is the unit of "something a user invokes." Inside `do … end`
 - **`shell CMD`** — fork-execs a shell. The closest perch gets to a syscall, also its biggest attack surface (see §3).
 - **`shell_detached CMD`** — fire-and-forget.
 - **`shell_output CMD`** — capture stdout.
-- **`run TARGET`** — call another command (including `private` ones not visible on the CLI).
+- **a bare command name** — invoke another command (including `private` ones not visible on the CLI).
 - **`on_signal HANDLER`** — a per-command modifier; when SIGINT/SIGTERM arrives, the named command runs as cleanup. The init-system-style "trap and clean up" pattern, declarative.
 - **`for_each VALUE NAME … end`** — iterate, like Make's pattern rules.
 

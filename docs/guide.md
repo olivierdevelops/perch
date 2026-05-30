@@ -405,7 +405,7 @@ let prior = read_file "${temp_dir}/state.json"
 
 - It doesn't leak across commands. Each command's body has its own binding scope. To pass state between commands, write to a file or use `cache`.
 - It doesn't survive across `parallel` siblings. Each `parallel` child runs in its own clone; capturing `let X = ...` inside one branch doesn't make `${X}` visible in another.
-- It doesn't survive `run other_command`. The callee runs with a fresh binding table.
+- It doesn't survive invoking another command by name. The callee runs with a fresh binding table.
 
 ### Working with JSON
 
@@ -748,7 +748,7 @@ For truly defensive cleanup (delete the temp dir even on build failure), wrap in
 
 ## Templates — code reuse
 
-When the same body shape appears in two commands, lift it into a template. Templates are **parse-time stamps** — they expand inline at every `call NAME ...` site.
+When the same body shape appears in two commands, lift it into a template. Templates are **parse-time stamps** — they expand inline at every bare `NAME ...` invocation.
 
 ```perch
 template require_bin
@@ -853,7 +853,7 @@ Inner sandboxes can ONLY tighten. They can't grant capability the outer policy d
 
 - **SSRF guard** — every HTTP call refuses private / loopback / link-local IPs unless `--allow-private-ips`. Defense includes redirect-hop checks and DNS-rebinding (multi-A) handling.
 - **Scheme downgrade guard** — `https → http` redirects refused unless `--allow-scheme-downgrade`.
-- **`private` commands** — never callable from the CLI (only via `run`); excluded from `--help` and MCP.
+- **`private` commands** — never callable from the CLI (only by name from another command); excluded from `--help` and MCP.
 
 ### Audit log
 
@@ -1316,7 +1316,7 @@ Syntactic + reference validation:
 perch --check -f commands.perch
 ```
 
-Catches: unknown op kinds, missing `run TARGET` references, typo'd arg types, duplicate args, colliding positional indexes, unresolved `${name}` placeholders.
+Catches: unknown op kinds, missing command references, typo'd arg types, duplicate args, colliding positional indexes, unresolved `${name}` placeholders.
 
 ### `--scan` (capability audit + risk score)
 
@@ -1678,7 +1678,7 @@ command release
 end
 ```
 
-`run NAME` halts the parent on a non-zero from the callee. Chain commands as transactions.
+Invoking a command by name halts the parent on a non-zero from the callee. Chain commands as transactions.
 
 ### 10. Time-bounded operation
 
@@ -1793,7 +1793,7 @@ command version
 end
 ```
 
-Use as a build-id seed: `let buildid = run version` → bake into binary.
+Use as a build-id seed: `let buildid = version` → bake into binary.
 
 ### 17. JSON pipeline (no `jq` shell-out)
 
@@ -3202,7 +3202,7 @@ end
 print "${result}"   # ERROR: ${result} is unbound here
 ```
 
-**Fix:** write to a file inside the branch and read it after; or restructure so each branch is a separate `run` to a command whose return value you don't need to consume.
+**Fix:** write to a file inside the branch and read it after; or restructure so each branch is a separate command invocation whose return value you don't need to consume.
 
 ### Forgetting to validate `${proxy_args}`
 
@@ -3350,7 +3350,7 @@ For now: no, not without forking. The op set is fixed at compile time of the per
 
 ### Can perch call itself / other perch programs?
 
-Yes, via `shell "perch -f other.perch other_command"`. For an in-process equivalent, use `import` + `run`. The fat-binary case is more interesting: a built binary can `shell "${script_path} other_command"` to re-invoke itself (since `${script_path}` is the binary's own location when running embedded).
+Yes, via `shell "perch -f other.perch other_command"`. For an in-process equivalent, use `import` + a bare command call. The fat-binary case is more interesting: a built binary can `shell "${script_path} other_command"` to re-invoke itself (since `${script_path}` is the binary's own location when running embedded).
 
 ### How do I version-pin perch in CI?
 
@@ -3414,8 +3414,8 @@ command NAME description "..." [modifiers]
         let X = OP ARGS                  # capture result
         if EXPR ... end                  # control flow
         BLOCK_OP ARGS ... end            # parallel / retry / etc.
-        call TEMPLATE "value"
-        run OTHER_COMMAND "-arg=value"
+        TEMPLATE "value"
+        OTHER_COMMAND "-arg=value"
         fail "msg"
     end
 end

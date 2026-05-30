@@ -262,7 +262,7 @@ Every one of these is something a team has a "wiki page of incantations" for. Ea
 1. **The wrapper is 30 lines, not a 500-line Cobra app.** No flag-parsing scaffolding, no `--help` boilerplate.
 2. **It ships as one binary.** The recipient doesn't install perch, doesn't need Go, doesn't need the recipe file.
 3. **Three frontends from one source.** CLI for developers, web UI for non-engineers, MCP for AI agents. You write the recipe once.
-4. **`--check` keeps the wrapper honest.** If you typo a flag in `docker run -i …`, `perch --check` won't catch the typo (it's inside a shell string), but typo'd command refs, missing args, broken `run` targets all surface before users hit them.
+4. **`--check` keeps the wrapper honest.** If you typo a flag in `docker run -i …`, `perch --check` won't catch the typo (it's inside a shell string), but typo'd command refs, missing args, broken command invocations all surface before users hit them.
 5. **`--help` is auto-generated** from the `description` fields, with typed args and defaults. No "documentation drift."
 
 This is the application that **most teams will discover first**. Wrapping a known-clunky tool is the gateway use case; from there, the same team finds they can do all the other applications below.
@@ -427,7 +427,7 @@ Compare to giving the agent raw `kubectl`: prompt injection or hallucination →
 **Same pattern for other "dangerous engine" tools:**
 
 - **`rm`** / file-system ops — only the deletes you've vetted; everything else absent
-- **`terraform apply`** — only against pre-named environments; only after `terraform plan` (encoded as a `run plan_first` op)
+- **`terraform apply`** — only against pre-named environments; only after `terraform plan` (encoded as a bare `plan_first` invocation)
 - **`aws`** / cloud APIs — only the read/write surfaces your security team approves
 - **DB clients** — only the queries you've parameterised; no raw SQL
 
@@ -1215,7 +1215,7 @@ Some things that have shaken out as best-practice from real use:
 
 **Group commands by verb-first naming.** `db_backup` / `db_restore` / `db_migrate` reads better than `backup_db` / `restore_db` and groups in `--help`.
 
-**Treat `perch --check` as part of CI.** Catch typos, missing `run` targets, unresolved `${name}` placeholders before they hit prod.
+**Treat `perch --check` as part of CI.** Catch typos, missing command invocations, unresolved `${name}` placeholders before they hit prod.
 
 **Build for the slowest target first.** A `perch --build -o myapp` on macOS produces a Mach-O arm64 binary. For wider distribution you need to wait for cross-compile support (roadmap), or run `--build` on each target's CI runner.
 

@@ -123,7 +123,7 @@ end
 |---|---|
 | `description "x"`                 | Help text shown by `--help`. |
 | `arg NAME ... end`                | Declares a typed CLI argument. Each property is its own labelled inner line (see below). |
-| `private`                         | Hide from CLI; only callable via `run` from another command. |
+| `private`                         | Hide from CLI; only callable by name from another command. |
 | `detached`                        | Don't wait on processes spawned by `shell_detached`. |
 | `proxy_args`                      | Skip arg parsing; argv comes through as `${proxy_args}`. Required on both `command` and `catch` blocks — without it, `${proxy_args}` is unbound. |
 | `require_os "darwin" ...`         | Refuse to run on other OSes. Repeatable. |
@@ -222,12 +222,19 @@ do
 end
 ```
 
-Inside the body:
+Inside the body, **every line starts with a name**, and that leading name is resolved against a single, unambiguous registry:
 
-- Every line is an **op call**. The op kind (`print`, `shell`, `mkdir`, …) is the first identifier; args follow.
-- **`let NAME = OP ARGS`** runs the op and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
+| Leading name is… | Effect |
+|---|---|
+| a **built-in op** (`print`, `mkdir`, `http_get`, …) | run the op |
+| a **command** in this file | invoke that command (private ones included) — `deploy -target=linux` |
+| a **template** in this file | expand the template inline — `ensure_dir "./out"` |
+| a **declared bin** (or `exec BIN`) | spawn the subprocess — `docker ps` |
+
+There is **no `run` or `call` keyword** — a bare name *is* the call. Resolution is unambiguous because **every name is globally unique**: a command, template, or bin may not shadow a built-in op/keyword or each other, and `perch --check` errors on any collision. (`exec NAME` stays available to force the subprocess reading when you want to be explicit.)
+
+- **`let NAME = EXPR`** runs `EXPR` (an op, a command, or an `exec`) and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
 - **Block ops** — the unified `if EXPR ... end` wraps a nested body that runs only when the condition holds. EXPR may be a comparison (`os == "linux"`, `size > 1000000`), a truthy/falsy check (`has_bin`, `not has_bin`), or a predicate call (`exists "./bin"`). See "Conditionals" in the [op catalog](op-reference.md).
-- **`run NAME`** calls another command in the same file (private commands are callable here).
 
 See the [op catalog](op-reference.md) for every built-in op.
 
@@ -308,7 +315,7 @@ With that catch in place, `./mywrapper status` calls `git status`, `./mywrapper 
 
 ## Templates — parse-time stamps
 
-A `template NAME … end` block is a **parse-time stamp** with the same `arg NAME … end` block syntax as `command`. Every `call NAME args…` site is expanded inline before the program ever reaches the interpreter, with positional args substituted as `${argname}` bindings in the spliced body.
+A `template NAME … end` block is a **parse-time stamp** with the same `arg NAME … end` block syntax as `command`. Every invocation site — a bare `NAME args…` (no `call` keyword) — is expanded inline before the program ever reaches the interpreter, with positional args substituted as `${argname}` bindings in the spliced body.
 
 ```capy
 template check_bin

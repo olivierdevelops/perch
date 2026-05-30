@@ -36,7 +36,7 @@ command setup
 end
 ```
 
-`run COMMAND` keeps things composable. We'll fill in the sub-commands.
+Bare command invocation keeps things composable. We'll fill in the sub-commands.
 
 ## Step 2 — Cross-platform package install
 
@@ -177,7 +177,7 @@ The shape stays clean as the project grows.
 ## What you learned
 
 - `if os == "..."` + `if arch == "..."` make cross-platform conditionals first-class.
-- `run NAME` composes commands without recursion or duplication.
+- Bare command names compose commands without recursion or duplication.
 - `write_file` cleanly handles per-OS config files.
 - The whole installer ships as one binary via `perch --build`.
 

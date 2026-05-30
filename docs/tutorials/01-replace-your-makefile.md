@@ -163,7 +163,7 @@ command release
 end
 ```
 
-`run COMMAND` is a real op — no recursive-make tricks, no `$(MAKE) -C` weirdness.
+Invoking another command is just its bare name — no recursive-make tricks, no `$(MAKE) -C` weirdness.
 
 ## Step 6 — `ci`
 
@@ -239,7 +239,7 @@ Same shape, same muscle memory, plus all the things Make didn't have: typed args
 - Globals replace Makefile variables. Interpolation is `${name}` not `$(name)`.
 - Each Make target maps to a `command NAME ... end` block.
 - Ops (`mkdir`, `rm`, `if exists "..."`, `if os == "..."`) replace shell incantations and platform-conditional Makefile-snippet hackery.
-- `run COMMAND` replaces recursive Make.
+- Bare command invocation replaces recursive Make.
 - One file drives both local dev and CI.
 - The shebang + `+x` permissions make `./commands.perch test` work — no `perch` prefix required once `perch` is on `$PATH`.
 

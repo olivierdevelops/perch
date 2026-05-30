@@ -187,7 +187,7 @@ SECRET_FROM_SUBPROCESS=               ← empty: $SECRET_KEY scrubbed
 
 `bash` (the subprocess) literally cannot see `$SECRET_KEY`. This closes the most common leak — agent crafts a `shell` arg trying to exfiltrate a host secret — without you having to remove the `shell` op.
 
-User-declared globals with an uppercase initial (the explicit "export this as env" convention) still propagate, because those are values the file's author chose to expose.
+Top-level bindings with an uppercase initial (the explicit "export this as env" convention) still propagate, because those are values the file's author chose to expose.
 
 ### Layer 3 — `--allow-bin` and `--no-shell-metachars` (bound which shell calls)
 
@@ -411,7 +411,7 @@ The example in the user's question at the top of this section is **the author's*
 
 ## 3. The `sandbox` block — grammar
 
-We add one new top-level block, parallel to `globals`. Sample:
+We add one new top-level block, parallel to top-level bindings. Sample:
 
 ```capy
 name        "deploy"
@@ -536,12 +536,12 @@ This is enough to neuter shell access (`no_op shell shell_output shell_detached`
 
 ### 4.2 Env var visibility (`env`)
 
-Today, `Bindings.Lookup` falls through to `os.LookupEnv` for any name not in bindings/env/globals. That means `${ANY_VAR}` reads the host process environment.
+Today, `Bindings.Lookup` falls through to `os.LookupEnv` for any name not in bindings/env/top-level bindings. That means `${ANY_VAR}` reads the host process environment.
 
 Under sandbox:
 - The `env` clause declares the whitelist.
 - The interpolation function is wrapped: `Lookup(name)` rejects un-whitelisted names with `"env var ${X} not declared in sandbox env"`.
-- `--check` walks every literal `${…}` in op args + globals + on_signal handlers. Any name not in (autobound ∪ args ∪ globals ∪ env vars ∪ command env ∪ sandbox env) is flagged at validation time.
+- `--check` walks every literal `${…}` in op args + top-level bindings + on_signal handlers. Any name not in (autobound ∪ args ∪ top-level bindings ∪ env vars ∪ command env ∪ sandbox env) is flagged at validation time.
 - Dynamic forms — `let n = format "${X}_${Y}" …; print "${n}"` — can't be statically caught fully, but the interpreter still enforces at runtime.
 
 The autobound names (`os`, `arch`, `home`, `cache_dir`, `exe_path`, …) are unaffected — they're host facts, not env vars, and the sandbox controls them via `private_ops` separately.
@@ -552,7 +552,7 @@ The hard case — paths are usually built dynamically.
 
 Approach:
 
-1. **Roots are interpolated once at startup** against the auto-bindings + globals + the host env vars that survived the `env` filter. So `read "${HOME}/.config/myapp"` is resolved to `/Users/you/.config/myapp` before any command runs.
+1. **Roots are interpolated once at startup** against the auto-bindings + top-level bindings + the host env vars that survived the `env` filter. So `read "${HOME}/.config/myapp"` is resolved to `/Users/you/.config/myapp` before any command runs.
 2. **Each file-op handler wraps `resolve(path, b)` with `enforceFS(path, mode)`**. `mode` is `read` or `write`. The check resolves symlinks, then ensures the abs path is `filepath.Clean`-equal to or a descendant of at least one root.
 3. **Reject `..` traversal at resolve time** so a user-supplied arg like `path:"../../etc/passwd"` is rejected even if the resolved abs path coincidentally falls inside a root.
 4. **Static checks where possible** — if an op arg is a string literal with no `${…}`, `--check` evaluates the path now and reports any violation pre-runtime.

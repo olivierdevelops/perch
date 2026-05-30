@@ -24,7 +24,7 @@ There are two kinds of new vocabulary, doing two different jobs:
 
 | Mechanism | Job | Expansion time | Example |
 |---|---|---|---|
-| **Template** | Eliminate repetition | Parse time (inline splice) | `call check_bin "docker"` |
+| **Template** | Eliminate repetition | Parse time (inline splice) | `check_bin "docker"` |
 | **Execution context** | Wrap a body to modify how it runs | Run time (block op) | `retry 3 ... end`, `sandbox "no_shell" ... end` |
 
 **Templates stamp out boilerplate. Execution contexts wrap execution.**
@@ -179,7 +179,7 @@ These are not bugs, they're the line:
 - **No closures, no return values.** A template is pure parameter
   substitution. Use `let` capture and ordinary bindings for state.
 - **No declaration-emitting templates.** A template can't contain
-  `command`, `import`, or `globals`. Templates expand inside a body,
+  `command`, `import`, or a top-level binding. Templates expand inside a body,
   not at file scope.
 - **Templates don't appear in `--help`, MCP, or `--list`.** They're
   invisible at runtime. Only the post-expansion ops exist.
@@ -617,7 +617,7 @@ A: → Use cache with the file's hash in the key:
 Q: I want to enforce that an imported file can't do shell or network.
 A: → Wrap the call in sandbox:
         sandbox "no_shell,no_network"
-            run vendor.do_thing
+            vendor.do_thing
         end
 
 Q: How do I see what actually ran?
@@ -633,7 +633,7 @@ These additions are purely additive:
 
 - **No keywords removed.** Existing `.perch` files run unchanged.
 - **No semantic changes to `command`, `do`, `if`, `for_each`, `let`,
-  `run`, or any other existing form.** They behave exactly as before.
+  or any other existing form.** They behave exactly as before.
 - **No new data types.** No lists, no maps, no closures. Bindings
   remain string / int / float / bool.
 - **No MCP schema changes.** Templates are invisible to agents

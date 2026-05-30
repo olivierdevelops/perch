@@ -21,18 +21,17 @@ version "X.Y.Z"                 # optional but recommended
 import "./shared.perch"         # optional — pulls in another file's commands (flat)
 import "./aws.perch" as aws     # optional — namespaced: callable as aws.command_name
 
-globals                          # optional; bindings shared by every command
-    KEY = "value"
-    NUMERIC = 42
-    FLAG = true
-end
+KEY = "value"                    # bindings shared by every command — declared bare at
+NUMERIC = 42                     #   top level (there is NO `globals` block). Reference
+FLAG = true                      #   them in `requires` by name, e.g. `write BUILD_DIR`.
 
-requires                         # optional but recommended — declares every external
-    bin   "git"                  #   resource the file touches: bins (+ optional hash
-    env   "HOME"                 #   pins), env vars, hosts, filesystem read/write scopes,
-    host  "api.github.com"       #   OS/arch. When present, every external op verifies the
-    read  "./config"             #   manifest before running; undeclared access errors.
-    write "./build"              #   (No version checking — pin a hash instead.)
+requires                         # the manifest — declares every external resource the
+    bin   "git"                  #   file touches: bins (+ optional hash pins, or a path
+    bin   "./bin/tool" as tool   #   with a handle: `bin "PATH" as NAME`), env vars,
+    env   "HOME"                 #   hosts, filesystem read/write scopes, OS/arch. Every
+    host  "api.github.com"       #   external op verifies it before running; undeclared
+    read  "./config"             #   access errors. A missing block = empty manifest
+    write "./build"              #   (pure ops only). No version checking — pin a hash.
 end
 
 command NAME
@@ -92,7 +91,7 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 |---|---|
 | `description "x"`                 | Help text |
 | `arg NAME ... end`                | Typed CLI argument; properties are labelled inner lines (see below) |
-| `private`                         | Hide from CLI; only callable via `run` |
+| `private`                         | Hide from CLI; only callable by name from another command |
 | `detached`                        | Don't wait on detached spawns |
 | `proxy_args`                      | Skip arg parsing; argv → `${proxy_args}` |
 | `require_os "darwin" "linux"`     | Refuse to run on other OSes (one call per OS or multiple values) |
@@ -116,12 +115,13 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 
 ### Process / I/O
 - `print MSG`, `println MSG`, `eprintln MSG`
-- `shell CMD` — runs in bash / cmd.exe
+- `exec BIN arg…` — **preferred** way to run a subprocess: shell-free, structured argv, cross-platform. Each token is one argv slot (`exec git commit -m "fix it"`). When a `requires` block is present, `BIN` must be a declared `bin`. Chain with `&&`/`||`/`;`; wire stages with `pipe … end`.
+- `shell CMD` — runs in bash / cmd.exe. Deprecated in favor of `exec`; keep only for genuine shell needs (pipes, `${proxy_args}` word-splitting, `awk`/`sed` one-liners)
 - `shell_detached CMD` — fire-and-forget
 - `fail MSG` — exits non-zero
 - `exit N`
 - `sleep SECONDS`
-- `run TARGET` — call another command
+- `NAME args…` — invoke another command (or expand a template) by its bare name. No `run`/`call` keyword; names are globally unique so it's unambiguous (`exec NAME` forces the subprocess reading)
 - `list_commands` — prints the visible command list
 
 ### File system
@@ -293,9 +293,9 @@ These cover the things every install script otherwise re-implements with shell g
 
 ## Interpolation rules
 
-- `${name}` resolves in this order: command args → `let` captures → `globals` → per-command `env` → host process environment.
+- `${name}` resolves in this order: command args → `let` captures → top-level bindings → per-command `env` → host process environment.
 - Unknown names produce a runtime error. Giving the arg a `default` is the cleanest fix.
-- UPPER_SNAKE_CASE globals are also exported as environment variables to `shell` calls automatically.
+- UPPER_SNAKE_CASE top-level bindings are also exported as environment variables to `shell` calls automatically.
 - `${HOME}`, `${USER}`, `${PATH}` work out of the box (they fall through to host env).
 
 ## When the user asks for something
@@ -304,7 +304,7 @@ Map the request to perch concepts:
 
 | User says | Use |
 |---|---|
-| "build for multiple platforms" | a `release` command that calls `run build "-target=..."` three times (args to `run` are quoted, CLI-style) |
+| "build for multiple platforms" | a `release` command that invokes `build "-target=..."` three times (a bare command name; args are quoted, CLI-style) |
 | "install dev tools cross-platform" | `if os == "darwin"` / `if os == "linux"` blocks running brew / apt / choco |
 | "I want a help text on this" | `description "..."` in the config region |
 | "make this command not show up in --help" | `private` modifier |
@@ -370,15 +370,13 @@ name    "myapp"
 about   "Build, test, release myapp"
 version "0.1.0"
 
-globals
-    BIN_DIR   = "./bin"
-    APP_NAME  = "myapp"
-    MAIN_PKG  = "./cmd/myapp"
-end
+BIN_DIR   = "./bin"
+APP_NAME  = "myapp"
+MAIN_PKG  = "./cmd/myapp"
 
 requires
     bin   "go"
-    write "./bin"
+    write BIN_DIR
 end
 
 command build
@@ -401,9 +399,9 @@ end
 command release
     description "Cross-compile all three"
     do
-        run build "-target=darwin"
-        run build "-target=linux"
-        run build "-target=windows"
+        build "-target=darwin"
+        build "-target=linux"
+        build "-target=windows"
     end
 end
 
@@ -417,8 +415,8 @@ end
 command ci
     description "What CI runs"
     do
-        run test
-        run release
+        test
+        release
     end
 end
 
@@ -549,8 +547,8 @@ Full design + the upcoming capability sandbox is at [sandbox.md](https://luowens
 
 | Form | Effect |
 |---|---|
-| `import "./lib.perch"` | flat — commands callable by their bare names (`run deploy`) |
-| `import "./aws.perch" as aws` | namespaced — commands callable as `aws.deploy` (use `run aws.deploy`) |
+| `import "./lib.perch"` | flat — commands callable by their bare names (`deploy`) |
+| `import "./aws.perch" as aws` | namespaced — commands callable as `aws.deploy` |
 | `import "${file_dir}/shared/k8s.perch"` | same as relative — `${file_dir}` is the directory of THIS file |
 | `import "${HOME}/.perch/team-ops.perch"` | absolute via env / auto-bound var (see below) |
 
@@ -568,7 +566,7 @@ Unknown names error at load time (not silently expanded to empty), so a typo in 
 **Semantics:**
 
 - **Conflicts** (two flat imports both defining `deploy`, or a flat import defining a name the importer also declares) → static error from `--check` and from `Load`. No silent override.
-- **Globals merge with parent-wins precedence.** Imported globals fill in defaults; the importer can override by declaring the same NAME.
+- **Top-level bindings merge with parent-wins precedence.** Imported bindings fill in defaults; the importer can override by declaring the same NAME.
 - **`private` commands** in an imported file are hidden from flat import (keeps them as internal helpers) but accessible via aliased import (`alias.privatename`).
 - **Catch handlers** don't propagate — only the root file's catch is active.
 - **Cycles** are detected and reported, not followed.

@@ -3,7 +3,7 @@
 `perch-lsp` is a Language Server Protocol implementation for `.perch` files. Drop it into your editor and you get:
 
 - **Diagnostics** — every parse error and every `perch --check` finding shown inline as you type.
-- **Completion** — context-aware suggestions: top-level keywords, command-config statements, arg-block fields, and the full op catalog inside `do` blocks. Command names declared in the current file are also suggested for `run`.
+- **Completion** — context-aware suggestions: top-level keywords, command-config statements, arg-block fields, and the full op catalog inside `do` blocks. Command names declared in the current file are also suggested for bare invocation.
 - **Hover** — point at a keyword or op and read its signature + docstring.
 - **Outline** — every command (and its args) appear in the editor's symbol picker.
 
@@ -126,7 +126,7 @@ Zed's extension format is in flux; once stable, a `perch` extension will publish
 
 These are on the roadmap (issues / PRs welcome):
 
-- **Go-to-definition** — `run foo` → jump to `command foo`. Requires source-position info from the capy parser.
+- **Go-to-definition** — `foo` → jump to `command foo`. Requires source-position info from the capy parser.
 - **Find references** — every site that mentions a given command or arg.
 - **Rename symbol** — coordinated rename of a command or arg across its declaration + every usage.
 - **Formatting** — `perch fmt` exists as a roadmap CLI; once it lands, `textDocument/formatting` will wrap it.

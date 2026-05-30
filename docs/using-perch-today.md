@@ -96,7 +96,7 @@ perch -f myapp.perch status           # falls through catch → `git status`
 | `NAME = value` (top level) | Bindings shared by every command; UPPER_SNAKE ones also reach `shell`/`exec` as env. |
 | `requires … end` | The file-declared manifest — see below. Opt-in; enforces strictly when present. |
 | `bundle … end` | Files to embed in the `--build` fat binary (`include "./x" as alias`). |
-| `template NAME … end` | Reusable op-sequence stamps, expanded at each `call`. |
+| `template NAME … end` | Reusable op-sequence stamps, expanded at each bare `NAME` invocation. |
 | `command NAME … end` | A typed verb. |
 | `catch NAME … end` | Fallback for unknown verbs. Add `proxy_args` to bind `${proxy_args}`. |
 | `import "./other.perch"` | Pull in another file's commands/templates. |

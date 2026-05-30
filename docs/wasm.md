@@ -247,7 +247,7 @@ end
 The `sandbox` block above is belt-and-braces — the WASM module already
 has no shell or network access by construction, so wrapping it adds no
 extra guarantee. But the sandbox block IS useful for *the perch ops
-around the wasm_run*, like a `run other_command` that might itself
+around the wasm_run*, like a bare command invocation that might itself
 shell out.
 
 ## Compose with `--trace` and `--report`
