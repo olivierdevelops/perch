@@ -4,16 +4,33 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/luowensheng/perch/domain"
 	"github.com/luowensheng/perch/infra/interpreter"
 )
+
+// lockedWriter serializes concurrent writes to an underlying io.Writer. The
+// pipe stages run as concurrent processes whose stderr-copy goroutines all
+// target the program's stderr; without serialization, writing to a shared
+// unsynchronized writer (e.g. a *bytes.Buffer in tests) is a data race.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
+}
 
 func registerProcess(m map[string]interpreter.Handler) {
 	m["print"] = opPrint
@@ -382,6 +399,13 @@ func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 	body, _ := args["_body"].([]domain.Op)
 	var stages []*exec.Cmd
 	var display []string
+	// All stages run concurrently and share the program's stderr; wrap it so
+	// their stderr-copy goroutines serialize writes (no data race on a shared
+	// buffer). nil stays nil (discarded).
+	var sharedErr io.Writer
+	if i.Stderr != nil {
+		sharedErr = &lockedWriter{w: i.Stderr}
+	}
 	for _, op := range body {
 		if op.Kind != "exec" {
 			return nil, domain.NewOpError("pipe", domain.ErrUnclassified,
@@ -409,7 +433,7 @@ func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 		c := exec.Command(resolveExecPath(i, bin), argv...)
 		applyEnv(c, b)
 		c.Dir = b.Cwd
-		c.Stderr = i.Stderr
+		c.Stderr = sharedErr
 		stages = append(stages, c)
 		d := bin
 		if len(argv) > 0 {
