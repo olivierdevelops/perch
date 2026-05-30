@@ -16,7 +16,7 @@
 //
 //   - No semver library dependency. The comparator handles plain
 //     dotted numeric tuples ("1.29.3", "3.14", "20.10.0") with optional
-//     "v" prefix and an optional pre-release tail ("-rc.1", "+build").
+//     "v" prefix and an optional pre-release tail ("-rc.1", "+meta").
 //     Pre-release tails sort BEFORE the un-suffixed version (semver
 //     spec); build metadata is ignored.
 //   - version_extract defaults to the most-permissive pattern that
@@ -45,7 +45,7 @@ import (
 //   v1.29.3
 //   1.29.3
 //   3.14
-//   v20.10.0+build123
+//   v20.10.0+meta123
 //   1.29.3-rc.1
 //
 // The first capture group is the version string proper (with optional
@@ -238,7 +238,7 @@ func versionCompare(a, b string) int {
 	}
 }
 
-// splitVersion("v1.29.3-rc.1+build5") → ([1,29,3], "rc.1")
+// splitVersion("v1.29.3-rc.1+meta5") → ([1,29,3], "rc.1")
 // splitVersion("1.2")                   → ([1,2], "")
 func splitVersion(s string) ([]int, string) {
 	s = strings.TrimPrefix(strings.TrimSpace(s), "v")
