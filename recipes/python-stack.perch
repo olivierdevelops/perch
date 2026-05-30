@@ -18,17 +18,17 @@ command install_uv
     do
         if os == "darwin"
             require_bin "brew"
-            exec brew install uv
+            brew install uv
         end
         if os == "linux"
             pipe
-                exec curl -LsSf https://astral.sh/uv/install.sh
-                exec sh
+                curl -LsSf https://astral.sh/uv/install.sh
+                sh
             end
         end
         if os == "windows"
             require_bin "winget"
-            exec winget install --id astral-sh.uv -e
+            winget install --id astral-sh.uv -e
         end
         ok "uv installed"
     end
@@ -46,9 +46,9 @@ command bootstrap
     end
     do
         require_bin "uv"
-        exec uv init ${name} --python ${python}
+        uv init ${name} --python ${python}
         with_cwd "${name}"
-            exec uv venv
+            uv venv
         end
         ok "project ${name} ready"
         print ""
@@ -66,7 +66,7 @@ command venv
     end
     do
         require_bin "uv"
-        exec uv venv --python ${python}
+        uv venv --python ${python}
         ok ".venv ready (python ${python})"
     end
 end
@@ -75,7 +75,7 @@ command sync
     description "Install dependencies from uv.lock / pyproject.toml"
     do
         require_bin "uv"
-        exec uv sync
+        uv sync
         ok "synced"
     end
 end
@@ -88,7 +88,7 @@ command add
     end
     do
         require_bin "uv"
-        exec uv add ${pkg}
+        uv add ${pkg}
     end
 end
 
@@ -100,7 +100,7 @@ command remove
     end
     do
         require_bin "uv"
-        exec uv remove ${pkg}
+        uv remove ${pkg}
     end
 end
 
@@ -113,7 +113,7 @@ command launch
     end
     do
         require_bin "uv"
-        exec uv run ${cmd}
+        uv run ${cmd}
     end
 end
 

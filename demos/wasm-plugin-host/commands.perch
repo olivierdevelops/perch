@@ -103,19 +103,19 @@ command rebuild
         with_cwd "${script_dir}"
             with_env "GOOS=wasip1,GOARCH=wasm"
                 with_cwd "plugins-src/tax"
-                    exec go build -o ../../plugins/tax.wasm .
+                    go build -o ../../plugins/tax.wasm .
                 end
                 with_cwd "plugins-src/discount"
-                    exec go build -o ../../plugins/discount.wasm .
+                    go build -o ../../plugins/discount.wasm .
                 end
                 with_cwd "plugins-src/shipping"
-                    exec go build -o ../../plugins/shipping.wasm .
+                    go build -o ../../plugins/shipping.wasm .
                 end
                 with_cwd "plugins-src/format"
-                    exec go build -o ../../plugins/format.wasm .
+                    go build -o ../../plugins/format.wasm .
                 end
                 with_cwd "plugins-src/evil"
-                    exec go build -o ../../plugins/evil.wasm .
+                    go build -o ../../plugins/evil.wasm .
                 end
             end
         end

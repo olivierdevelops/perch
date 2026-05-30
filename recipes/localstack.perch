@@ -33,10 +33,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -p ${port}:4566 -e SERVICES=${services} -e PERSISTENCE=1 -v ${NAME}-data:/var/lib/localstack ${IMAGE}
+                docker run -d --name ${NAME} -p ${port}:4566 -e SERVICES=${services} -e PERSISTENCE=1 -v ${NAME}-data:/var/lib/localstack ${IMAGE}
             end
             ok "localstack up"
             print "  endpoint: http://localhost:${port}"
@@ -47,7 +47,7 @@ end
 
 command down
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -56,9 +56,9 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
@@ -79,6 +79,6 @@ end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end

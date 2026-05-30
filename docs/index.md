@@ -718,9 +718,9 @@ perch --report cmd    # execute + render the span tree
 command test
     description "Run unit + integration tests"
     do
-        exec go test -race ./...
+        go test -race ./...
         if exists "./integration"
-            exec go test -tags=integration ./integration/...
+            go test -tags=integration ./integration/...
         end
     end
 end
@@ -831,7 +831,7 @@ command restart_service
         if not regex_match "${host}" "^[a-z0-9.-]+$"
             fail "invalid hostname"
         end
-        exec ssh "${host}" systemctl restart "${service}"
+        ssh "${host}" systemctl restart "${service}"
     end
 end
 ```
@@ -880,8 +880,8 @@ end
 command up
     description "Start the dev stack"
     do
-        exec docker compose up -d                 # shell-free: structured argv, no metachar surface
-        exec docker compose exec api migrate up
+        docker compose up -d                 # shell-free: structured argv, no metachar surface
+        docker compose exec api migrate up
         print "✓ Stack running at http://localhost:8080"
     end
 end

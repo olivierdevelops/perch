@@ -67,7 +67,7 @@ command rebuild
     do
         with_cwd "${script_dir}"
             with_env "GOOS=wasip1,GOARCH=wasm"
-                exec go build -o schema-validator.wasm .
+                go build -o schema-validator.wasm .
             end
         end
         let size = file_size "${script_dir}/schema-validator.wasm"

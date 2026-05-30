@@ -20,7 +20,7 @@ end
 
 command deploy
     do
-        exec kubectl apply -f manifest.yaml
+        kubectl apply -f manifest.yaml
         let body = http_get "https://api.github.com/repos/me/app"
     end
 end

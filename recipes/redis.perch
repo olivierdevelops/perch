@@ -27,9 +27,9 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker rm ${NAME}
+                docker rm ${NAME}
             end
-            exec docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}
+            docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}
             ok "redis up on port ${port}"
             print "  connect: redis-cli -p ${port}"
         end
@@ -41,7 +41,7 @@ command down
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
             ok "${NAME} removed"
         end
         if not exists
@@ -53,14 +53,14 @@ end
 command cli
     description "Open an interactive redis-cli inside the container"
     do
-        exec docker exec -it ${NAME} redis-cli
+        docker exec -it ${NAME} redis-cli
     end
 end
 
 command flush
     description "FLUSHALL — destroy every key (use with care)"
     do
-        exec docker exec ${NAME} redis-cli FLUSHALL
+        docker exec ${NAME} redis-cli FLUSHALL
         ok "flushed"
     end
 end
@@ -68,14 +68,14 @@ end
 command monitor
     description "Tail every command Redis sees (redis-cli MONITOR)"
     do
-        exec docker exec -it ${NAME} redis-cli MONITOR
+        docker exec -it ${NAME} redis-cli MONITOR
     end
 end
 
 command logs
     description "Tail container logs"
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end
 
@@ -95,8 +95,8 @@ end
 command backup
     description "Dump RDB snapshot to ./redis-backup.rdb"
     do
-        exec docker exec ${NAME} redis-cli SAVE
-        exec docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb
+        docker exec ${NAME} redis-cli SAVE
+        docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb
         ok "wrote redis-backup.rdb"
     end
 end

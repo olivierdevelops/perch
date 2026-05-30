@@ -46,19 +46,19 @@ command install_packages
     do
         if os == "darwin"
             print "macOS — using Homebrew"
-            exec brew install jq ripgrep watchexec gh
+            brew install jq ripgrep watchexec gh
         end
 
         if os == "linux"
             print "Linux — using apt"
-            exec sudo apt-get update
-            exec sudo apt-get install -y jq ripgrep gh
+            sudo apt-get update
+            sudo apt-get install -y jq ripgrep gh
             print "(watchexec is not in apt; install via cargo)"
         end
 
         if os == "windows"
             print "Windows — using Chocolatey"
-            exec choco install jq ripgrep watchexec gh -y
+            choco install jq ripgrep watchexec gh -y
         end
     end
 end
@@ -77,12 +77,12 @@ command fetch_config
         if exists "${HOME}/.team-config"
             print "team-config already cloned; pulling latest"
             cd "${HOME}/.team-config"
-            exec git pull
+            git pull
         end
         if os == "windows"
             if exists "${USERPROFILE}/.team-config"
                 cd "${USERPROFILE}/.team-config"
-                exec git pull
+                git pull
             end
         end
         # Clone if missing
@@ -112,8 +112,8 @@ command setup_env
             print "Add to your .bashrc: source ~/.bashrc.perch"
         end
         if os == "windows"
-            exec setx PERCH_HOME "%USERPROFILE%\.team-config"
-            exec setx EDITOR code
+            setx PERCH_HOME "%USERPROFILE%\.team-config"
+            setx EDITOR code
         end
     end
 end
@@ -164,10 +164,10 @@ When you add support for Fedora (apt → dnf), you don't touch the `setup` comma
 ```capy
 if os == "linux"
     if exists "/etc/fedora-release"
-        exec sudo dnf install -y jq ripgrep
+        sudo dnf install -y jq ripgrep
     end
     if exists "/etc/debian_version"
-        exec sudo apt-get install -y jq ripgrep
+        sudo apt-get install -y jq ripgrep
     end
 end
 ```

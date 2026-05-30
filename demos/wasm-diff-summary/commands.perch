@@ -49,8 +49,8 @@ command summarize_pr
     description "Pipe `git diff` into the summarizer (suitable for CI / agent calls)"
     do
         pipe
-            exec git diff origin/main...HEAD
-            exec perch -f "${script_dir}/commands.perch" summarize_stdin
+            git diff origin/main...HEAD
+            perch -f "${script_dir}/commands.perch" summarize_stdin
         end
     end
 end
@@ -60,7 +60,7 @@ command rebuild
     do
         with_cwd "${script_dir}"
             with_env "GOOS=wasip1,GOARCH=wasm"
-                exec go build -o diff-summary.wasm .
+                go build -o diff-summary.wasm .
             end
         end
         let size = file_size "${script_dir}/diff-summary.wasm"

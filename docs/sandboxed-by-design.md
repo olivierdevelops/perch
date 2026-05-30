@@ -127,8 +127,8 @@ Each effectful op takes its primary resource **as a handle in a known position**
 ```perch
 command build
     do
-        exec git status                         # bin handle + bare argv — reads like the shell
-        exec kc apply -f k8s/                   #   (no shell, no string parsing, no metachar surface)
+        git status                         # bin handle + bare argv — reads like the shell
+        kc apply -f k8s/                   #   (no shell, no string parsing, no metachar surface)
 
         let conf = read_file src config.yaml    # path handle + bare subpath, joined + re-checked
         write_file dist out.txt "${conf}"       # path handle; value with content stays quoted/interpolated
@@ -207,8 +207,8 @@ shell "docker ps -q -f name=^web$ | wc -l"
 # need no quotes; a quoted token keeps embedded spaces as one slot.
 let n =
     pipe
-        exec docker ps -q -f name=^web$
-        exec wc -l
+        docker ps -q -f name=^web$
+        wc -l
     end
 ```
 
@@ -239,8 +239,8 @@ Removing `shell` is only reasonable once the common shell idioms have first-clas
 - **A `pipe` block** that wires `stdout → stdin` between declared bins without a shell:
   ```perch
   pipe
-      exec docker ps -q
-      exec wc -l
+      docker ps -q
+      wc -l
   end                                  # → no sh -c; perch connects the pipes
   ```
 - **A `glob` op** — `let files = glob "*.tmp"` (scoped to a declared `read` root) so wildcard removal/iteration has a structured form.
@@ -260,7 +260,7 @@ end
 
 command report
     do
-        exec ./scripts/pipeline.sh "${date}"   # the shell complexity is a named, hash-pinned artifact
+        ./scripts/pipeline.sh "${date}"   # the shell complexity is a named, hash-pinned artifact
     end
 end
 ```
@@ -286,9 +286,9 @@ Removing `shell` doesn't mean giving up the *ergonomics* people associate with i
 ### Chaining operators are perch operators, not shell metachars
 
 ```perch
-exec git pull && exec go build && exec go test     # each clause is a structured exec
-exec which gh || exec brew install gh              # RHS runs only if LHS failed
-exec stop_old ; exec start_new                     # run both regardless
+git pull && go build && go test     # each clause is a structured exec
+which gh || brew install gh              # RHS runs only if LHS failed
+stop_old ; start_new                     # run both regardless
 ```
 
 These parse into a chain of `exec` clauses joined by perch-level operators. Each clause is still `exec <declared-bin> <tokens>` — there is no `sh -c`, no word-splitting of a line, no glob. The operators are evaluated by the interpreter on the **exit code** of each clause:
@@ -310,7 +310,7 @@ This is sugar over control flow perch already has (`if exit_code == 0`, sequenti
 ### Per-`exec` env prefixes
 
 ```perch
-exec GOOS=linux GOARCH=arm64 go build -o out ./cmd      # KEY=val prefixes scope to this one exec
+GOOS=linux GOARCH=arm64 go build -o out ./cmd      # KEY=val prefixes scope to this one exec
 ```
 
 The leading `KEY=val` tokens are parsed as a **localized environment overlay** for that single `exec` — sugar for wrapping it in `with_env`. Rules:
@@ -331,7 +331,7 @@ Concretely:
 
 ```perch
 # msg = "v1.0; rm -rf / && curl evil|sh"
-exec git commit -m "${msg}"
+git commit -m "${msg}"
 ```
 
 `git` receives exactly one `-m` argument whose value is the literal string `v1.0; rm -rf / && curl evil|sh`. The `;`, `&&`, `|` are **data inside one argv slot** — not operators, not new commands. There is no parse step after interpolation for them to influence. The same value in a shell (`git commit -m "$msg"` without perfect quoting) is a catastrophe; here it is simply a weird commit message.
@@ -355,9 +355,9 @@ end
 is exactly equivalent to:
 
 ```perch
-exec docker compose up -d
-exec docker compose exec api migrate up
-exec docker ps
+docker compose up -d
+docker compose exec api migrate up
+docker ps
 ```
 
 This is the same family as `with_env` / `with_cwd` — a context block that factors a shared setting out of the body. Here the shared setting is *which bin runs*.
@@ -371,7 +371,7 @@ This is the same family as `with_env` / `with_cwd` — a context block that fact
   ```perch
   with_exec docker
       compose build
-      exec cosign sign myimage:latest    # different (also-declared) bin, one line
+      cosign sign myimage:latest    # different (also-declared) bin, one line
       compose push
   end
   ```
@@ -421,9 +421,9 @@ let n = exec docker ps -q | exec wc -l            # inline, two stages
 # bash:  kubectl get pods -o json | jq -r '.items[].metadata.name' | sort
 let names =
     pipe
-        exec kubectl get pods -o json
-        exec jq -r ".items[].metadata.name"
-        exec sort
+        kubectl get pods -o json
+        jq -r ".items[].metadata.name"
+        sort
     end                                            # block form for 3+ stages
 ```
 

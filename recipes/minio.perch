@@ -33,10 +33,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -p ${api_port}:9000 -p ${console_port}:9001 -e MINIO_ROOT_USER=${USER} -e MINIO_ROOT_PASSWORD=${PASS} -v ${NAME}-data:/data ${IMAGE} server /data --console-address :9001
+                docker run -d --name ${NAME} -p ${api_port}:9000 -p ${console_port}:9001 -e MINIO_ROOT_USER=${USER} -e MINIO_ROOT_PASSWORD=${PASS} -v ${NAME}-data:/data ${IMAGE} server /data --console-address :9001
             end
             ok "minio up"
             print "  S3 endpoint:  http://localhost:${api_port}"
@@ -48,7 +48,7 @@ end
 
 command down
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -57,9 +57,9 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
@@ -71,15 +71,15 @@ command make_bucket
         index 0
     end
     do
-        exec docker exec ${NAME} mc alias set local http://localhost:9000 ${USER} ${PASS}
-        exec docker exec ${NAME} mc mb --ignore-existing local/${name}
+        docker exec ${NAME} mc alias set local http://localhost:9000 ${USER} ${PASS}
+        docker exec ${NAME} mc mb --ignore-existing local/${name}
         ok "bucket: ${name}"
     end
 end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end
 

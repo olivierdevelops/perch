@@ -34,9 +34,9 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker rm ${NAME}
+                docker rm ${NAME}
             end
-            exec docker run -d --name ${NAME} -p ${smtp_port}:1025 -p ${ui_port}:8025 ${IMAGE}
+            docker run -d --name ${NAME} -p ${smtp_port}:1025 -p ${ui_port}:8025 ${IMAGE}
             ok "mailpit up"
             print "  send SMTP to localhost:${smtp_port}"
             print "  view inbox at http://localhost:${ui_port}"
@@ -46,7 +46,7 @@ end
 
 command down
     do
-        exec docker rm -f ${NAME}
+        docker rm -f ${NAME}
         ok "${NAME} removed"
     end
 end
@@ -59,20 +59,20 @@ command browse
     end
     do
         if os == "darwin"
-            exec open http://localhost:${port}
+            open http://localhost:${port}
         end
         if os == "linux"
-            exec xdg-open http://localhost:${port}
+            xdg-open http://localhost:${port}
         end
         if os == "windows"
-            exec start http://localhost:${port}
+            start http://localhost:${port}
         end
     end
 end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end
 

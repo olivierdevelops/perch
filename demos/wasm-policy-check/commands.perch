@@ -60,7 +60,7 @@ command rebuild
     do
         with_cwd "${script_dir}"
             with_env "GOOS=wasip1,GOARCH=wasm"
-                exec go build -o policy-check.wasm .
+                go build -o policy-check.wasm .
             end
         end
         let size = file_size "${script_dir}/policy-check.wasm"

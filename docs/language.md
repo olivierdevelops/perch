@@ -112,7 +112,7 @@ command build
     # ── body ──
     do
         print "Building for ${target}"
-        exec go build -o ./bin/${target}/myapp
+        go build -o ./bin/${target}/myapp
     end
 end
 ```
@@ -238,31 +238,33 @@ There is **no `run` or `call` keyword** — a bare name *is* the call. Resolutio
 
 See the [op catalog](op-reference.md) for every built-in op.
 
-### Running external tools — `shell` vs `exec`
+### Running external tools — a bare bin name (and `exec` / `shell`)
 
-Two ways to run a subprocess:
+Run a declared binary by writing it **bare** — the leading name resolves to the `bin` you declared:
 
 ```perch
+docker compose up -d                  # shell-free: BIN + structured argv (preferred)
+exec docker compose up -d             # the explicit form (same thing)
 shell "docker compose up -d"          # via the host shell (bash/cmd.exe)
-exec docker compose up -d             # shell-free: BIN + structured argv
 ```
 
-- **`shell "…"`** hands the string to bash (POSIX) / `cmd.exe` (Windows). Pipes/globs/`&&` work because the shell expands them — at the cost of per-OS quoting differences and an injection surface.
-- **`exec BIN tok…`** runs `BIN` directly (`os/exec`, never a shell). Each token is exactly one argv slot — bare flags/paths work unquoted (`exec git log --oneline -10`); quote a token only to keep embedded spaces (`exec git commit -m "fix the bug"`); `${x}` always fills exactly one slot, even if its value has spaces or metacharacters (no injection). Captures stdout *and* streams it. When a `requires` block is present, `BIN` must be a declared `bin`.
-- **`pipe … end`** wires `stdout → stdin` between `exec` stages with in-process pipes — no shell:
+- **Bare `BIN tok…`** runs `BIN` directly (`os/exec`, never a shell). Each token is exactly one argv slot — bare flags/paths work unquoted (`git log --oneline -10`); quote a token only to keep embedded spaces (`git commit -m "fix the bug"`); `${x}` always fills exactly one slot, even if its value has spaces or metacharacters (no injection). Captures stdout *and* streams it. When a `requires` block is present, `BIN` must be a declared `bin`.
+- **`exec BIN tok…`** is the explicit form of the same thing. You need it only when the binary's name **collides with a built-in op** (`exec rm`, `exec mkdir`, `exec chmod` — bare `rm` is the cross-platform op, not the binary) or inside a `let` capture (`let head = exec git rev-parse HEAD`). Otherwise prefer the bare form.
+- **`shell "…"`** hands the string to bash (POSIX) / `cmd.exe` (Windows). Pipes/globs/`&&` work because the shell expands them — at the cost of per-OS quoting differences and an injection surface. Reach for it only for genuine shell needs (a value that must word-split, like `${proxy_args}`).
+- **`pipe … end`** wires `stdout → stdin` between bin stages with in-process pipes — no shell:
 
   ```perch
   let n = pipe
-      exec docker ps -q
-      exec wc -l
+      docker ps -q
+      wc -l
   end
   ```
 
 - **Chaining** — `exec a && exec b`, `exec a || exec b`, `exec a ; exec b` join clauses by exit status (perch operators, not shell metachars): `&&` runs the next clause only on success, `||` only on failure, `;` always. They're literal source tokens, so an interpolated `${x}` can never *become* an operator.
 
   ```perch
-  exec git pull && exec go build && exec go test   # stop at first failure
-  exec which gh || exec brew install gh            # fallback
+  git pull && go build && go test   # stop at first failure
+  which gh || brew install gh            # fallback
   ```
 
 This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.md) §3.2/§3.5, shipping today. The line-toolbox (`grep` / `cut` / `head` / `sort_lines` / …) composes with captured output to replace a pipeline's middle stages. **`shell` is deprecated** in favor of `exec` — keep it only for genuine shell needs (a value that must word-split, e.g. `${proxy_args}`, or a gnarly one-off `awk`/`sed` chain).
@@ -271,11 +273,11 @@ This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.m
 
 ```perch
 try
-    exec flaky-deploy
+    flaky-deploy
 rescue
     print "deploy failed: ${err.kind} / ${err.message}"
 finally
-    exec cleanup-temp
+    cleanup-temp
 end
 ```
 
@@ -339,7 +341,7 @@ template install_pkg
         default "latest"
     end
     do
-        exec brew install ${pkg}@${version}
+        brew install ${pkg}@${version}
     end
 end
 
@@ -384,7 +386,7 @@ Each direct child of `parallel` runs in its own goroutine; the block exits when 
 
 ```capy
 timeout "30s"
-    exec kubectl apply -f manifest.yaml
+    kubectl apply -f manifest.yaml
 end
 ```
 
@@ -394,7 +396,7 @@ Caps wall-clock for the body. A long-running op can't be interrupted mid-call; t
 
 ```capy
 retry 3
-    exec curl -fsSL https://flaky.example.com/
+    curl -fsSL https://flaky.example.com/
 end
 ```
 
@@ -404,7 +406,7 @@ Runs the body up to N times. On non-nil error, sleeps with exponential backoff (
 
 ```capy
 with_env "GOOS=linux,CGO_ENABLED=0"
-    exec go build ./cmd
+    go build ./cmd
 end
 ```
 
@@ -422,8 +424,8 @@ The three env-management forms, by lifetime:
 
 ```capy
 with_cwd "./subproject"
-    exec npm install
-    exec npm run build
+    npm install
+    npm run build
 end
 ```
 
@@ -443,7 +445,7 @@ Narrows the active capability mask for the body. Available flags inside the stri
 
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
-    exec go build -o bin/${target} ./cmd
+    go build -o bin/${target} ./cmd
     let size = file_size "bin/${target}"
 end
 ```
@@ -512,7 +514,7 @@ Unknown names produce an error at op-run time. To pass a literal `${VAR}` throug
 # Build the release artifacts
 command build
     do
-        exec go build -o ./bin/app ./cmd/app   # cross-platform, no shell
+        go build -o ./bin/app ./cmd/app   # cross-platform, no shell
     end
 end
 ```

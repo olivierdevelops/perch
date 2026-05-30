@@ -48,7 +48,7 @@ command build
         print "Building for ${target}"
         mkdir "${BUILD_DIR}/${target}"
         with_env "GOOS=${target}"
-            exec go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
+            go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
         end
         let size = file_size "${BUILD_DIR}/${target}/myapp"
         print "built ${size} bytes"
@@ -59,10 +59,10 @@ command setup
     description "Install dev deps, per OS"
     do
         if os == "darwin"
-            exec brew install jq ripgrep
+            brew install jq ripgrep
         end
         if os == "linux"
-            exec sudo apt-get install -y jq ripgrep
+            sudo apt-get install -y jq ripgrep
         end
     end
 end
@@ -140,7 +140,7 @@ Declaring a requirement is **not** a capability grant — sandbox flags (`--allo
 Today you run external tools with the **`shell`** op (a string command):
 
 ```perch
-exec docker compose up -d
+docker compose up -d
 let out = exec git rev-parse HEAD
 shell_detached "my-server --port 8080"
 ```
@@ -173,7 +173,7 @@ Bare idents work for plain binding names **and dotted member paths** — `match 
 
 ```perch
 with_env "FOO=bar"          # scoped — auto-restored when the block exits
-    exec printenv FOO       # the subprocess sees FOO in its environment
+    printenv FOO       # the subprocess sees FOO in its environment
 end
 export "TOKEN" "abc"        # process-lifetime (alias: set_env)
 unset "TOKEN"               # remove (alias: unset_env)

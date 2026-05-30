@@ -18,14 +18,14 @@ command install
     do
         if os == "darwin"
             require_bin "brew"
-            exec brew install restic
+            brew install restic
         end
         if os == "linux"
-            exec sudo apt-get install -y restic
+            sudo apt-get install -y restic
         end
         if os == "windows"
             require_bin "winget"
-            exec winget install --id restic.restic -e
+            winget install --id restic.restic -e
         end
         ok "restic installed"
     end
@@ -41,7 +41,7 @@ command init_repo
     do
         require_bin "restic"
         warn "you will be prompted for a passphrase — write it down"
-        exec restic init --repo ${repo}
+        restic init --repo ${repo}
         ok "repo initialized at ${repo}"
     end
 end
@@ -59,7 +59,7 @@ command snapshot
     end
     do
         require_bin "restic"
-        exec restic --repo ${repo} backup ${path}
+        restic --repo ${repo} backup ${path}
         ok "snapshot saved"
     end
 end
@@ -71,7 +71,7 @@ command list
         default "${home}/restic-repo"
     end
     do
-        exec restic --repo ${repo} snapshots
+        restic --repo ${repo} snapshots
     end
 end
 
@@ -92,7 +92,7 @@ command restore
         default "${home}/restic-repo"
     end
     do
-        exec restic --repo ${repo} restore latest --path ${path} --target ${target}
+        restic --repo ${repo} restore latest --path ${path} --target ${target}
         ok "restored to ${target}"
     end
 end
@@ -104,7 +104,7 @@ command forget
         default "${home}/restic-repo"
     end
     do
-        exec restic --repo ${repo} forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
+        restic --repo ${repo} forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
         ok "retention applied"
     end
 end
@@ -116,7 +116,7 @@ command check
         default "${home}/restic-repo"
     end
     do
-        exec restic --repo ${repo} check
+        restic --repo ${repo} check
     end
 end
 
@@ -133,6 +133,6 @@ command mount
     end
     do
         mkdir "${target}"
-        exec restic --repo ${repo} mount ${target}
+        restic --repo ${repo} mount ${target}
     end
 end

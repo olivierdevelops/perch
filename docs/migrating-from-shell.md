@@ -218,8 +218,8 @@ Pipelines compose without a shell, too:
 ```perch
 # bash:  docker ps -q | wc -l
 let n = pipe
-    exec docker ps -q
-    exec wc -l
+    docker ps -q
+    wc -l
 end
 ```
 

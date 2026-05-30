@@ -26,10 +26,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -v ${NAME}-data:/data/db -p ${port}:27017 ${IMAGE}
+                docker run -d --name ${NAME} -v ${NAME}-data:/data/db -p ${port}:27017 ${IMAGE}
             end
             ok "mongo up on port ${port}"
             print "  connect: mongosh mongodb://localhost:${port}"
@@ -39,7 +39,7 @@ end
 
 command down
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -48,24 +48,24 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
 
 command console
     do
-        exec docker exec -it ${NAME} mongosh
+        docker exec -it ${NAME} mongosh
     end
 end
 
 command dump
     description "Dump every database to ./mongo-dump/"
     do
-        exec docker exec ${NAME} mongodump --out=/tmp/dump
-        exec docker cp ${NAME}:/tmp/dump ./mongo-dump
+        docker exec ${NAME} mongodump --out=/tmp/dump
+        docker cp ${NAME}:/tmp/dump ./mongo-dump
         ok "wrote ./mongo-dump"
     end
 end
@@ -76,15 +76,15 @@ command restore
         default "./mongo-dump"
     end
     do
-        exec docker cp ${dir} ${NAME}:/tmp/restore
-        exec docker exec ${NAME} mongorestore /tmp/restore
+        docker cp ${dir} ${NAME}:/tmp/restore
+        docker exec ${NAME} mongorestore /tmp/restore
         ok "restored from ${dir}"
     end
 end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end
 

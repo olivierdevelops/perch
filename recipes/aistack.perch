@@ -44,10 +44,10 @@ command start_ollama
         if not r
             let e = exec docker ps -aq -f name=^${OLL_NAME}$
             if e
-                exec docker start ${OLL_NAME}
+                docker start ${OLL_NAME}
             end
             if not e
-                exec docker run -d --name ${OLL_NAME} -p 11434:11434 -v ${OLL_NAME}-data:/root/.ollama ${OLL_IMG}
+                docker run -d --name ${OLL_NAME} -p 11434:11434 -v ${OLL_NAME}-data:/root/.ollama ${OLL_IMG}
             end
             ok "ollama up"
         end
@@ -64,10 +64,10 @@ command start_chroma
         if not r
             let e = exec docker ps -aq -f name=^${CHR_NAME}$
             if e
-                exec docker start ${CHR_NAME}
+                docker start ${CHR_NAME}
             end
             if not e
-                exec docker run -d --name ${CHR_NAME} -p 8000:8000 -v ${CHR_NAME}-data:/chroma/chroma ${CHR_IMG}
+                docker run -d --name ${CHR_NAME} -p 8000:8000 -v ${CHR_NAME}-data:/chroma/chroma ${CHR_IMG}
             end
             ok "chromadb up"
         end
@@ -84,10 +84,10 @@ command start_webui
         if not r
             let e = exec docker ps -aq -f name=^${UI_NAME}$
             if e
-                exec docker start ${UI_NAME}
+                docker start ${UI_NAME}
             end
             if not e
-                exec docker run -d --name ${UI_NAME} -p 3000:8080 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 --add-host=host.docker.internal:host-gateway -v ${UI_NAME}-data:/app/backend/data ${UI_IMG}
+                docker run -d --name ${UI_NAME} -p 3000:8080 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 --add-host=host.docker.internal:host-gateway -v ${UI_NAME}-data:/app/backend/data ${UI_IMG}
             end
             ok "open-webui up"
         end
@@ -102,7 +102,7 @@ command pull
         description "Model name (llama3, mistral, codellama, …)"
     end
     do
-        exec docker exec ${OLL_NAME} ollama pull ${model}
+        docker exec ${OLL_NAME} ollama pull ${model}
         ok "pulled ${model}"
     end
 end
@@ -110,7 +110,7 @@ end
 command list_models
     description "List models available locally"
     do
-        exec docker exec ${OLL_NAME} ollama list
+        docker exec ${OLL_NAME} ollama list
     end
 end
 
@@ -125,7 +125,7 @@ command chat
         index 1
     end
     do
-        exec docker exec -i ${OLL_NAME} ollama run ${model} ${prompt}
+        docker exec -i ${OLL_NAME} ollama run ${model} ${prompt}
     end
 end
 
@@ -133,9 +133,9 @@ command down
     description "Stop everything (volumes preserved — models stay cached)"
     do
         parallel
-            exec docker stop ${OLL_NAME}
-            exec docker stop ${CHR_NAME}
-            exec docker stop ${UI_NAME}
+            docker stop ${OLL_NAME}
+            docker stop ${CHR_NAME}
+            docker stop ${UI_NAME}
         end
         ok "aistack stopped"
     end
@@ -144,14 +144,14 @@ end
 command destroy
     description "Full wipe — including downloaded models"
     do
-        exec docker rm -f ${OLL_NAME} ${CHR_NAME} ${UI_NAME}
-        exec docker volume rm ${OLL_NAME}-data ${CHR_NAME}-data ${UI_NAME}-data
+        docker rm -f ${OLL_NAME} ${CHR_NAME} ${UI_NAME}
+        docker volume rm ${OLL_NAME}-data ${CHR_NAME}-data ${UI_NAME}-data
         ok "destroyed"
     end
 end
 
 command status
     do
-        exec docker ps --filter name=^${OLL_NAME}$ --filter name=^${CHR_NAME}$ --filter name=^${UI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        docker ps --filter name=^${OLL_NAME}$ --filter name=^${CHR_NAME}$ --filter name=^${UI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     end
 end

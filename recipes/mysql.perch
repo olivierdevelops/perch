@@ -31,10 +31,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}
+                docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}
             end
             ok "mysql up on port ${port}"
             print "  connect: mysql -h 127.0.0.1 -P ${port} -uroot -p${ROOT_PASS} ${db}"
@@ -44,7 +44,7 @@ end
 
 command down
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -53,9 +53,9 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
@@ -66,7 +66,7 @@ command cli
         default "app"
     end
     do
-        exec docker exec -it ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
+        docker exec -it ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
     end
 end
 
@@ -80,8 +80,8 @@ command dump
         default "dump.sql"
     end
     do
-        exec docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} -r /tmp/perch-dump.sql
-        exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
+        docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} -r /tmp/perch-dump.sql
+        docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
         ok "wrote ${out}"
     end
 end
@@ -97,8 +97,8 @@ command restore
     end
     do
         pipe
-            exec cat "${file}"
-            exec docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
+            cat "${file}"
+            docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
         end
         ok "restored ${file} → ${db}"
     end

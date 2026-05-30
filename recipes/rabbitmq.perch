@@ -31,10 +31,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -p ${amqp_port}:5672 -p ${mgmt_port}:15672 -v ${NAME}-data:/var/lib/rabbitmq ${IMAGE}
+                docker run -d --name ${NAME} -p ${amqp_port}:5672 -p ${mgmt_port}:15672 -v ${NAME}-data:/var/lib/rabbitmq ${IMAGE}
             end
             ok "rabbitmq up"
             print "  AMQP:  localhost:${amqp_port}"
@@ -45,7 +45,7 @@ end
 
 command down
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -54,16 +54,16 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end
 

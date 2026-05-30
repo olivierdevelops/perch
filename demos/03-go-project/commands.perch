@@ -24,7 +24,7 @@ command build
         mkdir "${BIN_DIR}/${target}"
         # env prefix → with_env; the spaced -ldflags value is one quoted argv slot
         with_env "GOOS=${target}"
-            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/${target}/${APP_NAME}" "${MAIN_PKG}"
+            go build "-ldflags=-s -w" -o "${BIN_DIR}/${target}/${APP_NAME}" "${MAIN_PKG}"
         end
         let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
         print "✓ ${size} bytes."
@@ -36,15 +36,15 @@ command release
     do
         mkdir "${BIN_DIR}/darwin"
         with_env "GOOS=darwin"
-            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/darwin/${APP_NAME}" "${MAIN_PKG}"
+            go build "-ldflags=-s -w" -o "${BIN_DIR}/darwin/${APP_NAME}" "${MAIN_PKG}"
         end
         mkdir "${BIN_DIR}/linux"
         with_env "GOOS=linux"
-            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/linux/${APP_NAME}" "${MAIN_PKG}"
+            go build "-ldflags=-s -w" -o "${BIN_DIR}/linux/${APP_NAME}" "${MAIN_PKG}"
         end
         mkdir "${BIN_DIR}/windows"
         with_env "GOOS=windows"
-            exec go build "-ldflags=-s -w" -o "${BIN_DIR}/windows/${APP_NAME}.exe" "${MAIN_PKG}"
+            go build "-ldflags=-s -w" -o "${BIN_DIR}/windows/${APP_NAME}.exe" "${MAIN_PKG}"
         end
     end
 end
@@ -52,16 +52,16 @@ end
 command gotest
     description "Run the test suite"
     do
-        exec go test ./...
+        go test ./...
     end
 end
 
 command lint
     description "Vet + staticcheck (install once with: go install honnef.co/go/tools/cmd/staticcheck@latest)"
     do
-        exec go vet ./...
+        go vet ./...
         if exists "${HOME}/go/bin/staticcheck"
-            exec "${HOME}/go/bin/staticcheck" ./...
+            "${HOME}/go/bin/staticcheck" ./...
         end
     end
 end

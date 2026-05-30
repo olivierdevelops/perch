@@ -54,7 +54,7 @@ command restart_pod
         if not regex_match "${pod}" "^[a-z0-9.-]+$"
             fail "invalid pod name"
         end
-        exec kubectl -n ${ns} delete pod ${pod}
+        kubectl -n ${ns} delete pod ${pod}
     end
 end
 
@@ -80,7 +80,7 @@ command scale_deployment
         if replicas > 50
             fail "replicas > 50 needs a human"
         end
-        exec kubectl -n ${ns} scale deploy/${name} --replicas=${replicas}
+        kubectl -n ${ns} scale deploy/${name} --replicas=${replicas}
     end
 end
 ```
@@ -202,7 +202,7 @@ command reset_password
         if not regex_match "${user_email}" "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]+$"
             fail "invalid email"
         end
-        exec support-cli reset-password --email=${user_email}
+        support-cli reset-password --email=${user_email}
     end
 end
 ```

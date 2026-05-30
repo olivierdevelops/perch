@@ -37,7 +37,7 @@ command brew_install
     private
     do
         require_bin "brew"
-        exec brew install awscli google-cloud-sdk azure-cli kubectl helm terraform
+        brew install awscli google-cloud-sdk azure-cli kubectl helm terraform
     end
 end
 
@@ -58,12 +58,12 @@ command winget_install
     private
     do
         require_bin "winget"
-        exec winget install --id Amazon.AWSCLI -e
-        exec winget install --id Google.CloudSDK -e
-        exec winget install --id Microsoft.AzureCLI -e
-        exec winget install --id Kubernetes.kubectl -e
-        exec winget install --id Helm.Helm -e
-        exec winget install --id Hashicorp.Terraform -e
+        winget install --id Amazon.AWSCLI -e
+        winget install --id Google.CloudSDK -e
+        winget install --id Microsoft.AzureCLI -e
+        winget install --id Kubernetes.kubectl -e
+        winget install --id Helm.Helm -e
+        winget install --id Hashicorp.Terraform -e
     end
 end
 
@@ -104,7 +104,7 @@ command aws_login
     end
     do
         require_bin "aws"
-        exec aws sso login --profile ${profile}
+        aws sso login --profile ${profile}
     end
 end
 
@@ -112,8 +112,8 @@ command gcp_login
     description "gcloud login + default project"
     do
         require_bin "gcloud"
-        exec gcloud auth login
-        exec gcloud auth application-default login
+        gcloud auth login
+        gcloud auth application-default login
     end
 end
 
@@ -121,6 +121,6 @@ command azure_login
     description "Azure CLI login"
     do
         require_bin "az"
-        exec az login
+        az login
     end
 end

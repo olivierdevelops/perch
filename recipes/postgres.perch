@@ -33,10 +33,10 @@ command up
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
             if existing
-                exec docker start ${NAME}
+                docker start ${NAME}
             end
             if not existing
-                exec docker run -d --name ${NAME} -e POSTGRES_USER=${USER} -e POSTGRES_PASSWORD=${PASS} -e POSTGRES_DB=${db} -v ${NAME}-data:/var/lib/postgresql/data -p ${port}:5432 ${IMAGE}
+                docker run -d --name ${NAME} -e POSTGRES_USER=${USER} -e POSTGRES_PASSWORD=${PASS} -e POSTGRES_DB=${db} -v ${NAME}-data:/var/lib/postgresql/data -p ${port}:5432 ${IMAGE}
             end
             ok "postgres up on port ${port}"
             print "  connect: psql 'postgres://${USER}:${PASS}@localhost:${port}/${db}'"
@@ -47,7 +47,7 @@ end
 command down
     description "Stop the container (keeps the volume)"
     do
-        exec docker stop ${NAME}
+        docker stop ${NAME}
         ok "${NAME} stopped"
     end
 end
@@ -57,9 +57,9 @@ command destroy
     do
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
-            exec docker rm -f ${NAME}
+            docker rm -f ${NAME}
         end
-        exec docker volume rm ${NAME}-data
+        docker volume rm ${NAME}-data
         ok "destroyed"
     end
 end
@@ -71,7 +71,7 @@ command psql
         default "app"
     end
     do
-        exec docker exec -it ${NAME} psql -U ${USER} ${db}
+        docker exec -it ${NAME} psql -U ${USER} ${db}
     end
 end
 
@@ -82,7 +82,7 @@ command createdb
         index 0
     end
     do
-        exec docker exec ${NAME} createdb -U ${USER} ${db}
+        docker exec ${NAME} createdb -U ${USER} ${db}
         ok "created database ${db}"
     end
 end
@@ -98,8 +98,8 @@ command dump
         default "dump.sql"
     end
     do
-        exec docker exec ${NAME} pg_dump -U ${USER} ${db} -f /tmp/perch-dump.sql
-        exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
+        docker exec ${NAME} pg_dump -U ${USER} ${db} -f /tmp/perch-dump.sql
+        docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
         ok "wrote ${out}"
     end
 end
@@ -116,8 +116,8 @@ command restore
     end
     do
         pipe
-            exec cat "${file}"
-            exec docker exec -i ${NAME} psql -U ${USER} ${db}
+            cat "${file}"
+            docker exec -i ${NAME} psql -U ${USER} ${db}
         end
         ok "restored ${file} → ${db}"
     end
@@ -137,6 +137,6 @@ end
 
 command logs
     do
-        exec docker logs -f ${NAME}
+        docker logs -f ${NAME}
     end
 end

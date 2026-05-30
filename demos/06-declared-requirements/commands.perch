@@ -16,9 +16,9 @@ command versions
     description "Run declared bins (existence is verified at preflight)"
     do
         # exec runs a declared bin directly — no shell, structured argv
-        exec git --version
-        exec go version
-        exec echo all declared bins are present
+        git --version
+        go version
+        echo all declared bins are present
     end
 end
 

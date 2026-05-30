@@ -15,16 +15,16 @@ command setup
     do
         if os == "darwin"
             print "macOS detected — using Homebrew"
-            exec brew install jq ripgrep watchexec
+            brew install jq ripgrep watchexec
         end
         if os == "linux"
             print "Linux detected — using apt"
-            exec sudo apt-get update && exec sudo apt-get install -y jq ripgrep
+            sudo apt-get update && sudo apt-get install -y jq ripgrep
             print "(watchexec is not in apt; install via cargo if needed)"
         end
         if os == "windows"
             print "Windows detected — using Chocolatey"
-            exec choco install jq ripgrep watchexec -y
+            choco install jq ripgrep watchexec -y
         end
         print "Setup complete."
     end
@@ -34,13 +34,13 @@ command paths
     description "Show the path of the tools installed by `setup`"
     do
         if os == "darwin"
-            exec which jq rg watchexec
+            which jq rg watchexec
         end
         if os == "linux"
-            exec which jq rg
+            which jq rg
         end
         if os == "windows"
-            exec where jq rg watchexec
+            where jq rg watchexec
         end
     end
 end

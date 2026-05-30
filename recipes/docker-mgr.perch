@@ -13,7 +13,7 @@ command status
     description "All running containers with disk + memory"
     do
         require_bin "docker"
-        exec docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}"
+        docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}"
     end
 end
 
@@ -21,8 +21,8 @@ command images_by_size
     description "List all local images sorted by size (largest first)"
     do
         pipe
-            exec docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
-            exec sort -k2 -h -r
+            docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
+            sort -k2 -h -r
         end
     end
 end
@@ -30,7 +30,7 @@ end
 command big_volumes
     description "Show volume disk usage"
     do
-        exec docker system df -v
+        docker system df -v
     end
 end
 
@@ -43,7 +43,7 @@ command stop_all
             exit 0
         end
         for_each "${running}" id
-            exec docker stop ${id}
+            docker stop ${id}
         end
         ok "all containers stopped"
     end
@@ -58,7 +58,7 @@ command restart_all
             exit 0
         end
         for_each "${running}" id
-            exec docker restart ${id}
+            docker restart ${id}
         end
         ok "all containers restarted"
     end
@@ -67,9 +67,9 @@ end
 command prune_safe
     description "Remove stopped containers + dangling images + unused networks (no volumes)"
     do
-        exec docker container prune -f
-        exec docker image prune -f
-        exec docker network prune -f
+        docker container prune -f
+        docker image prune -f
+        docker network prune -f
         ok "safe prune done"
     end
 end
@@ -78,7 +78,7 @@ command prune_all
     description "AGGRESSIVE — remove every stopped container, every unused image, every unused volume"
     do
         warn "this WILL delete unused volumes — data loss possible"
-        exec docker system prune -a --volumes -f
+        docker system prune -a --volumes -f
         ok "aggressive prune done"
     end
 end
@@ -90,7 +90,7 @@ command logs
         index 0
     end
     do
-        exec docker logs -f ${name}
+        docker logs -f ${name}
     end
 end
 
@@ -101,13 +101,13 @@ command console
         index 0
     end
     do
-        exec docker exec -it ${name} sh
+        docker exec -it ${name} sh
     end
 end
 
 command top_cpu
     description "Show running containers sorted by CPU usage (one-shot)"
     do
-        exec docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+        docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
     end
 end

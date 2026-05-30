@@ -4,7 +4,7 @@ The built-in "standard library" — every op the perch runtime can dispatch. Eac
 
 Ops fall into two shapes:
 
-- **Statement ops** — invoked as a body line for their side effects. e.g. `exec go build`.
+- **Statement ops** — invoked as a body line for their side effects. e.g. `go build` (a bare declared bin) or `mkdir "./out"`.
 - **Capturable ops** — invoked via `let NAME = OP ARGS` to capture their return value. e.g. `let h = sha256_file "./bin"`.
 
 Most ops support both shapes (return value is discarded if you don't `let`).
@@ -37,7 +37,8 @@ Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.
 | `shell CMD`              | `(string)` | **Deprecated — prefer `exec`.** Runs `CMD` via bash (POSIX) or cmd.exe (Windows). Use only when you need genuine shell features (a value that must word-split, or a one-off `awk`/`sed` chain). |
 | `shell_output CMD`       | `(string) → string` | **Deprecated — `exec` captures stdout too.** Same as `shell` but captures stdout. |
 | `shell_detached CMD`     | `(string)` | Starts and returns immediately. Use with `detached` modifier. |
-| `exec BIN tok…`          | `(word, word…) → string` | **Shell-free** subprocess: runs `BIN` directly (no `sh -c`). Each token is one argv slot — bare flags/paths/globs work unquoted (`exec git log --oneline -10`); quote a token to keep embedded spaces (`exec git commit -m "fix it"`). No word-split, no glob, no metachar surface. Streams *and* captures stdout. Gated like `shell` (`bin_not_declared`). See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
+| `BIN tok…` (bare)        | `(word, word…) → string` | **The normal way to run a subprocess.** A bare declared bin runs `BIN` directly (no `sh -c`). Each token is one argv slot — bare flags/paths/globs work unquoted (`git log --oneline -10`); quote a token to keep embedded spaces (`git commit -m "fix it"`). No word-split, no glob, no metachar surface. Streams *and* captures stdout. Gated by `requires` (`bin_not_declared`). |
+| `exec BIN tok…`          | same | **Explicit form** of a bare bin call. Needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`) or inside a `let` capture (`let h = exec git rev-parse HEAD`). See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
 | `exec a && exec b`       | chain | `&&` / `\|\|` / `;` join exec clauses by exit status (perch operators, not shell metachars): `&&` on success, `\|\|` on failure, `;` always. Short-circuits; the chain raises if its last run clause fails. |
 | `pipe … end`             | `block → string` | Wires stdout→stdin between `exec` stages with in-process pipes — no shell. `let out = pipe … end` captures the final stage. Each stage is a declared-bin `exec`. |
 | `fail MSG`               | `(string)` | Exits non-zero with the message. |

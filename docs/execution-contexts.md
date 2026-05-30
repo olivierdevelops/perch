@@ -123,7 +123,7 @@ template install_pkg
         default "latest"
     end
     do
-        exec brew install ${pkg}@${version}
+        brew install ${pkg}@${version}
     end
 end
 
@@ -156,7 +156,7 @@ template install_pkg
     end
     do
         log_step "Installing ${pkg}"
-        exec brew install ${pkg}
+        brew install ${pkg}
     end
 end
 
@@ -233,8 +233,8 @@ Cap wall-clock for the body:
 
 ```capy
 timeout "30s"
-    exec kubectl apply -f manifest.yaml
-    exec wait-for-rollout deploy/api
+    kubectl apply -f manifest.yaml
+    wait-for-rollout deploy/api
 end
 ```
 
@@ -253,7 +253,7 @@ Retry the body on error:
 
 ```capy
 retry 3
-    exec curl -fsSL https://flaky.example.com/api
+    curl -fsSL https://flaky.example.com/api
 end
 ```
 
@@ -274,7 +274,7 @@ Overlay env vars for the duration of the body:
 
 ```capy
 with_env "GOOS=linux,CGO_ENABLED=0"
-    exec go build -o bin/linux/app ./cmd
+    go build -o bin/linux/app ./cmd
 end
 ```
 
@@ -289,8 +289,8 @@ Bracketed `cd` that auto-restores:
 
 ```capy
 with_cwd "./subproject"
-    exec npm install
-    exec npm run build
+    npm install
+    npm run build
 end
 # back to the previous cwd here, even if the body errored
 ```
@@ -350,7 +350,7 @@ User-keyed body cache:
 
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
-    exec go build -o bin/${target} ./cmd
+    go build -o bin/${target} ./cmd
     let size = file_size "bin/${target}"
 end
 ```
@@ -499,21 +499,21 @@ command release
                     cache "build-darwin-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
                             with_env "GOOS=darwin"
-                                exec go build -o bin/darwin/app ./cmd
+                                go build -o bin/darwin/app ./cmd
                             end
                         end
                     end
                     cache "build-linux-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
                             with_env "GOOS=linux"
-                                exec go build -o bin/linux/app ./cmd
+                                go build -o bin/linux/app ./cmd
                             end
                         end
                     end
                     cache "build-windows-${sha256_file('go.sum')}" "24h"
                         timeout "5m"
                             with_env "GOOS=windows"
-                                exec go build -o bin/windows/app.exe ./cmd
+                                go build -o bin/windows/app.exe ./cmd
                             end
                         end
                     end
@@ -524,12 +524,12 @@ command release
         # Network needed for signing + publish; sandbox above doesn't apply here
         with_log "Signing"
         retry 3
-            exec cosign sign --key cosign.key bin/*/app
+            cosign sign --key cosign.key bin/*/app
         end
 
         with_log "Publishing"
         retry 3
-            exec scp -r bin/ releases-server:/srv/releases/v${version}/
+            scp -r bin/ releases-server:/srv/releases/v${version}/
         end
     end
 end

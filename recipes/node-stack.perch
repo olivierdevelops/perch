@@ -23,22 +23,22 @@ command install
     do
         if os == "darwin"
             require_bin "brew"
-            exec brew install fnm pnpm
+            brew install fnm pnpm
         end
         if os == "linux"
             pipe
-                exec curl -fsSL https://fnm.vercel.app/install
-                exec bash
+                curl -fsSL https://fnm.vercel.app/install
+                bash
             end
             pipe
-                exec curl -fsSL https://get.pnpm.io/install.sh
-                exec sh -
+                curl -fsSL https://get.pnpm.io/install.sh
+                sh -
             end
         end
         if os == "windows"
             require_bin "winget"
-            exec winget install --id Schniz.fnm -e
-            exec winget install --id pnpm.pnpm -e
+            winget install --id Schniz.fnm -e
+            winget install --id pnpm.pnpm -e
         end
         ok "fnm + pnpm installed"
         print ""
@@ -56,7 +56,7 @@ command pin
     end
     do
         require_bin "fnm"
-        exec fnm install ${version}
+        fnm install ${version}
         write_file ".nvmrc" "${version}"
         ok "pinned Node ${version} (.nvmrc written)"
     end
@@ -72,7 +72,7 @@ command bootstrap
         require_bin "pnpm"
         mkdir "${name}"
         with_cwd "${name}"
-            exec pnpm init
+            pnpm init
             write_file ".nvmrc" "20"
             write_file ".gitignore" "node_modules\ndist\n.env\n*.log"
         end
@@ -84,7 +84,7 @@ command upgrade_all
     description "Bump every dependency to its latest version (interactive)"
     do
         require_bin "pnpm"
-        exec pnpm update --interactive --latest
+        pnpm update --interactive --latest
     end
 end
 

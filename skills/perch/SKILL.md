@@ -115,8 +115,9 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 
 ### Process / I/O
 - `print MSG`, `println MSG`, `eprintln MSG`
-- `exec BIN arg…` — **preferred** way to run a subprocess: shell-free, structured argv, cross-platform. Each token is one argv slot (`exec git commit -m "fix it"`). When a `requires` block is present, `BIN` must be a declared `bin`. Chain with `&&`/`||`/`;`; wire stages with `pipe … end`.
-- `shell CMD` — runs in bash / cmd.exe. Deprecated in favor of `exec`; keep only for genuine shell needs (pipes, `${proxy_args}` word-splitting, `awk`/`sed` one-liners)
+- `BIN arg…` (bare) — **the normal way to run a subprocess.** A bare declared bin runs shell-free with structured argv (`git commit -m "fix it"`, `docker ps`). Each token is one argv slot. `BIN` must be a declared `bin`. Chain with `&&`/`||`/`;`; wire stages with `pipe … end`.
+- `exec BIN arg…` — explicit form; needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`) or in a `let` capture (`let h = exec git rev-parse HEAD`).
+- `shell CMD` — runs in bash / cmd.exe. Deprecated; keep only for genuine shell needs (pipes, `${proxy_args}` word-splitting, `awk`/`sed` one-liners)
 - `shell_detached CMD` — fire-and-forget
 - `fail MSG` — exits non-zero
 - `exit N`

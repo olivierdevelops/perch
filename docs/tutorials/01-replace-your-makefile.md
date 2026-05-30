@@ -83,7 +83,7 @@ command build
     description "Compile the binary"
     do
         mkdir "${BIN_DIR}"
-        exec go build "-ldflags=-s -w" -o ${BIN_DIR}/${APP_NAME} ${MAIN}
+        go build "-ldflags=-s -w" -o ${BIN_DIR}/${APP_NAME} ${MAIN}
     end
 end
 ```
@@ -106,16 +106,16 @@ Two improvements over Make:
 command test
     description "Run tests with race detection"
     do
-        exec go test -race ./...
+        go test -race ./...
     end
 end
 
 command lint
     description "Run go vet plus staticcheck if available"
     do
-        exec go vet ./...
+        go vet ./...
         if exists "${HOME}/go/bin/staticcheck"
-            exec ${HOME}/go/bin/staticcheck ./...
+            ${HOME}/go/bin/staticcheck ./...
         end
     end
 end
@@ -148,7 +148,7 @@ command build_for
     do
         mkdir "${BIN_DIR}/${target}"
         with_env "GOOS=${target}"
-            exec go build "-ldflags=-s -w" -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN}
+            go build "-ldflags=-s -w" -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN}
         end
     end
 end
@@ -194,20 +194,20 @@ The Make version silently broke on Windows. Let's prove perch's version doesn't.
 command lint
     description "Run go vet plus staticcheck if available"
     do
-        exec go vet ./...
+        go vet ./...
         if os == "windows"
             if exists "${USERPROFILE}/go/bin/staticcheck.exe"
-                exec ${USERPROFILE}/go/bin/staticcheck.exe ./...
+                ${USERPROFILE}/go/bin/staticcheck.exe ./...
             end
         end
         if os == "darwin"
             if exists "${HOME}/go/bin/staticcheck"
-                exec ${HOME}/go/bin/staticcheck ./...
+                ${HOME}/go/bin/staticcheck ./...
             end
         end
         if os == "linux"
             if exists "${HOME}/go/bin/staticcheck"
-                exec ${HOME}/go/bin/staticcheck ./...
+                ${HOME}/go/bin/staticcheck ./...
             end
         end
     end

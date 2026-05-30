@@ -19,10 +19,10 @@ command ctx
     do
         require_bin "kubectl"
         if not name
-            exec kubectl config get-contexts
+            kubectl config get-contexts
             exit 0
         end
-        exec kubectl config use-context ${name}
+        kubectl config use-context ${name}
         ok "context: ${name}"
     end
 end
@@ -37,10 +37,10 @@ command ns
     do
         require_bin "kubectl"
         if not name
-            exec kubectl get namespaces
+            kubectl get namespaces
             exit 0
         end
-        exec kubectl config set-context --current --namespace=${name}
+        kubectl config set-context --current --namespace=${name}
         ok "namespace: ${name}"
     end
 end
@@ -48,7 +48,7 @@ end
 command pods
     description "List pods in the current namespace"
     do
-        exec kubectl get pods -o wide
+        kubectl get pods -o wide
     end
 end
 
@@ -65,10 +65,10 @@ command console
     end
     do
         if container
-            exec kubectl exec -it ${pod} -c ${container} -- sh
+            kubectl exec -it ${pod} -c ${container} -- sh
         end
         if not container
-            exec kubectl exec -it ${pod} -- sh
+            kubectl exec -it ${pod} -- sh
         end
     end
 end
@@ -80,7 +80,7 @@ command logs
         index 0
     end
     do
-        exec kubectl logs -f --all-containers ${pod}
+        kubectl logs -f --all-containers ${pod}
     end
 end
 
@@ -96,7 +96,7 @@ command pf
         description "LOCAL:REMOTE (e.g. 8080:80)"
     end
     do
-        exec kubectl port-forward svc/${svc} ${ports}
+        kubectl port-forward svc/${svc} ${ports}
     end
 end
 
@@ -107,8 +107,8 @@ command restart
         index 0
     end
     do
-        exec kubectl rollout restart deployment/${deploy}
-        exec kubectl rollout status deployment/${deploy}
+        kubectl rollout restart deployment/${deploy}
+        kubectl rollout status deployment/${deploy}
         ok "${deploy} restarted"
     end
 end
@@ -116,14 +116,14 @@ end
 command top
     description "Live pod CPU/memory usage"
     do
-        exec kubectl top pods
+        kubectl top pods
     end
 end
 
 command events
     description "Recent cluster events (most useful when debugging)"
     do
-        exec kubectl get events --sort-by=.lastTimestamp
+        kubectl get events --sort-by=.lastTimestamp
     end
 end
 

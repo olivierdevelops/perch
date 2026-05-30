@@ -26,9 +26,9 @@ command install
             bundle_extract "${INSTALL_BASE}/${h}"
             cd "${INSTALL_BASE}/${h}"
             print "→ Creating venv"
-            exec python3 -m venv .venv
+            python3 -m venv .venv
             print "→ Installing requirements"
-            exec .venv/bin/pip install --quiet -r requirements.txt
+            .venv/bin/pip install --quiet -r requirements.txt
             write_file "${INSTALL_BASE}/${h}/.installed" "ok\n"
 
             # Write a launcher script into ~/.local/bin/stt

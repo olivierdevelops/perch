@@ -28,9 +28,9 @@
 - **`exec` with bare flags and spaced args (§3 + §4).** The `exec` grammar uses `word` captures + `${asString}`, so a token can be a bare flag/path/glob *or* a quoted string with embedded spaces, each landing in exactly one argv slot:
 
   ```perch
-  exec git log --oneline -10              # bare flags — no quotes
-  exec docker run -d --name web nginx     # bare paths/names
-  exec git commit -m "fix the bug"        # quoted token kept as ONE slot
+  git log --oneline -10              # bare flags — no quotes
+  docker run -d --name web nginx     # bare paths/names
+  git commit -m "fix the bug"        # quoted token kept as ONE slot
   ```
 
   This replaced the previous quote-everything ladder (`exec docker "run" "-d"`).

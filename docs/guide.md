@@ -195,7 +195,7 @@ command build
     end
     do
         ensure_dir "${BUILD_DIR}/${target}"
-        exec go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
+        go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
     end
 end
 
@@ -276,7 +276,7 @@ command stop_serve
     test_keep_cwd                        # opt out of the test-mode temp-cwd
     test_timeout 30                      # max seconds for `perch test`
     do
-        exec pkill -f cmd/server
+        pkill -f cmd/server
     end
 end
 ```
@@ -340,9 +340,9 @@ Some block ops take a named arg + a body:
 
 ```perch
 parallel max=3                           # block op with kwarg
-    exec go test ./a
-    exec go test ./b
-    exec go test ./c
+    go test ./a
+    go test ./b
+    go test ./c
 end
 ```
 
@@ -479,11 +479,11 @@ This pattern is enough for: deployment markers, idempotency tokens, cache invali
 
 ```perch
 if os == "linux"
-    exec apt-get install -y jq
+    apt-get install -y jq
 end
 
 if has_bin "kubectl"
-    exec kubectl get pods
+    kubectl get pods
 end
 
 if not has_bin "docker"
@@ -491,7 +491,7 @@ if not has_bin "docker"
 end
 
 if exists "./Cargo.toml"
-    exec cargo build --release
+    cargo build --release
 end
 
 if size > 1000000
@@ -511,10 +511,10 @@ Run children concurrently up to N at a time:
 
 ```perch
 parallel max=4
-    exec go test ./a
-    exec go test ./b
-    exec go test ./c
-    exec go test ./d
+    go test ./a
+    go test ./b
+    go test ./c
+    go test ./d
 end
 ```
 
@@ -534,7 +534,7 @@ Kill children if they exceed N seconds:
 
 ```perch
 timeout secs=300
-    exec make integration-test
+    make integration-test
 end
 ```
 
@@ -544,7 +544,7 @@ Overlay env vars for the body:
 
 ```perch
 with_env DEBUG=1,GOOS=linux
-    exec go build ./cmd/myapp
+    go build ./cmd/myapp
 end
 ```
 
@@ -554,7 +554,7 @@ Run body in another directory:
 
 ```perch
 with_cwd "./subproject"
-    exec go test ./...
+    go test ./...
 end
 ```
 
@@ -586,7 +586,7 @@ Loop body N times:
 
 ```perch
 for_each region in "us-east-1,us-west-2,eu-west-1"
-    exec deploy --region=${region}
+    deploy --region=${region}
 end
 ```
 
@@ -673,14 +673,14 @@ command serve
     detached
     on_signal stop_serve
     do
-        exec go run ./cmd/server
+        go run ./cmd/server
     end
 end
 
 command stop_serve
     private
     do
-        exec pkill -f cmd/server
+        pkill -f cmd/server
         rm "${temp_dir}/server.pid"
     end
 end
@@ -694,11 +694,11 @@ When `serve` receives SIGINT/SIGTERM, perch dispatches to `stop_serve` before ex
 command full_setup
     do
         if has_bin "brew"
-            exec brew install jq
+            brew install jq
         end
         if not has_bin "brew"
             if has_bin "apt-get"
-                exec sudo apt-get install -y jq
+                sudo apt-get install -y jq
             end
         end
         if not has_bin "jq"
@@ -727,7 +727,7 @@ command release_with_cleanup
     do
         let tmp = mktemp_dir
         # Set up state...
-        exec build-and-test ${tmp}      # might fail
+        build-and-test ${tmp}      # might fail
         # If we get here, build succeeded:
         _release_publish "-target_dir=${tmp}"
         rm "${tmp}"
@@ -765,14 +765,14 @@ command up
     do
         require_bin "docker"
         require_bin "docker-compose"
-        exec docker-compose up -d
+        docker-compose up -d
     end
 end
 
 command down
     do
         require_bin "docker-compose"
-        exec docker-compose down
+        docker-compose down
     end
 end
 ```
@@ -794,7 +794,7 @@ command full_stack
     do
         require_docker
         redis.up
-        exec ./scripts/seed-data.sh
+        ./scripts/seed-data.sh
     end
 end
 ```
@@ -879,7 +879,7 @@ shell "cd ./subproject && go test ./..."
 
 # RIGHT: use with_cwd (cross-platform)
 with_cwd "./subproject"
-    exec go test ./...
+    go test ./...
 end
 
 # OR use the platform-correct sep
@@ -908,13 +908,13 @@ The first token of `exec X` (or `shell "X"`) is the binary you're invoking. Diff
 command setup
     do
         os "darwin"
-            exec brew install jq
+            brew install jq
         end
         os "linux"
-            exec apt-get install -y jq
+            apt-get install -y jq
         end
         os "windows"
-            exec choco install jq -y
+            choco install jq -y
         end
     end
 end
@@ -933,7 +933,7 @@ command deploy
         if not ok
             fail "kubectl ${v} < 1.28.0 — upgrade and retry"
         end
-        exec kubectl rollout restart deployment/api
+        kubectl rollout restart deployment/api
     end
 end
 ```
@@ -992,7 +992,7 @@ let v = version_extract "${raw}"
 
 assert_version v >= "1.28.0"   # hard gate
 if v >= "1.28.0"                # soft branch
-    exec kubectl rollout restart deployment/api
+    kubectl rollout restart deployment/api
 end
 ```
 
@@ -1017,24 +1017,24 @@ command release
         os "linux"
             arch "amd64"
                 with_env "GOOS=linux,GOARCH=amd64"
-                    exec go build -o app-linux-x64 ./cmd/app
+                    go build -o app-linux-x64 ./cmd/app
                 end
             end
             arch "arm64"
                 with_env "GOOS=linux,GOARCH=arm64"
-                    exec go build -o app-linux-arm64 ./cmd/app
+                    go build -o app-linux-arm64 ./cmd/app
                 end
             end
         end
         os "darwin"
             arch "amd64"
                 with_env "GOOS=darwin,GOARCH=amd64"
-                    exec go build -o app-darwin-x64 ./cmd/app
+                    go build -o app-darwin-x64 ./cmd/app
                 end
             end
             arch "arm64"
                 with_env "GOOS=darwin,GOARCH=arm64"
-                    exec go build -o app-darwin-arm64 ./cmd/app
+                    go build -o app-darwin-arm64 ./cmd/app
                 end
             end
         end
@@ -1053,7 +1053,7 @@ command rm_build
             exec rm -rf ./build
         end
         os "windows"
-            exec rmdir /S /Q .\\build
+            rmdir /S /Q .\\build
         end
     end
 end
@@ -1073,7 +1073,7 @@ Older cross-platform style still works (no behavior change):
 
 ```perch
 if is_macos
-    exec brew install jq
+    brew install jq
 end
 ```
 
@@ -1084,13 +1084,13 @@ template install_pkg
     arg name string
     do
         if is_macos
-            exec brew install ${name}
+            brew install ${name}
         end
         if is_linux
-            exec sudo apt-get install -y ${name}
+            sudo apt-get install -y ${name}
         end
         if is_windows
-            exec choco install ${name} -y
+            choco install ${name} -y
         end
     end
 end
@@ -1658,7 +1658,7 @@ Now `perch repo view` → `gh repo view`, etc. Useful for wrapping an existing C
 ```perch
 parallel max=4
     for_each region in "us-east-1,us-west-2,eu-west-1,ap-south-1"
-        exec deploy-region.sh ${region}
+        deploy-region.sh ${region}
     end
 end
 ```
@@ -1684,7 +1684,7 @@ Invoking a command by name halts the parent on a non-zero from the callee. Chain
 
 ```perch
 timeout secs=300
-    exec make integration-test
+    make integration-test
 end
 ```
 
@@ -1814,7 +1814,7 @@ command serve
     on_signal stop_serve
     do
         write_file "${temp_dir}/myapp.pid" "${pid}"
-        exec go run ./cmd/server
+        go run ./cmd/server
     end
 end
 
@@ -1823,7 +1823,7 @@ command stop_serve
     do
         if exists "${temp_dir}/myapp.pid"
             let pid = read_file "${temp_dir}/myapp.pid"
-            exec kill ${pid}
+            kill ${pid}
             rm "${temp_dir}/myapp.pid"
         end
     end
@@ -1859,7 +1859,7 @@ command build
     description "Compile for the current platform"
     do
         ensure_clean "${OUT_DIR}/${os}-${arch}"
-        exec go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}
+        go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}
         let size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
         print "✓ built ${size} bytes"
     end
@@ -1870,16 +1870,16 @@ command release
     do
         parallel max=4
             with_env GOOS=darwin,GOARCH=arm64
-                exec go build -o ${OUT_DIR}/darwin-arm64/${APP_NAME} ./cmd/${APP_NAME}
+                go build -o ${OUT_DIR}/darwin-arm64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=darwin,GOARCH=amd64
-                exec go build -o ${OUT_DIR}/darwin-amd64/${APP_NAME} ./cmd/${APP_NAME}
+                go build -o ${OUT_DIR}/darwin-amd64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=linux,GOARCH=amd64
-                exec go build -o ${OUT_DIR}/linux-amd64/${APP_NAME} ./cmd/${APP_NAME}
+                go build -o ${OUT_DIR}/linux-amd64/${APP_NAME} ./cmd/${APP_NAME}
             end
             with_env GOOS=windows,GOARCH=amd64
-                exec go build -o ${OUT_DIR}/windows-amd64/${APP_NAME}.exe ./cmd/${APP_NAME}
+                go build -o ${OUT_DIR}/windows-amd64/${APP_NAME}.exe ./cmd/${APP_NAME}
             end
         end
         print "✓ all 4 targets built"
@@ -1889,9 +1889,9 @@ end
 command test
     description "Run the test suite"
     do
-        exec go test -race ./...
+        go test -race ./...
         if exists "./integration"
-            exec go test -tags=integration ./integration/...
+            go test -tags=integration ./integration/...
         end
     end
 end
@@ -1976,10 +1976,10 @@ command install
             bundle_extract "${install_dir}"
 
             print "→ creating venv"
-            exec python3 -m venv ${install_dir}/.venv
+            python3 -m venv ${install_dir}/.venv
 
             print "→ installing dependencies"
-            exec ${install_dir}/.venv/bin/pip install -r ${install_dir}/requirements.txt
+            ${install_dir}/.venv/bin/pip install -r ${install_dir}/requirements.txt
 
             touch "${install_dir}/.installed"
         end
@@ -2047,7 +2047,7 @@ command restart_service
         if not regex_match "${service}" "^(web|worker|scheduler)$"
             fail "invalid service: ${service}"
         end
-        exec ssh ops@${host} "systemctl restart ${service}"
+        ssh ops@${host} "systemctl restart ${service}"
     end
 end
 
@@ -2063,7 +2063,7 @@ end
 command list_pods
     description "List pods in the prod namespace"
     do
-        exec kubectl get pods -n prod
+        kubectl get pods -n prod
     end
 end
 
@@ -2074,7 +2074,7 @@ command tail_logs
         description "Service name"
     end
     do
-        exec kubectl logs -f deployment/${service} -n prod
+        kubectl logs -f deployment/${service} -n prod
     end
 end
 
@@ -2082,7 +2082,7 @@ end
 command _kube_context
     private
     do
-        exec kubectl config use-context prod
+        kubectl config use-context prod
     end
 end
 ```
@@ -2308,10 +2308,10 @@ command backup
         print "✓ dumped ${size} bytes → ${out}"
 
         # Encrypt + compress
-        exec gzip ${out}
+        gzip ${out}
         let key = get_env "BACKUP_GPG_KEY"
         if "${key}" != ""
-            exec gpg --batch --yes --recipient ${key} --encrypt ${out}.gz
+            gpg --batch --yes --recipient ${key} --encrypt ${out}.gz
             rm "${out}.gz"
             let final = format "${out}.gz.gpg"
         end
@@ -2321,7 +2321,7 @@ command backup
 
         # Ship to S3 (if aws cli is present)
         if has_bin "aws"
-            exec aws s3 cp ${final} s3://${S3_BUCKET}/
+            aws s3 cp ${final} s3://${S3_BUCKET}/
             print "✓ uploaded to s3://${S3_BUCKET}/"
         end
         if not has_bin "aws"
@@ -2349,7 +2349,7 @@ command restore
         # Decrypt if needed
         if has_suffix "${path}" ".gpg"
             shell "gpg --batch --decrypt ${path} > ${stage}.gz"
-            exec gunzip ${stage}.gz
+            gunzip ${stage}.gz
         end
         if has_suffix "${path}" ".gz"
             shell "gunzip -c ${path} > ${stage}"
@@ -2393,11 +2393,11 @@ command list_backups
     do
         print "── Local ──"
         if exists "${BACKUP_DIR}"
-            exec ls -lh ${BACKUP_DIR}/
+            ls -lh ${BACKUP_DIR}/
         end
         if has_bin "aws"
             print "── S3 ──"
-            exec aws s3 ls s3://${S3_BUCKET}/
+            aws s3 ls s3://${S3_BUCKET}/
         end
     end
 end
@@ -2456,7 +2456,7 @@ command issue
     arg email  type string description "Contact email for LE registration" end
     do
         require_bin "certbot"
-        exec certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}
+        certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}
         install_to_nginx "-domain=${domain}"
         alert "-msg=issued cert for ${domain}"
     end
@@ -2466,10 +2466,10 @@ command renew
     description "Try to renew every cert; reload nginx only if anything changed"
     do
         let before = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
-        exec certbot renew --quiet
+        certbot renew --quiet
         let after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         if "${before}" != "${after}"
-            exec nginx -s reload
+            nginx -s reload
             alert "-msg=renewed cert(s); reloaded nginx"
         end
         if "${before}" == "${after}"
@@ -2491,8 +2491,8 @@ command install_to_nginx
     location / { proxy_pass http://127.0.0.1:8080; }
 }
 "
-        exec nginx -t
-        exec nginx -s reload
+        nginx -t
+        nginx -s reload
     end
 end
 
@@ -2520,7 +2520,7 @@ command alert
     arg msg type string end
     do
         let body = format '{"text":"[cert.perch] ${msg}"}'
-        exec curl -sS -X POST -H "Content-Type: application/json" -d ${body} ${ALERT_WEBHOOK}
+        curl -sS -X POST -H "Content-Type: application/json" -d ${body} ${ALERT_WEBHOOK}
     end
 end
 
@@ -2594,13 +2594,13 @@ command deploy
 
         # 5. Diff before apply
         print "── Pending changes for ${env} ──"
-        exec helm diff upgrade myapp ./chart --set image=${image} -n ${env}
+        helm diff upgrade myapp ./chart --set image=${image} -n ${env}
 
         # 6. Apply
         if "${env}" == "prod"
             _alert "-msg=deploying ${image} to PROD by ${user}"
         end
-        exec helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait
+        helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait
 
         # 7. Smoke test
         smoke "-env=${env}"
@@ -2622,7 +2622,7 @@ command rollback
             end
         end
         _set_kube_context "-env=${env}"
-        exec helm rollback myapp -n ${env}
+        helm rollback myapp -n ${env}
         smoke "-env=${env}"
         _alert "-msg=rolled back ${env} (by ${user})"
     end
@@ -2648,7 +2648,7 @@ command _set_kube_context
     private
     arg env type string end
     do
-        exec kubectl config use-context ${env}-cluster
+        kubectl config use-context ${env}-cluster
     end
 end
 
@@ -2836,10 +2836,10 @@ command branch
         if not regex_match "${name}" "^[a-z0-9-]+$"
             fail "branch name must be lowercase alphanumeric with hyphens"
         end
-        exec git fetch origin
-        exec git switch ${base}
-        exec git pull --ff-only
-        exec git switch -c ${user}/${name}
+        git fetch origin
+        git switch ${base}
+        git pull --ff-only
+        git switch -c ${user}/${name}
         print "✓ on ${user}/${name}"
     end
 end
@@ -2858,8 +2858,8 @@ command commit
         if not regex_match "${type}" "^(feat|fix|refactor|docs|test|chore)$"
             fail "type must be one of: feat fix refactor docs test chore"
         end
-        exec git add -A
-        exec git commit -m "${type}: ${msg}"
+        git add -A
+        git commit -m "${type}: ${msg}"
     end
 end
 
@@ -2881,7 +2881,7 @@ command pr
         end
 
         # Push
-        exec git push -u origin ${branch}
+        git push -u origin ${branch}
 
         # Title fallback
         if "${title}" == ""
@@ -2910,9 +2910,9 @@ command land
         require_bin "gh"
         let branch = exec git symbolic-ref --short HEAD
         let base = exec gh pr view --json baseRefName -q .baseRefName
-        exec gh pr merge --squash --auto --delete-branch
-        exec git switch ${base}
-        exec git pull --ff-only
+        gh pr merge --squash --auto --delete-branch
+        git switch ${base}
+        git pull --ff-only
         print "✓ landed; back on ${base}"
     end
 end
@@ -2921,8 +2921,8 @@ command sync
     description "Pull the latest base; rebase the current branch"
     do
         let branch = exec git symbolic-ref --short HEAD
-        exec git fetch origin ${DEFAULT_BASE}
-        exec git rebase origin/${DEFAULT_BASE}
+        git fetch origin ${DEFAULT_BASE}
+        git rebase origin/${DEFAULT_BASE}
         print "✓ rebased ${branch} on ${DEFAULT_BASE}"
     end
 end
@@ -2930,7 +2930,7 @@ end
 command cleanup
     description "Remove local branches whose remotes are gone"
     do
-        exec git fetch --prune
+        git fetch --prune
         shell "git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -D"
     end
 end
@@ -3278,7 +3278,7 @@ perch -f dev.perch --allow-host localhost up
 ### Single-quotes inside shell args
 
 ```perch
-exec psql -c "SELECT * FROM t WHERE name = bob"
+psql -c "SELECT * FROM t WHERE name = bob"
 # Tricky to read; very tricky to maintain.
 ```
 

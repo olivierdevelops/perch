@@ -47,10 +47,10 @@ command start_prom
         if not r
             let e = exec docker ps -aq -f name=^${PROM_NAME}$
             if e
-                exec docker start ${PROM_NAME}
+                docker start ${PROM_NAME}
             end
             if not e
-                exec docker run -d --name ${PROM_NAME} -p 9090:9090 -v ${PROM_NAME}-data:/prometheus ${PROM_IMG}
+                docker run -d --name ${PROM_NAME} -p 9090:9090 -v ${PROM_NAME}-data:/prometheus ${PROM_IMG}
             end
             ok "prometheus up"
         end
@@ -67,10 +67,10 @@ command start_grafana
         if not r
             let e = exec docker ps -aq -f name=^${GRAF_NAME}$
             if e
-                exec docker start ${GRAF_NAME}
+                docker start ${GRAF_NAME}
             end
             if not e
-                exec docker run -d --name ${GRAF_NAME} -p 3001:3000 -e GF_SECURITY_ADMIN_PASSWORD=admin --add-host=host.docker.internal:host-gateway -v ${GRAF_NAME}-data:/var/lib/grafana ${GRAF_IMG}
+                docker run -d --name ${GRAF_NAME} -p 3001:3000 -e GF_SECURITY_ADMIN_PASSWORD=admin --add-host=host.docker.internal:host-gateway -v ${GRAF_NAME}-data:/var/lib/grafana ${GRAF_IMG}
             end
             ok "grafana up"
         end
@@ -87,10 +87,10 @@ command start_loki
         if not r
             let e = exec docker ps -aq -f name=^${LOKI_NAME}$
             if e
-                exec docker start ${LOKI_NAME}
+                docker start ${LOKI_NAME}
             end
             if not e
-                exec docker run -d --name ${LOKI_NAME} -p 3100:3100 -v ${LOKI_NAME}-data:/loki ${LOKI_IMG}
+                docker run -d --name ${LOKI_NAME} -p 3100:3100 -v ${LOKI_NAME}-data:/loki ${LOKI_IMG}
             end
             ok "loki up"
         end
@@ -101,13 +101,13 @@ command browse
     description "Open Grafana in the default browser"
     do
         if os == "darwin"
-            exec open http://localhost:3001
+            open http://localhost:3001
         end
         if os == "linux"
-            exec xdg-open http://localhost:3001
+            xdg-open http://localhost:3001
         end
         if os == "windows"
-            exec start http://localhost:3001
+            start http://localhost:3001
         end
     end
 end
@@ -115,9 +115,9 @@ end
 command down
     do
         parallel
-            exec docker stop ${PROM_NAME}
-            exec docker stop ${GRAF_NAME}
-            exec docker stop ${LOKI_NAME}
+            docker stop ${PROM_NAME}
+            docker stop ${GRAF_NAME}
+            docker stop ${LOKI_NAME}
         end
         ok "observe stack stopped"
     end
@@ -125,14 +125,14 @@ end
 
 command destroy
     do
-        exec docker rm -f ${PROM_NAME} ${GRAF_NAME} ${LOKI_NAME}
-        exec docker volume rm ${PROM_NAME}-data ${GRAF_NAME}-data ${LOKI_NAME}-data
+        docker rm -f ${PROM_NAME} ${GRAF_NAME} ${LOKI_NAME}
+        docker volume rm ${PROM_NAME}-data ${GRAF_NAME}-data ${LOKI_NAME}-data
         ok "destroyed"
     end
 end
 
 command status
     do
-        exec docker ps --filter name=^${PROM_NAME}$ --filter name=^${GRAF_NAME}$ --filter name=^${LOKI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        docker ps --filter name=^${PROM_NAME}$ --filter name=^${GRAF_NAME}$ --filter name=^${LOKI_NAME}$ --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     end
 end

