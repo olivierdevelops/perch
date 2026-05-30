@@ -28,9 +28,9 @@ version "0.1.0"
 command setup
     description "Install dependencies, fetch config, set env"
     do
-        run install_packages
-        run fetch_config
-        run setup_env
+        install_packages
+        fetch_config
+        setup_env
         print "✓ Setup complete. Restart your shell."
     end
 end

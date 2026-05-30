@@ -75,12 +75,12 @@ command demo
     do
         print "==> Running 4 legitimate AI-generated plugins in parallel"
         print ""
-        run run_all
+        run_all
         print ""
         print "──────────────────────────────────────────────────────"
         print "==> Now an attacker-controlled plugin tries to escape"
         print ""
-        run try_evil
+        try_evil
     end
 end
 

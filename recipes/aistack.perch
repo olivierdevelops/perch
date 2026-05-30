@@ -21,10 +21,10 @@ command up
         call require_docker
         call say "Starting local LLM stack"
         parallel
-            run start_ollama
-            run start_chroma
+            start_ollama
+            start_chroma
         end
-        run start_webui
+        start_webui
         print ""
         call ok "aistack ready"
         print ""

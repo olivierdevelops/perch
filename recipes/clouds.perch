@@ -19,17 +19,17 @@ command install_all
     description "Install every cloud CLI via the host package manager"
     do
         if os == "darwin"
-            run brew_install
+            brew_install
         end
         if os == "linux"
-            run linux_install
+            linux_install
         end
         if os == "windows"
-            run winget_install
+            winget_install
         end
         print ""
         call ok "cloud CLIs installed"
-        run check
+        check
     end
 end
 

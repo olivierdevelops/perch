@@ -377,9 +377,9 @@ If you have multiple schemas applying to different file globs, use `parallel`:
 command validate_all
     do
         parallel
-            run validate_dir "./schemas/user.json" "./fixtures/users"
-            run validate_dir "./schemas/order.json" "./fixtures/orders"
-            run validate_dir "./schemas/payment.json" "./fixtures/payments"
+            validate_dir "./schemas/user.json" "./fixtures/users"
+            validate_dir "./schemas/order.json" "./fixtures/orders"
+            validate_dir "./schemas/payment.json" "./fixtures/payments"
         end
     end
 end
@@ -634,7 +634,7 @@ command process_batch
         let n = 0
         for_each "${inputs}" f
             parallel
-                run process "${f}" "${script_dir}/out/$(basename ${f} .xml).jsonl"
+                process "${f}" "${script_dir}/out/$(basename ${f} .xml).jsonl"
             end
         end
     end

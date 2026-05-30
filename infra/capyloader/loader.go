@@ -174,6 +174,14 @@ func resolveImports(prog *domain.Program, imports []importDirective, base string
 			return nil, fmt.Errorf("import %q: %w", imp.Path, err)
 		}
 	}
+	// Resolve bare-name dispatch BEFORE template expansion: a bare `deploy` /
+	// `ensure_dir "x"` was folded by the grammar into an implicit `exec` op;
+	// now that the full command + template sets are merged, rewrite those
+	// whose bin is actually a command (→ `run`) or a template (→
+	// `_template_call`, which the expansion pass below then inlines). Bins are
+	// left as exec. This is what lets `run`/`call` be dropped from the surface.
+	resolveBareDispatch(prog)
+
 	// Re-run template expansion now that imported templates are merged
 	// into prog.Templates. parseEventStream did a first pass on the
 	// parent file's own templates; that pass leaves `_template_call`
@@ -185,6 +193,69 @@ func resolveImports(prog *domain.Program, imports []importDirective, base string
 		}
 	}
 	return prog, nil
+}
+
+// resolveBareDispatch rewrites implicit-exec ops (`deploy`, `ensure_dir "x"`)
+// whose leading name is a command or template into the corresponding `run` /
+// `_template_call` op. The unique-name registry guarantees the name resolves
+// to at most one of {command, template, bin}, so the mapping is unambiguous.
+// Names that are neither command nor template stay as exec (a real bin, or an
+// undeclared-bin error raised later by enforceZeroAmbient).
+func resolveBareDispatch(prog *domain.Program) {
+	cmds := prog.Commands
+	tmpls := prog.Templates
+	var walk func(ops []domain.Op)
+	walk = func(ops []domain.Op) {
+		for i := range ops {
+			op := &ops[i]
+			if op.Kind == "exec" && op.Args != nil && truthyArg(op.Args["implicit"]) {
+				bin, _ := op.Args["bin"].(string)
+				if _, ok := cmds[bin]; ok {
+					args := map[string]any{"target": bin}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+				} else if _, ok := tmpls[bin]; ok {
+					args := map[string]any{"name": bin}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
+				}
+			}
+			if len(op.Body) > 0 {
+				walk(op.Body)
+			}
+		}
+	}
+	for _, c := range cmds {
+		if c != nil {
+			walk(c.Ops)
+		}
+	}
+	if prog.Catch != nil {
+		walk(prog.Catch.Ops)
+	}
+	for _, t := range tmpls {
+		if t != nil {
+			walk(t.Ops)
+		}
+	}
+}
+
+// copyArgvSlots copies the positional _0.._N argv slots from an exec op's args
+// into a destination map (used when converting exec → run / _template_call).
+func copyArgvSlots(src, dst map[string]any) {
+	for n := 0; ; n++ {
+		k := fmt.Sprintf("_%d", n)
+		v, ok := src[k]
+		if !ok {
+			break
+		}
+		dst[k] = v
+	}
+}
+
+func truthyArg(v any) bool {
+	b, ok := v.(bool)
+	return ok && b
 }
 
 // expandAllTemplates re-runs the template expansion pass across every

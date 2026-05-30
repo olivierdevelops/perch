@@ -20,7 +20,7 @@ end
 command test_build_creates_binary
     test
     do
-        run build
+        build
         assert_exists "bin/app"
     end
 end
@@ -64,7 +64,7 @@ command test_build_writes_a_real_binary
     test
     description "build should produce an executable, not an empty file"
     do
-        run build
+        build
         let size = file_size "bin/darwin/app"
         if size < 1000
             fail "binary is suspiciously small (${size} bytes)"
@@ -191,8 +191,8 @@ command test_all_targets_built
     test
     do
         parallel
-            run build_darwin
-            run build_linux
+            build_darwin
+            build_linux
         end
         call assert_built "darwin"
         call assert_built "linux"
@@ -204,7 +204,7 @@ command test_release_pipeline
     test_timeout 60
     do
         timeout "30s"
-            run release
+            release
         end
         call assert_built "darwin"
     end

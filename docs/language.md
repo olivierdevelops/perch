@@ -217,7 +217,7 @@ do
     if os == "darwin"
         OP ARGS...               # nested ops, only run on macOS
     end
-    run other_command            # dispatch into another command
+    other_command            # dispatch into another command
     fail "explicit error"        # exit non-zero with a message
 end
 ```
@@ -365,9 +365,9 @@ Six block-shaped ops modify *how* the inner body executes without changing *what
 
 ```capy
 parallel
-    run build_darwin
-    run build_linux
-    run build_windows
+    build_darwin
+    build_linux
+    build_windows
 end
 ```
 
@@ -426,7 +426,7 @@ Temporarily switches `cwd` for the body, restoring even on error. Unlike `cd` (w
 
 ```capy
 sandbox "no_shell,no_network"
-    run vendor.update_check
+    vendor.update_check
 end
 ```
 

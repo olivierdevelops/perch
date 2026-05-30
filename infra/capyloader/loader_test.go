@@ -465,7 +465,7 @@ import "./aws.perch" as aws
 command deploy
     description "d"
     do
-        run aws.upload
+        aws.upload
     end
 end
 `), 0644); err != nil {
@@ -571,7 +571,7 @@ import "${file_dir}/shared/lib.perch"
 command main_cmd
     description "main"
     do
-        run from_lib
+        from_lib
     end
 end
 `), 0644)
@@ -603,7 +603,7 @@ import "${PERCH_TEST_DIR}/lib.perch"
 command m
     description "m"
     do
-        run e
+        e
     end
 end
 `), 0644)

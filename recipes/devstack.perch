@@ -21,9 +21,9 @@ command up
         call require_docker
         call say "Starting devstack"
         parallel
-            run start_postgres
-            run start_redis
-            run start_minio
+            start_postgres
+            start_redis
+            start_minio
         end
         print ""
         call ok "devstack ready"

@@ -50,7 +50,7 @@ end
 command test_build_produces_binary
     test
     do
-        run build
+        build
         assert_exists "bin/app"
     end
 end

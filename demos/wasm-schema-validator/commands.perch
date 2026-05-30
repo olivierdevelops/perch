@@ -58,7 +58,7 @@ end
 command test_validator_accepts_good
     test
     do
-        run demo_good
+        demo_good
     end
 end
 

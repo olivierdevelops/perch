@@ -614,7 +614,7 @@ rescue err
         case http_4xx
             print "bad request: ${err.code}"
         case http_ssrf_blocked
-            run alert "-msg=security: ${err.detail}"
+            alert "-msg=security: ${err.detail}"
         else
             throw "${err.message}"     # unknown — re-raise
     end
@@ -717,8 +717,8 @@ perch doesn't have try/finally. Use a wrapper command that always runs the clean
 ```perch
 command release
     do
-        run _release_inner
-        run _release_cleanup       # always runs (release halts → cleanup doesn't)
+        _release_inner
+        _release_cleanup       # always runs (release halts → cleanup doesn't)
     end
 end
 
@@ -729,7 +729,7 @@ command release_with_cleanup
         # Set up state...
         exec build-and-test ${tmp}      # might fail
         # If we get here, build succeeded:
-        run _release_publish "-target_dir=${tmp}"
+        _release_publish "-target_dir=${tmp}"
         rm "${tmp}"
     end
 end
@@ -793,7 +793,7 @@ import "recipes/redis.perch" as redis    # namespaced; verbs become `redis.up`, 
 command full_stack
     do
         call require_docker
-        run redis.up
+        redis.up
         exec ./scripts/seed-data.sh
     end
 end
@@ -976,7 +976,7 @@ rescue err
     match "${err.kind}"
         case assert_failed
             print "kubectl too old — using legacy path"
-            run deploy_legacy
+            deploy_legacy
         else
             throw "${err.message}"
     end
@@ -1670,10 +1670,10 @@ end
 ```perch
 command release
     do
-        run build
-        run test           # tests run after a successful build
-        run sign
-        run publish        # only if everything above passed
+        build
+        test           # tests run after a successful build
+        sign
+        publish        # only if everything above passed
     end
 end
 ```
@@ -1906,8 +1906,8 @@ end
 command ci
     description "What CI runs"
     do
-        run test
-        run release
+        test
+        release
     end
 end
 ```
@@ -2167,9 +2167,9 @@ command run_all
     description "Apply every plugin in parallel"
     do
         parallel max=3
-            run run_plugin "-plugin=tax"
-            run run_plugin "-plugin=discount"
-            run run_plugin "-plugin=shipping"
+            run_plugin "-plugin=tax"
+            run_plugin "-plugin=discount"
+            run_plugin "-plugin=shipping"
         end
     end
 end
@@ -2329,7 +2329,7 @@ command backup
         end
 
         # Local retention: keep 14 most recent
-        run prune_local "-engine=${engine}" "-keep=14"
+        prune_local "-engine=${engine}" "-keep=14"
     end
 end
 
@@ -2410,10 +2410,10 @@ command test_roundtrip
     do
         let tmp = mktemp_dir
         shell "sqlite3 ${tmp}/src.db 'CREATE TABLE t(x); INSERT INTO t VALUES(42);'"
-        run backup "-engine=sqlite" "-conn=${tmp}/src.db" "-label=test"
+        backup "-engine=sqlite" "-conn=${tmp}/src.db" "-label=test"
         # Most recent backup wins:
         let latest = shell_output "ls -1t ${BACKUP_DIR}/sqlite-test-*.sql.gz* | head -1"
-        run restore "-engine=sqlite" "-conn=${tmp}/dst.db" "-path=${latest}"
+        restore "-engine=sqlite" "-conn=${tmp}/dst.db" "-path=${latest}"
         let got = shell_output "sqlite3 ${tmp}/dst.db 'SELECT x FROM t;'"
         assert_eq "${got}" "42"
         rm "${tmp}"
@@ -2457,8 +2457,8 @@ command issue
     do
         call require_bin "certbot"
         exec certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}
-        run install_to_nginx "-domain=${domain}"
-        run alert "-msg=issued cert for ${domain}"
+        install_to_nginx "-domain=${domain}"
+        alert "-msg=issued cert for ${domain}"
     end
 end
 
@@ -2470,7 +2470,7 @@ command renew
         let after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         if "${before}" != "${after}"
             exec nginx -s reload
-            run alert "-msg=renewed cert(s); reloaded nginx"
+            alert "-msg=renewed cert(s); reloaded nginx"
         end
         if "${before}" == "${after}"
             print "nothing to renew"
@@ -2509,7 +2509,7 @@ command check_expiry
             end
         end
         if "${found}" != ""
-            run alert "-msg=certs expiring soon:\n${found}"
+            alert "-msg=certs expiring soon:\n${found}"
         end
     end
 end
@@ -2590,7 +2590,7 @@ command deploy
         end
 
         # 4. Capability gate by env
-        run _set_kube_context "-env=${env}"
+        _set_kube_context "-env=${env}"
 
         # 5. Diff before apply
         print "── Pending changes for ${env} ──"
@@ -2598,12 +2598,12 @@ command deploy
 
         # 6. Apply
         if "${env}" == "prod"
-            run _alert "-msg=deploying ${image} to PROD by ${user}"
+            _alert "-msg=deploying ${image} to PROD by ${user}"
         end
         exec helm upgrade --install myapp ./chart --set image=${image} -n ${env} --wait
 
         # 7. Smoke test
-        run smoke "-env=${env}"
+        smoke "-env=${env}"
 
         # 8. Record the deploy
         let stamp = format_time "now" "2006-01-02T15:04:05Z"
@@ -2621,10 +2621,10 @@ command rollback
                 fail "prod rollbacks require -confirm=${PROD_CONFIRM_TOKEN}"
             end
         end
-        run _set_kube_context "-env=${env}"
+        _set_kube_context "-env=${env}"
         exec helm rollback myapp -n ${env}
-        run smoke "-env=${env}"
-        run _alert "-msg=rolled back ${env} (by ${user})"
+        smoke "-env=${env}"
+        _alert "-msg=rolled back ${env} (by ${user})"
     end
 end
 
@@ -2719,10 +2719,10 @@ command process
 
         # 2. Skip if cached output matches
         cache key:"${cache_key}" ttl:"24h"
-            run _extract "-input=${input}"
-            run _transform
-            run _validate
-            run _load "-output=${output}"
+            _extract "-input=${input}"
+            _transform
+            _validate
+            _load "-output=${output}"
         end
         print "✓ pipeline done; output at ${output}"
     end
@@ -2794,7 +2794,7 @@ command serve_pipeline
                 fail "no new files"   # forces retry to wait
             end
             let out = format "./outbox/${user}-$(basename ${in} .csv).json"
-            run process "-input=${in}" "-output=${out}"
+            process "-input=${in}" "-output=${out}"
             mv "${in}" "./done/"
         end
     end

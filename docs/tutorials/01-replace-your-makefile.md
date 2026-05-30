@@ -156,9 +156,9 @@ end
 command release
     description "Cross-compile for all three OSes"
     do
-        run build_for "-target=darwin"
-        run build_for "-target=linux"
-        run build_for "-target=windows"
+        build_for "-target=darwin"
+        build_for "-target=linux"
+        build_for "-target=windows"
     end
 end
 ```
@@ -171,9 +171,9 @@ end
 command ci
     description "What CI runs: lint + test + release"
     do
-        run lint
-        run test
-        run release
+        lint
+        test
+        release
     end
 end
 ```

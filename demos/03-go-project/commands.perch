@@ -77,8 +77,8 @@ end
 command ci
     description "What CI runs: lint + test + release"
     do
-        run lint
-        run gotest
-        run release
+        lint
+        gotest
+        release
     end
 end

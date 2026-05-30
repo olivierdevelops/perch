@@ -453,8 +453,8 @@ end
 command release
     description "Cut a release"
     do
-        run build
-        run publish
+        build
+        publish
     end
 end
 ```

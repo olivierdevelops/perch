@@ -61,7 +61,7 @@ end
 command ci
     description "Lint + test + release"
     do
-        run test
+        test
         exec go vet ./...
     end
 end
@@ -197,7 +197,7 @@ end
 command uninstall
     description "Stop and remove the image"
     do
-        run stop
+        stop
         exec docker rmi ${IMAGE}
     end
 end
@@ -454,16 +454,16 @@ TF_VER    = "1.7"
 command install_all
     description "Install everything"
     do
-        run install_node
-        run install_postgres
-        run install_redis
-        run install_kubectl
-        run install_helm
-        run install_terraform
-        run install_jq
-        run install_ripgrep
-        run install_gh
-        run install_docker
+        install_node
+        install_postgres
+        install_redis
+        install_kubectl
+        install_helm
+        install_terraform
+        install_jq
+        install_ripgrep
+        install_gh
+        install_docker
         print "All tools installed."
     end
 end
@@ -519,7 +519,7 @@ end
 command update_all
     description "Re-run installers; package managers handle the upgrade"
     do
-        run install_all
+        install_all
     end
 end
 
@@ -768,9 +768,9 @@ The classic problem: your `.github/workflows/ci.yml` and your local `make test` 
 command ci
     description "What CI runs end-to-end"
     do
-        run lint
-        run test
-        run release
+        lint
+        test
+        release
     end
 end
 
@@ -949,11 +949,11 @@ Game studios + native-app teams have weird per-platform build dances: Xcode for 
 command release
     description "Cross-platform release"
     do
-        run build_ios
-        run build_android
-        run build_macos
-        run build_windows
-        run upload_all
+        build_ios
+        build_android
+        build_macos
+        build_windows
+        upload_all
     end
 end
 

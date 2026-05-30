@@ -15,13 +15,13 @@ command install
     do
         call say "Detecting package manager"
         if os == "darwin"
-            run install_brew
+            install_brew
         end
         if os == "linux"
-            run install_apt
+            install_apt
         end
         if os == "windows"
-            run install_winget
+            install_winget
         end
         print ""
         call ok "modern-unix toolkit installed"

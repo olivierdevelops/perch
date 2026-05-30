@@ -24,10 +24,10 @@ command up
         call require_docker
         call say "Starting observability stack"
         parallel
-            run start_prom
-            run start_loki
+            start_prom
+            start_loki
         end
-        run start_grafana
+        start_grafana
         print ""
         call ok "observe stack ready"
         print ""

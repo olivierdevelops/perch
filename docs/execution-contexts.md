@@ -209,9 +209,9 @@ command release
     description "Build all three platforms in parallel"
     do
         parallel
-            run build_darwin
-            run build_linux
-            run build_windows
+            build_darwin
+            build_linux
+            build_windows
         end
         print "all three done"
     end
@@ -306,7 +306,7 @@ Narrow the active capability mask for the body:
 
 ```capy
 sandbox "no_shell,no_network"
-    run vendor.update_check
+    vendor.update_check
 end
 ```
 
@@ -334,7 +334,7 @@ import "./vendor/third-party.perch" as tp
 command safe_lookup
     do
         sandbox "no_shell,no_network,no_write"
-            run tp.do_thing
+            tp.do_thing
         end
     end
 end

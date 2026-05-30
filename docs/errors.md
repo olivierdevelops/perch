@@ -19,7 +19,7 @@ rescue err
         case http_4xx
             print "bad request: ${err.code}"
         case http_ssrf_blocked
-            run alert "-msg=security: ${err.detail}"
+            alert "-msg=security: ${err.detail}"
         else
             throw "${err.message}"               # unknown — re-raise
     end
@@ -289,14 +289,14 @@ Each branch's error propagates to the surrounding `parallel`. To prevent one bra
 ```perch
 parallel max=3
     try
-        run deploy_region "-region=a"
+        deploy_region "-region=a"
     rescue err
-        run alert "-msg=a failed: ${err.message}"
+        alert "-msg=a failed: ${err.message}"
     end
     try
-        run deploy_region "-region=b"
+        deploy_region "-region=b"
     rescue err
-        run alert "-msg=b failed: ${err.message}"
+        alert "-msg=b failed: ${err.message}"
     end
 end
 ```
@@ -385,7 +385,7 @@ try
 rescue err
     # Log + alert, then re-raise
     print "[ERROR] ${err.kind}: ${err.message}"
-    run alert "-msg=${err.message}"
+    alert "-msg=${err.message}"
     throw "${err.message}"      # propagates after finally runs
 finally
     rm "${tmp}"
