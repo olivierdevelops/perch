@@ -19,7 +19,7 @@ command validate
         description "JSON file to validate (path under ./fixtures/)"
     end
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/schema-validator.wasm"
             wasm_arg "/ro/schemas/${schema}.json"
             wasm_arg "/ro/fixtures/${file}"
@@ -32,7 +32,7 @@ end
 command demo_good
     description "Validate a passing fixture (exit 0, prints ✓ valid)"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/schema-validator.wasm"
             wasm_arg "/ro/schemas/user.json"
             wasm_arg "/ro/fixtures/good-alice.json"
@@ -45,7 +45,7 @@ end
 command demo_bad
     description "Validate a fixture with 5 violations (exit 1, prints 5 errors)"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/schema-validator.wasm"
             wasm_arg "/ro/schemas/user.json"
             wasm_arg "/ro/fixtures/bad-mallory.json"
@@ -70,7 +70,7 @@ command rebuild
                 go build -o schema-validator.wasm .
             end
         end
-        let size = file_size "${script_dir}/schema-validator.wasm"
+        size = file_size "${script_dir}/schema-validator.wasm"
         print "✓ rebuilt schema-validator.wasm (${size} bytes)"
     end
 end

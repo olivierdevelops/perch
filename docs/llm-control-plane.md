@@ -65,7 +65,7 @@ command get_logs
     arg lines type int default 100 end
 
     do
-        let logs = kubectl -n ${ns} logs ${pod} --tail=${lines}
+        logs = kubectl -n ${ns} logs ${pod} --tail=${lines}
         print "${logs}"
     end
 end
@@ -189,8 +189,8 @@ command refund_order
         if amount > 500.0
             fail "amount > $500 needs a human"
         end
-        let body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
-        let resp = http_post "https://billing.internal/refund" body
+        body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
+        resp = http_post "https://billing.internal/refund" body
         print "${resp}"
     end
 end

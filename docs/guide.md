@@ -331,8 +331,8 @@ Most ops are one of:
 ```perch
 print "hi"                               # bare op with positional string
 mkdir "${BUILD_DIR}/${target}"          # ditto
-let n = file_size "./build/out"         # let-capture: result bound to ${n}
-let body = http_get "https://api.x/health"
+n = file_size "./build/out"         # let-capture: result bound to ${n}
+body = http_get "https://api.x/health"
 print "got ${body}"
 ```
 
@@ -356,7 +356,7 @@ print "host=${hostname} cwd=${cwd}"
 
 Sources, in resolution order:
 
-1. **`let X = ...` captures** in the current body
+1. **`X = ...` captures** in the current body
 2. **Command args** (declared via `arg NAME ...`)
 3. **Top-level bindings** (declared bare as `NAME = value`)
 4. **Auto-bound vars** (always present: `${os}`, `${arch}`, `${home_dir}`, `${script_dir}`, `${cwd}`, etc.)
@@ -386,8 +386,8 @@ perch is **stringly-typed by design.** Every value an op produces is a string; t
 The four mechanisms, ranked by how often you'll use them:
 
 ```perch
-# 1. `let X = OP …` — capture an op's return value into a local binding
-let rev = git rev-parse HEAD
+# 1. `X = OP …` — capture an op's return value into a local binding
+rev = git rev-parse HEAD
 print "deploying ${rev}"
 
 # 2. Globals — read-only after parse, visible everywhere
@@ -398,13 +398,13 @@ arg target type string default "darwin" end
 
 # 4. Files — write at one step, read at another (persists across commands)
 write_file "${temp_dir}/state.json" "${rev}"
-let prior = read_file "${temp_dir}/state.json"
+prior = read_file "${temp_dir}/state.json"
 ```
 
 **Things `let` does NOT do:**
 
 - It doesn't leak across commands. Each command's body has its own binding scope. To pass state between commands, write to a file or use `cache`.
-- It doesn't survive across `parallel` siblings. Each `parallel` child runs in its own clone; capturing `let X = ...` inside one branch doesn't make `${X}` visible in another.
+- It doesn't survive across `parallel` siblings. Each `parallel` child runs in its own clone; capturing `X = ...` inside one branch doesn't make `${X}` visible in another.
 - It doesn't survive invoking another command by name. The callee runs with a fresh binding table.
 
 ### Working with JSON
@@ -414,9 +414,9 @@ The most common shape — fetch a JSON API, extract a field:
 ```perch
 command status
     do
-        let body = http_get "https://api.example.com/status"
-        let value = json_get "${body}" ".version"
-        let svc = json_get "${body}" ".service.name"
+        body = http_get "https://api.example.com/status"
+        value = json_get "${body}" ".version"
+        svc = json_get "${body}" ".service.name"
         print "${svc} is at version ${value}"
     end
 end
@@ -427,15 +427,15 @@ end
 ### Working with shell output
 
 ```perch
-let lines = find . -name *.go -type f
-let count = length "${lines}"      # newline-counting
+lines = find . -name *.go -type f
+count = length "${lines}"      # newline-counting
 print "${count} files"
 ```
 
 `shell_output` captures stdout (stderr still goes to your screen). For exit-code-sensitive flows, use `try_shell` which doesn't fail the command on non-zero:
 
 ```perch
-let result = try_shell "ping -c 1 ${host}"
+result = try_shell "ping -c 1 ${host}"
 if "${result}" == ""
     print "host ${host} unreachable"
 end
@@ -446,11 +446,11 @@ end
 For state that needs to survive across `perch` invocations:
 
 ```perch
-let state_file = format "${cache_dir}/myapp/lastrun"
+state_file = format "${cache_dir}/myapp/lastrun"
 
 command deploy
     do
-        let now = now
+        now = now
         write_file "${state_file}" "${now}"
         # ... do deploy ...
     end
@@ -462,8 +462,8 @@ command since_lastrun
             print "never deployed"
             exit 0
         end
-        let then = read_file "${state_file}"
-        let diff = time_diff "${then}" "${now}"
+        then = read_file "${state_file}"
+        diff = time_diff "${then}" "${now}"
         print "last deploy was ${diff} ago"
     end
 end
@@ -524,7 +524,7 @@ Re-run children on failure with exponential backoff:
 
 ```perch
 retry max=3 delay=2s
-    let body = http_get "https://api.example.com/health"
+    body = http_get "https://api.example.com/health"
 end
 ```
 
@@ -564,8 +564,8 @@ Tighten capabilities for the body:
 
 ```perch
 sandbox flags="no_shell,no_network"
-    let body = read_file "./input.json"
-    let parsed = json_parse "${body}"
+    body = read_file "./input.json"
+    parsed = json_parse "${body}"
     write_file "./output.json" "${parsed}"
 end
 ```
@@ -576,7 +576,7 @@ Skip the body if a recent identical run cached its `let` bindings:
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = ./expensive-script.sh
+    cost = ./expensive-script.sh
 end
 ```
 
@@ -606,7 +606,7 @@ By default, **any op that errors halts the command** and the process exits non-z
 
 ```perch
 try
-    let body = http_get "${url}"
+    body = http_get "${url}"
 rescue err
     match "${err.kind}"
         case http_5xx
@@ -634,7 +634,7 @@ Use `throw "msg"` inside `rescue` to re-raise — semantically the same as `fail
 ### Recoverable shell calls — `try_shell`
 
 ```perch
-let result = try_shell "ping -c 1 ${host}"
+result = try_shell "ping -c 1 ${host}"
 if "${result}" == ""
     print "${host} unreachable, falling back"
 end
@@ -646,7 +646,7 @@ end
 
 ```perch
 retry max=5 delay=2s
-    let body = http_get "https://api.example.com/health"
+    body = http_get "https://api.example.com/health"
     assert_contains "${body}" "ok"
 end
 ```
@@ -725,7 +725,7 @@ end
 # Better pattern: do cleanup OUTSIDE the failing region.
 command release_with_cleanup
     do
-        let tmp = mktemp_dir
+        tmp = mktemp_dir
         # Set up state...
         build-and-test ${tmp}      # might fail
         # If we get here, build succeeded:
@@ -839,8 +839,8 @@ perch --no-shell --no-network --env HOME,PATH --max-runtime 300 deploy
 command parse_user_input
     do
         sandbox flags="no_shell,no_network,no_subprocess"
-            let raw = read_file "./untrusted.json"
-            let parsed = json_parse "${raw}"
+            raw = read_file "./untrusted.json"
+            parsed = json_parse "${raw}"
             write_file "./safe.json" "${parsed}"
         end
     end
@@ -883,9 +883,9 @@ with_cwd "./subproject"
 end
 
 # OR use the platform-correct sep
-let sep = "/"
+sep = "/"
 if os == "windows"
-    let sep = "\\"
+    sep = "\\"
 end
 ```
 
@@ -896,8 +896,8 @@ Most of the time `with_cwd` is the cleaner answer.
 `read_file` returns the file's content as-is. If you're reading on Windows and got CRLF, downstream ops may produce different output than on Unix. Normalise explicitly when comparing:
 
 ```perch
-let raw = read_file "./config.txt"
-let normalized = replace "${raw}" "\r\n" "\n"
+raw = read_file "./config.txt"
+normalized = replace "${raw}" "\r\n" "\n"
 ```
 
 ### Shell vs OS — use `os "PLATFORM" ... end` for explicit OS context
@@ -927,9 +927,9 @@ end
 ```perch
 command deploy
     do
-        let raw = kubectl version --client -o json
-        let v   = version_extract "${raw}"
-        let ok  = version_ge "${v}" "1.28.0"
+        raw = kubectl version --client -o json
+        v   = version_extract "${raw}"
+        ok  = version_ge "${v}" "1.28.0"
         if not ok
             fail "kubectl ${v} < 1.28.0 — upgrade and retry"
         end
@@ -941,7 +941,7 @@ end
 **`version_extract STRING [PATTERN]`** pulls a version out of arbitrary text. With no PATTERN it uses a default heuristic (`v?\d+(\.\d+)+(...optional pre-release tail...)`) that matches most CLI version output. Supply a pattern with one capture group for unusual formats:
 
 ```perch
-let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
+v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
 ```
 
 **Comparators** return `"true"` / `"false"`:
@@ -959,8 +959,8 @@ let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
 For halt-on-failure version gates, **`assert_version "X" OP "Y"`** reads like the math:
 
 ```perch
-let raw = kubectl version --client -o json
-let v   = version_extract "${raw}"
+raw = kubectl version --client -o json
+v   = version_extract "${raw}"
 
 assert_version "${v}" >= "1.28.0"   # halt with assert_failed if too old
 assert_version "${v}" <  "2.0.0"    # halt if too new
@@ -988,7 +988,7 @@ end
 The standard `if X OP Y ... end` block does **semver-aware comparison** when both sides look like version strings (optional `v` prefix, dot-separated digit segments). No special keyword required:
 
 ```perch
-let v = version_extract "${raw}"
+v = version_extract "${raw}"
 
 assert_version v >= "1.28.0"   # hard gate
 if v >= "1.28.0"                # soft branch
@@ -1275,7 +1275,7 @@ command test_lower
     description "lower op should match Unicode case folding"
     test                                # marks this as a test
     do
-        let result = lower "HÉLLO"
+        result = lower "HÉLLO"
         suite_assert "${result}" "héllo"
     end
 end
@@ -1284,7 +1284,7 @@ command test_http_get
     test
     test_allow_network                  # opt out of network denial
     do
-        let body = http_get "https://api.github.com/zen"
+        body = http_get "https://api.github.com/zen"
         assert_contains "${body}" "."   # at least produced text
     end
 end
@@ -1569,7 +1569,7 @@ require_bin "docker"
 ### 2. Idempotent setup ("install if missing")
 
 ```perch
-let marker = format "${cache_dir}/myapp/.setup-${version}"
+marker = format "${cache_dir}/myapp/.setup-${version}"
 if not exists "${marker}"
     # ... do expensive one-time setup ...
     touch "${marker}"
@@ -1602,8 +1602,8 @@ wait_for_port "localhost" "5432" "30"
 command count
     description "Count lines on stdin"
     do
-        let raw = read_file "/dev/stdin"
-        let n = length "${raw}"
+        raw = read_file "/dev/stdin"
+        n = length "${raw}"
         print "${n}"
     end
 end
@@ -1614,7 +1614,7 @@ end
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = ./expensive-analyzer ${file}
+    cost = ./expensive-analyzer ${file}
 end
 print "${cost}"   # populated whether cache hit or miss
 ```
@@ -1693,7 +1693,7 @@ Wraps in a `context.WithDeadline`-style cap. The `shell` op can't be interrupted
 ### 11. Atomic file write
 
 ```perch
-let tmp = mktemp_dir
+tmp = mktemp_dir
 write_file "${tmp}/out.json" "${data}"
 mv "${tmp}/out.json" "${target}"
 rm "${tmp}"
@@ -1705,10 +1705,10 @@ The `mv` is atomic on the same filesystem — readers never see a partial file.
 
 ```perch
 if has_bin "rg"
-    let matches = rg -l ${pattern} ./src
+    matches = rg -l ${pattern} ./src
 end
 if not has_bin "rg"
-    let matches = grep -r -l ${pattern} ./src
+    matches = grep -r -l ${pattern} ./src
 end
 ```
 
@@ -1724,7 +1724,7 @@ end
 
 command render
     do
-        let tmpl = read_file "${bundle_dir}/templates/email.html"
+        tmpl = read_file "${bundle_dir}/templates/email.html"
         # ...
     end
 end
@@ -1741,7 +1741,7 @@ API_KEY = "sk-abc123"
 # RIGHT: read from env at runtime
 command call_api
     do
-        let key = get_env "API_KEY"
+        key = get_env "API_KEY"
         if "${key}" == ""
             fail "API_KEY env var not set"
         end
@@ -1761,7 +1761,7 @@ command delete_old_backups
         default true                          # SAFE DEFAULT
     end
     do
-        let old = find /backup -mtime +30
+        old = find /backup -mtime +30
         if "${dry_run}" == "true"
             print "would delete:"
             print "${old}"
@@ -1782,25 +1782,25 @@ end
 ```perch
 command version
     do
-        let rev = git rev-parse --short HEAD
-        let dirty = git status --porcelain
-        let suffix = ""
+        rev = git rev-parse --short HEAD
+        dirty = git status --porcelain
+        suffix = ""
         if "${dirty}" != ""
-            let suffix = "-dirty"
+            suffix = "-dirty"
         end
         print "${rev}${suffix}"
     end
 end
 ```
 
-Use as a build-id seed: `let buildid = version` → bake into binary.
+Use as a build-id seed: `buildid = version` → bake into binary.
 
 ### 17. JSON pipeline (no `jq` shell-out)
 
 ```perch
-let body = http_get "https://api.example.com/users"
-let count = json_count "${body}" ".items"
-let first_name = json_get "${body}" ".items.0.name"
+body = http_get "https://api.example.com/users"
+count = json_count "${body}" ".items"
+first_name = json_get "${body}" ".items.0.name"
 print "got ${count} users; first: ${first_name}"
 ```
 
@@ -1822,7 +1822,7 @@ command stop_serve
     private
     do
         if exists "${temp_dir}/myapp.pid"
-            let pid = read_file "${temp_dir}/myapp.pid"
+            pid = read_file "${temp_dir}/myapp.pid"
             kill ${pid}
             rm "${temp_dir}/myapp.pid"
         end
@@ -1860,7 +1860,7 @@ command build
     do
         ensure_clean "${OUT_DIR}/${os}-${arch}"
         go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}
-        let size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
+        size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
         print "✓ built ${size} bytes"
     end
 end
@@ -1968,7 +1968,7 @@ command install
             fail "stt needs python3 (3.10+) — install via your OS package manager"
         end
 
-        let install_dir = format "${cache_dir}/stt/${bundle_hash}"
+        install_dir = format "${cache_dir}/stt/${bundle_hash}"
         ensure_dir "${install_dir}"
 
         if not exists "${install_dir}/.installed"
@@ -2054,7 +2054,7 @@ end
 command health_check
     description "Check the API's /health endpoint"
     do
-        let body = http_get "https://api.example.com/health"
+        body = http_get "https://api.example.com/health"
         assert_contains "${body}" "ok"
         print "✓ healthy"
     end
@@ -2291,8 +2291,8 @@ command backup
     end
     do
         ensure_dir "${BACKUP_DIR}"
-        let stamp = format_time "now" "2006-01-02_150405"
-        let out = format "${BACKUP_DIR}/${engine}-${label}-${stamp}.sql"
+        stamp = format_time "now" "2006-01-02_150405"
+        out = format "${BACKUP_DIR}/${engine}-${label}-${stamp}.sql"
 
         if "${engine}" == "postgres"
             shell "pg_dump ${conn} > ${out}"
@@ -2304,19 +2304,19 @@ command backup
             shell "sqlite3 ${conn} .dump > ${out}"
         end
 
-        let size = file_size "${out}"
+        size = file_size "${out}"
         print "✓ dumped ${size} bytes → ${out}"
 
         # Encrypt + compress
         gzip ${out}
-        let key = get_env "BACKUP_GPG_KEY"
+        key = get_env "BACKUP_GPG_KEY"
         if "${key}" != ""
             gpg --batch --yes --recipient ${key} --encrypt ${out}.gz
             rm "${out}.gz"
-            let final = format "${out}.gz.gpg"
+            final = format "${out}.gz.gpg"
         end
         if "${key}" == ""
-            let final = format "${out}.gz"
+            final = format "${out}.gz"
         end
 
         # Ship to S3 (if aws cli is present)
@@ -2343,8 +2343,8 @@ command restore
             fail "backup file not found: ${path}"
         end
 
-        let tmp = mktemp_dir
-        let stage = format "${tmp}/restore.sql"
+        tmp = mktemp_dir
+        stage = format "${tmp}/restore.sql"
 
         # Decrypt if needed
         if has_suffix "${path}" ".gpg"
@@ -2408,13 +2408,13 @@ command test_roundtrip
     test_allow_shell
     description "Backup + restore + verify integrity on a tiny SQLite DB"
     do
-        let tmp = mktemp_dir
+        tmp = mktemp_dir
         shell "sqlite3 ${tmp}/src.db 'CREATE TABLE t(x); INSERT INTO t VALUES(42);'"
         backup "-engine=sqlite" "-conn=${tmp}/src.db" "-label=test"
         # Most recent backup wins:
-        let latest = shell_output "ls -1t ${BACKUP_DIR}/sqlite-test-*.sql.gz* | head -1"
+        latest = shell_output "ls -1t ${BACKUP_DIR}/sqlite-test-*.sql.gz* | head -1"
         restore "-engine=sqlite" "-conn=${tmp}/dst.db" "-path=${latest}"
-        let got = shell_output "sqlite3 ${tmp}/dst.db 'SELECT x FROM t;'"
+        got = shell_output "sqlite3 ${tmp}/dst.db 'SELECT x FROM t;'"
         assert_eq "${got}" "42"
         rm "${tmp}"
     end
@@ -2465,9 +2465,9 @@ end
 command renew
     description "Try to renew every cert; reload nginx only if anything changed"
     do
-        let before = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
+        before = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         certbot renew --quiet
-        let after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
+        after = shell_output "ls -lT ${CERT_DIR}/*/fullchain.pem 2>/dev/null | md5sum"
         if "${before}" != "${after}"
             nginx -s reload
             alert "-msg=renewed cert(s); reloaded nginx"
@@ -2482,7 +2482,7 @@ command install_to_nginx
     description "Generate nginx conf for a domain; symlink cert paths; reload"
     arg domain type string end
     do
-        let conf = format "${NGINX_CONF}/${domain}.conf"
+        conf = format "${NGINX_CONF}/${domain}.conf"
         write_file "${conf}" "server {
     listen 443 ssl http2;
     server_name ${domain};
@@ -2500,12 +2500,12 @@ command check_expiry
     description "Find certs expiring within N days; alert if any"
     arg threshold_days type int default 14 end
     do
-        let found = ""
+        found = ""
         for_each cert in "${CERT_DIR}/*/cert.pem"
-            let days = shell_output "openssl x509 -in ${cert} -enddate -noout | awk -F= '{print $2}' | xargs -I{} date -d '{}' +%s | awk -v now=$(date +%s) '{print int(($1-now)/86400)}'"
+            days = shell_output "openssl x509 -in ${cert} -enddate -noout | awk -F= '{print $2}' | xargs -I{} date -d '{}' +%s | awk -v now=$(date +%s) '{print int(($1-now)/86400)}'"
             if days < threshold_days
-                let domain = shell_output "basename $(dirname ${cert})"
-                let found = format "${found}${domain} (${days}d)\n"
+                domain = shell_output "basename $(dirname ${cert})"
+                found = format "${found}${domain} (${days}d)\n"
             end
         end
         if "${found}" != ""
@@ -2519,7 +2519,7 @@ command alert
     private
     arg msg type string end
     do
-        let body = format '{"text":"[cert.perch] ${msg}"}'
+        body = format '{"text":"[cert.perch] ${msg}"}'
         curl -sS -X POST -H "Content-Type: application/json" -d ${body} ${ALERT_WEBHOOK}
     end
 end
@@ -2606,7 +2606,7 @@ command deploy
         smoke "-env=${env}"
 
         # 8. Record the deploy
-        let stamp = format_time "now" "2006-01-02T15:04:05Z"
+        stamp = format_time "now" "2006-01-02T15:04:05Z"
         append_file "${cache_dir}/deploys.ndjson" "{\"env\":\"${env}\",\"image\":\"${image}\",\"by\":\"${user}\",\"at\":\"${stamp}\"}\n"
     end
 end
@@ -2632,12 +2632,12 @@ command smoke
     description "Quick health check against an env's API"
     arg env type string end
     do
-        let host = format "api-${env}.example.com"
+        host = format "api-${env}.example.com"
         if "${env}" == "prod"
-            let host = "api.example.com"
+            host = "api.example.com"
         end
         retry max=10 delay=3s
-            let body = http_get "https://${host}/health"
+            body = http_get "https://${host}/health"
             assert_contains "${body}" "ok"
         end
         print "✓ ${env} healthy"
@@ -2656,7 +2656,7 @@ command _alert
     private
     arg msg type string end
     do
-        let url = get_env "SLACK_WEBHOOK"
+        url = get_env "SLACK_WEBHOOK"
         if "${url}" != ""
             shell "curl -sS -X POST -H 'Content-Type: application/json' -d '{\"text\":\"${msg}\"}' ${url}"
         end
@@ -2714,8 +2714,8 @@ command process
         end
 
         # 1. Hash inputs for cache invalidation
-        let in_hash = sha256_file "${input}"
-        let cache_key = format "${SCHEMA_HASH}:${in_hash}"
+        in_hash = sha256_file "${input}"
+        cache_key = format "${SCHEMA_HASH}:${in_hash}"
 
         # 2. Skip if cached output matches
         cache key:"${cache_key}" ttl:"24h"
@@ -2732,9 +2732,9 @@ command _extract
     private
     arg input type string end
     do
-        let raw = read_file "${input}"
-        let rows = csv_parse "${raw}"
-        let n = json_count "${rows}" "."
+        raw = read_file "${input}"
+        rows = csv_parse "${raw}"
+        n = json_count "${rows}" "."
         print "extracted ${n} rows from ${input}"
         write_file "${temp_dir}/etl-rows.json" "${rows}"
     end
@@ -2743,7 +2743,7 @@ end
 command _transform
     private
     do
-        let rows = read_file "${temp_dir}/etl-rows.json"
+        rows = read_file "${temp_dir}/etl-rows.json"
         # Hand off to a WASM module that does the real lift in Go/Rust:
         wasm_run "${script_dir}/transform.wasm"
             wasm_arg "/ro/etl-rows.json"
@@ -2758,14 +2758,14 @@ command _validate
     private
     do
         # In-perch sanity checks before declaring "ok":
-        let rows = read_file "${temp_dir}/etl-rows-clean.json"
-        let n = json_count "${rows}" "."
+        rows = read_file "${temp_dir}/etl-rows-clean.json"
+        n = json_count "${rows}" "."
         if n < 1
             fail "transform produced 0 rows"
         end
         # Every row must have an `email` field:
         for_each row in "${rows}"
-            let email = json_get "${row}" ".email"
+            email = json_get "${row}" ".email"
             if "${email}" == ""
                 fail "row missing email field"
             end
@@ -2789,11 +2789,11 @@ command serve_pipeline
     description "Watch a dir; process new CSVs as they arrive"
     do
         retry max=99999 delay=5s
-            let in = shell_output "ls ./inbox/*.csv 2>/dev/null | head -1"
+            in = shell_output "ls ./inbox/*.csv 2>/dev/null | head -1"
             if "${in}" == ""
                 fail "no new files"   # forces retry to wait
             end
-            let out = format "./outbox/${user}-$(basename ${in} .csv).json"
+            out = format "./outbox/${user}-$(basename ${in} .csv).json"
             process "-input=${in}" "-output=${out}"
             mv "${in}" "./done/"
         end
@@ -2875,7 +2875,7 @@ command pr
         default "${DEFAULT_BASE}"
     end
     do
-        let branch = git symbolic-ref --short HEAD
+        branch = git symbolic-ref --short HEAD
         if "${branch}" == "${base}"
             fail "you're on ${base} — make a feature branch first (`perch branch name:my-feature`)"
         end
@@ -2885,12 +2885,12 @@ command pr
 
         # Title fallback
         if "${title}" == ""
-            let title = git log -1 --pretty=%s
+            title = git log -1 --pretty=%s
         end
 
         # Open the PR via gh
         require_bin "gh"
-        let url = gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
+        url = gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
         print "✓ PR opened: ${url}"
 
         # Try to copy to clipboard
@@ -2908,8 +2908,8 @@ command land
     description "Squash-merge the current PR + delete the branch + sync local"
     do
         require_bin "gh"
-        let branch = git symbolic-ref --short HEAD
-        let base = gh pr view --json baseRefName -q .baseRefName
+        branch = git symbolic-ref --short HEAD
+        base = gh pr view --json baseRefName -q .baseRefName
         gh pr merge --squash --auto --delete-branch
         git switch ${base}
         git pull --ff-only
@@ -2920,7 +2920,7 @@ end
 command sync
     description "Pull the latest base; rebase the current branch"
     do
-        let branch = git symbolic-ref --short HEAD
+        branch = git symbolic-ref --short HEAD
         git fetch origin ${DEFAULT_BASE}
         git rebase origin/${DEFAULT_BASE}
         print "✓ rebased ${branch} on ${DEFAULT_BASE}"
@@ -3128,7 +3128,7 @@ Never put secrets in the `.perch` file. Read from env:
 
 ```perch
 do
-    let token = get_env "API_TOKEN"
+    token = get_env "API_TOKEN"
     if "${token}" == ""
         fail "API_TOKEN env var required"
     end
@@ -3193,11 +3193,11 @@ shell "echo \"${var}\""
 
 **Fix:** validate `${var}` with `regex_match` before interpolating, OR use ops that don't pass through the shell (`print`, `write_file`).
 
-### `let X = OP` doesn't survive `parallel`
+### `X = OP` doesn't survive `parallel`
 
 ```perch
 parallel
-    let result = http_get "https://a.com/health"  # local to this branch
+    result = http_get "https://a.com/health"  # local to this branch
 end
 print "${result}"   # ERROR: ${result} is unbound here
 ```
@@ -3225,7 +3225,7 @@ The `proxy_args` modifier is now **required** on both `command` and `catch` bloc
 
 ```perch
 cache key:"static-key" ttl:"1h"
-    let now = now      # ← changes every call
+    now = now      # ← changes every call
     write_file "./out" "${now}"
 end
 ```
@@ -3411,7 +3411,7 @@ command NAME description "..." [modifiers]
     arg NAME type T default V end
     do
         OP ARGS
-        let X = OP ARGS                  # capture result
+        X = OP ARGS                  # capture result
         if EXPR ... end                  # control flow
         BLOCK_OP ARGS ... end            # parallel / retry / etc.
         TEMPLATE "value"

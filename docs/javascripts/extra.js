@@ -522,7 +522,7 @@ redis    <span class="info">100%</span>   12MB`,
         "private", "detached", "proxy_args", "require_os", "require_arch",
         "dir", "on_signal", "env",
         // control flow (no run/call keyword — bare names dispatch)
-        "if", "not", "let", "exec", "for_each", "fail", "exit",
+        "if", "not", "exec", "for_each", "fail", "exit",
         // sandbox (designed)
         "sandbox", "read", "write", "net", "shell_bins", "no_shell",
         "no_subprocess", "no_network", "no_write", "no_sudo",

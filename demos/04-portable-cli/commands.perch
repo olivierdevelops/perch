@@ -32,7 +32,7 @@ command upper
     end
 
     do
-        let n = upper "${name}"
+        n = upper "${name}"
         print "OI, ${n}!"
     end
 end
@@ -40,8 +40,8 @@ end
 command facts
     description "Print stable system facts"
     do
-        let h = hostname
-        let now = now "rfc3339"
+        h = hostname
+        now = now "rfc3339"
         print "host:  ${h}"
         print "now:   ${now}"
     end

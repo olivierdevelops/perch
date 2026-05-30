@@ -94,7 +94,7 @@ version "1.0.0"
 command backup
     description "Snapshot the primary DB to S3"
     do
-        let stamp = now "unix"
+        stamp = now "unix"
         shell "pg_dump -h db-primary.internal -Fc > /tmp/db-${stamp}.dump"
         aws s3 cp /tmp/db-${stamp}.dump s3://backups/db-${stamp}.dump
         rm "/tmp/db-${stamp}.dump"
@@ -501,12 +501,12 @@ end
 command status
     description "What's installed, what's missing"
     do
-        let n  = exists "/usr/local/bin/node"
-        let pg = exists "/usr/local/bin/psql"
-        let r  = exists "/usr/local/bin/redis-cli"
-        let k  = exists "/usr/local/bin/kubectl"
-        let h  = exists "/usr/local/bin/helm"
-        let tf = exists "/usr/local/bin/terraform"
+        n  = exists "/usr/local/bin/node"
+        pg = exists "/usr/local/bin/psql"
+        r  = exists "/usr/local/bin/redis-cli"
+        k  = exists "/usr/local/bin/kubectl"
+        h  = exists "/usr/local/bin/helm"
+        tf = exists "/usr/local/bin/terraform"
         print "node:        ${n}"
         print "postgres:    ${pg}"
         print "redis:       ${r}"
@@ -593,8 +593,8 @@ LAUNCHER     = "${HOME}/.local/bin/stt"
 
 command install
     do
-        let h         = bundle_hash
-        let installed = exists "${INSTALL_BASE}/${h}/.installed"
+        h         = bundle_hash
+        installed = exists "${INSTALL_BASE}/${h}/.installed"
         if installed
             print "✓ Already installed at ${INSTALL_BASE}/${h}"
         end
@@ -620,7 +620,7 @@ command run
     description "Run the embedded program directly (skips the launcher)"
     proxy_args
     do
-        let dir = bundle_dir
+        dir = bundle_dir
         shell "python3 ${dir}/main.py ${proxy_args}"
     end
 end
@@ -743,7 +743,7 @@ command rotate_key
         description "Customer UUID"
     end
     do
-        let new_key = sha256_file "/dev/urandom"
+        new_key = sha256_file "/dev/urandom"
         shell `psql -c "UPDATE customers SET api_key='${new_key}' WHERE id='${customer_id}'"`
         print "New key: ${new_key}"
     end
@@ -823,16 +823,16 @@ You have 10 shell scripts that run nightly via cron. They download, decompress, 
 command nightly_etl
     description "Pull the daily report, transform, upload"
     do
-        let stamp = now "date"
+        stamp = now "date"
         download "https://reports.example.com/${stamp}.json.gz" "/tmp/r.json.gz"
         ungzip "/tmp/r.json.gz" "/tmp/r.json"
-        let body = read_file "/tmp/r.json"
-        let users = json_get "${body}" "users"
-        let count = length users
+        body = read_file "/tmp/r.json"
+        users = json_get "${body}" "users"
+        count = length users
         if count == 0
             fail "report has no users"
         end
-        let payload = json_stringify users
+        payload = json_stringify users
         http_post "https://warehouse.example.com/ingest" payload
         rm "/tmp/r.json"
         rm "/tmp/r.json.gz"
@@ -989,7 +989,7 @@ end
 
 command backup
     do
-        let stamp = now "date"
+        stamp = now "date"
         tar_create "${HOME}/Documents" "/tmp/docs-${stamp}.tar.gz"
         rclone copy /tmp/docs-${stamp}.tar.gz dropbox:Backups/
         rm "/tmp/docs-${stamp}.tar.gz"
@@ -1077,10 +1077,10 @@ You want a "is the system OK?" command that pings five services and reports.
 command health
     description "Probe core services and report"
     do
-        let api    = http_get "https://api.example.com/health"
-        let auth   = http_get "https://auth.example.com/health"
-        let db_ok  = port_check "db-primary.internal" "5432"
-        let cache  = port_check "cache.internal" "6379"
+        api    = http_get "https://api.example.com/health"
+        auth   = http_get "https://auth.example.com/health"
+        db_ok  = port_check "db-primary.internal" "5432"
+        cache  = port_check "cache.internal" "6379"
 
         print "api:   ${api}"
         print "auth:  ${auth}"

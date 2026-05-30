@@ -26,12 +26,12 @@ command up
     end
     do
         require_docker
-        let running = docker ps -q -f name=^${NAME}$
+        running = docker ps -q -f name=^${NAME}$
         if running
             ok "${NAME} already running"
         end
         if not running
-            let existing = docker ps -aq -f name=^${NAME}$
+            existing = docker ps -aq -f name=^${NAME}$
             if existing
                 docker start ${NAME}
             end
@@ -55,7 +55,7 @@ end
 command destroy
     description "Stop AND delete the data volume"
     do
-        let exists = docker ps -aq -f name=^${NAME}$
+        exists = docker ps -aq -f name=^${NAME}$
         if exists
             docker rm -f ${NAME}
         end
@@ -125,7 +125,7 @@ end
 
 command status
     do
-        let info = docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
+        info = docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             ok "${info}"
         end

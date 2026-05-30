@@ -5,9 +5,9 @@ The built-in "standard library" — every op the perch runtime can dispatch. Eac
 Ops fall into two shapes:
 
 - **Statement ops** — invoked as a body line for their side effects. e.g. `go build` (a bare declared bin) or `mkdir "./out"`.
-- **Capturable ops** — invoked via `let NAME = OP ARGS` to capture their return value. e.g. `let h = sha256_file "./bin"`.
+- **Capturable ops** — invoked via `NAME = OP ARGS` to capture their return value. e.g. `h = sha256_file "./bin"`.
 
-Most ops support both shapes (return value is discarded if you don't `let`).
+Most ops support both shapes (return value is discarded if you don't assign it).
 
 > **External vs pure.** Ops that touch something outside the program — subprocess (`shell`, `pkg_install`, `bin_version`, …), network (`http_*`, `dns_lookup`, …), filesystem (`read_file`, `write_file`, `cp`, …), or environment (`get_env`, `set_env`, …) — are **gated by the `requires` manifest** when a file declares one: each verifies its declaration immediately before executing, and undeclared access errors. Pure ops (strings, JSON, regex, hashing of in-memory values, version compare, path-string manipulation) and benign host-fact reads (`get_os`, `hostname`, dir-name helpers) are never gated. The authoritative per-op classification is in **[capability-gating.md](capability-gating.md)**.
 
@@ -16,13 +16,13 @@ Most ops support both shapes (return value is discarded if you don't `let`).
 A single-arg op accepts its argument two ways:
 
 ```perch
-let url = get_env "API_URL"
+url = get_env "API_URL"
 
 print "${url}"      # string form — interpolation
 print url           # bare ident — resolves the binding directly (no ${...})
 
-let body = http_get "${url}"   # string form
-let body = http_get url        # bare ident — same result
+body = http_get "${url}"   # string form
+body = http_get url        # bare ident — same result
 ```
 
 Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.message`) still need the string form, because the tokenizer treats `.` as a separator — use `match "${err.kind}"`, not `match err.kind`. Plain `match os` / `match status` work bare.
@@ -38,9 +38,9 @@ Bare idents work for plain binding names. **Dotted bindings** (`err.kind`, `err.
 | `shell_output CMD`       | `(string) → string` | **Deprecated — `exec` captures stdout too.** Same as `shell` but captures stdout. |
 | `shell_detached CMD`     | `(string)` | Starts and returns immediately. Use with `detached` modifier. |
 | `BIN tok…` (bare)        | `(word, word…) → string` | **The normal way to run a subprocess.** A bare declared bin runs `BIN` directly (no `sh -c`). Each token is one argv slot — bare flags/paths/globs work unquoted (`git log --oneline -10`); quote a token to keep embedded spaces (`git commit -m "fix it"`). No word-split, no glob, no metachar surface. Streams *and* captures stdout. Gated by `requires` (`bin_not_declared`). |
-| `exec BIN tok…`          | same | **Explicit form** of a bare bin call. Needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`). Captures work bare — `let h = git rev-parse HEAD`. See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
+| `exec BIN tok…`          | same | **Explicit form** of a bare bin call. Needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`). Captures work bare — `h = git rev-parse HEAD`. See [sandboxed-by-design.md §3.2](sandboxed-by-design.md). |
 | `exec a && exec b`       | chain | `&&` / `\|\|` / `;` join exec clauses by exit status (perch operators, not shell metachars): `&&` on success, `\|\|` on failure, `;` always. Short-circuits; the chain raises if its last run clause fails. |
-| `pipe … end`             | `block → string` | Wires stdout→stdin between `exec` stages with in-process pipes — no shell. `let out = pipe … end` captures the final stage. Each stage is a declared-bin `exec`. |
+| `pipe … end`             | `block → string` | Wires stdout→stdin between `exec` stages with in-process pipes — no shell. `out = pipe … end` captures the final stage. Each stage is a declared-bin `exec`. |
 | `fail MSG`               | `(string)` | Exits non-zero with the message. |
 | `exit N`                 | `(int)`    | Exits with code `N`. |
 | `sleep SECS`             | `(any)`    | Sleeps for `SECS` seconds. Accepts float. |
@@ -83,7 +83,7 @@ Each block op wraps a body that runs only when the condition holds.
 
 ## Strings
 
-(Mostly used via `let`.)
+(Mostly used via `NAME = op …` capture.)
 
 | Op | Signature |
 |---|---|

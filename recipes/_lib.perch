@@ -8,7 +8,7 @@ template require_bin
         description "Binary name to require (docker, gh, kubectl, …)"
     end
     do
-        let has = has_bin "${bin}"
+        has = has_bin "${bin}"
         if not has
             fail "${bin} is required but not on PATH. Install it first."
         end
@@ -18,7 +18,7 @@ end
 template require_docker
     description "Fail fast if docker is not available (alias docker→podman if you use podman)"
     do
-        let has_docker = has_bin "docker"
+        has_docker = has_bin "docker"
         if not has_docker
             fail "docker is required. Install Docker Desktop, or alias docker→podman."
         end

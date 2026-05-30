@@ -192,19 +192,19 @@ For each `shell` op in your translated file:
 | `mkdir -p X` | `mkdir "X"` (perch's `mkdir` is always recursive) |
 | `chmod +x X` | `make_executable "X"` |
 | `curl URL > FILE` | `download "URL" "FILE"` |
-| `curl URL` (read body) | `let body = http_get "URL"` |
-| `cat FILE` (read) | `let s = read_file "FILE"` |
+| `curl URL` (read body) | `body = http_get "URL"` |
+| `cat FILE` (read) | `s = read_file "FILE"` |
 | `echo X > FILE` | `write_file "FILE" "X"` |
 | `echo X >> FILE` | `append_line "FILE" "X"` |
 | `ln -s X Y` | `symlink "X" "Y"` |
 | `tar czf OUT DIR` | `tar_create "DIR" "OUT"` |
 | `unzip X` / `tar xzf X` | `zip_extract / tar_extract` |
-| `sha256sum X` | `let h = sha256_file "X"` |
-| `which X` / `command -v X` | `if has_bin "X"` / `let p = which "X"` |
+| `sha256sum X` | `h = sha256_file "X"` |
+| `which X` / `command -v X` | `if has_bin "X"` / `p = which "X"` |
 | `apt install X` / `brew install X` | `pkg_install "X"` (auto-detects manager) |
 | `if [ -f X ]; then …; fi` | `if exists "X" ... end` |
 | `if [ "$x" = "y" ]; then …; fi` | `if x == "y" ... end` |
-| `for x in *.txt; do …; done` | `let files = glob "*.txt"` + `for_each "${files}" x ... end` |
+| `for x in *.txt; do …; done` | `files = glob "*.txt"` + `for_each "${files}" x ... end` |
 | `sleep N` | `sleep N` |
 | `kill -9 $(pgrep X)` | `kill_by_name "X"` |
 | `tool --flag arg` (a tool with no native op) | **`exec tool --flag arg`** — runs the binary directly, no shell. Bare flags work; quote only spaced args. Still cross-platform and injection-free. |
@@ -217,7 +217,7 @@ Pipelines compose without a shell, too:
 
 ```perch
 # bash:  docker ps -q | wc -l
-let n = pipe
+n = pipe
     docker ps -q
     wc -l
 end

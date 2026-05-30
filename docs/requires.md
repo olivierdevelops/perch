@@ -21,7 +21,7 @@ end
 command deploy
     do
         kubectl apply -f manifest.yaml
-        let body = http_get "https://api.github.com/repos/me/app"
+        body = http_get "https://api.github.com/repos/me/app"
     end
 end
 ```
@@ -55,7 +55,7 @@ requires
 end
 ```
 
-If you only need "a recent enough X" and can't pin a hash (e.g. the user installs their own), check the version *inside* a command with the normal ops — `let v = shell_output "kubectl version --client"` then `regex_match` / `assert_version` — where it runs under the declared `shell` capability and you can see and gate it explicitly. The manifest itself stays execution-free.
+If you only need "a recent enough X" and can't pin a hash (e.g. the user installs their own), check the version *inside* a command with the normal ops — `v = shell_output "kubectl version --client"` then `regex_match` / `assert_version` — where it runs under the declared `shell` capability and you can see and gate it explicitly. The manifest itself stays execution-free.
 
 ### Pinning the binary contents — `hash`
 

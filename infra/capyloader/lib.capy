@@ -335,6 +335,19 @@ function global_assign
 `
 end
 
+# The `let` keyword was REMOVED — `=` is the universal assignment operator now.
+# This stub catches old `let NAME = …` lines and emits a clear migration error
+# (priority above the implicit-exec catch-all so `let` doesn't read as a bin).
+function let_removed
+    priority 500
+    arg literal "let"
+    arg capture name ident
+    arg literal "="
+    arg capture rhs tail
+    write `{"event":"let_removed","name":${toJSON name}}
+`
+end
+
 # ────────────────────────────────────────────────────────────────────────────
 # command NAME ... end / catch NAME ... end
 # ────────────────────────────────────────────────────────────────────────────
@@ -645,12 +658,12 @@ ${body}{"event":"op","kind":"_leave"}
 `
 end
 
-# `let NAME = pipe ... end` — capture the pipeline's final stdout. The
-# capture_into rides on the _enter event; the loader binds the block op's
-# return value (opPipe returns the last stage's stdout).
-function let_pipe
+# `NAME = pipe ... end` — capture the pipeline's final stdout. The capture_into
+# rides on the _enter event; the loader binds the block op's return value
+# (opPipe returns the last stage's stdout). No `let` keyword — `=` is the
+# universal assignment operator (binding at file scope, capture inside `do`).
+function assign_pipe
     priority 300
-    arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "pipe"
@@ -1376,35 +1389,27 @@ ${body}{"event":"op","kind":"_leave"}
 end
 
 # ────────────────────────────────────────────────────────────────────────────
-# `let NAME = KIND ARG …` — capture a value into a variable.
+# `NAME = KIND ARG …` — capture a value into a variable. NO `let` keyword: `=`
+# is the universal assignment operator. At FILE scope `NAME = value` is a global
+# binding (global_assign above); inside `do` the same `NAME = …` is a capture
+# (the loader routes by context). A single-token RHS (`x = pid`, `x = docker`)
+# is handled by global_assign + the loader's in-body conversion; the forms below
+# cover the multi-token RHS.
 #
-# There are NO arity-specific op-capture forms here. Every capture whose RHS
-# is a bare name (no `exec` keyword) routes to the implicit-exec tail forms
-# below — `kind:"exec"`, argv as a single quote-preserving `tail`. The loader
-# (resolveBareDispatch) then decides per-name: if the leading name is a known
-# built-in OP it rewrites the captured exec back into an op-capture (reusing
-# the _0.._N slots that splitExecArgv produced); a command/template name folds
-# to run/_template_call; anything else stays a subprocess exec (a declared
-# bin). This keeps the surface uniform — `let s = sha256 "x"`, `let r = docker
-# ps -q`, `let n = file_size "x"` all parse identically — and sidesteps the
-# old per-arity ladder that emitted malformed JSON for bare/flag tokens
-# (`mktemp -d`, `kubectl config current-context`).
+# Most captures route through the implicit-exec tail form — `kind:"exec"`, argv
+# as one quote-preserving `tail`. The loader (resolveBareDispatch) then decides
+# per-name: a built-in OP becomes an op-capture, a command/template folds to
+# run/_template_call, anything else stays a subprocess exec (a declared bin). So
+# `s = sha256 "x"`, `r = docker ps -q`, `n = file_size "x"` all parse the same.
 #
-# ONE exception: a single bare-IDENT argument — `let shout = upper who`,
-# `let n = length users` — keeps its var-ref ergonomics. let_1arg_ident emits
-# the op kind directly with a `_0_var` slot; InterpolateArgs later resolves it
-# to `b.Lookup(<name>)`. If the leading name turns out to be a bin/command/
-# template instead of an op, resolveBareDispatch folds it back (the bare ident
-# becomes a literal argv token / positional). Quoted, `${…}`, flag, multi-arg,
-# and zero-arg captures all take the uniform implicit-exec route above.
+# ONE exception: a single bare-IDENT argument — `shout = upper who`,
+# `n = length users` — keeps its var-ref ergonomics via `_0_var` (resolved by
+# InterpolateArgs to `b.Lookup(<name>)`, else the literal token).
 # ────────────────────────────────────────────────────────────────────────────
 
-# Single bare-ident capture: `let body = http_get url` (one bare ident, no
-# quotes, no ${…}). Emits `_0_var`; the universal resolver in InterpolateArgs
-# turns that into `_0 = b.Lookup(<name>)` before the op handler runs.
-function let_1arg_ident
+# Single bare-ident capture: `body = http_get url` (op + one bare ident).
+function assign_1arg_ident
     priority 75
-    arg literal "let"
     arg capture name ident
     arg literal "="
     arg capture op_kind ident
@@ -1413,11 +1418,10 @@ function let_1arg_ident
 `
 end
 
-# `let NAME = exec BIN tok …` — capture stdout. `exec` is a literal so the bin
-# routes to "bin"; argv is a `tail` split at load time (same as inline exec).
-function let_exec
+# `NAME = exec BIN tok …` — explicit-exec capture. `exec` is a literal so the
+# bin routes to "bin"; argv is a `tail` split at load time (same as inline exec).
+function assign_exec
     priority 235
-    arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
@@ -1425,9 +1429,8 @@ function let_exec
     write `{"event":"op","kind":"exec","args":{"bin":${asString bin}},"capture_into":${toJSON name}}
 `
 end
-function let_exec_args
+function assign_exec_args
     priority 240
-    arg literal "let"
     arg capture name ident
     arg literal "="
     arg literal "exec"
@@ -1437,28 +1440,16 @@ function let_exec_args
 `
 end
 
-# `let X = BIN …` — implicit-exec capture form (no `exec` keyword). Mirrors
-# let_exec/let_exec_args but with the bin captured as a `word` directly after
-# `=`. Priority sits just BELOW the keyworded let_exec* (so `let x = exec …`
-# still routes there) but ABOVE the generic let_Nargs op-capture forms, so a
-# bare binary on the RHS is treated as a subprocess rather than an op lookup.
-function let_implicit_exec_args
+# `NAME = BIN tok …` — implicit-exec capture (no `exec` keyword), the common
+# multi-token form. Priority below the keyworded exec forms (so `x = exec …`
+# routes there) but it owns every other multi-token RHS.
+function assign_implicit_args
     priority -50
-    arg literal "let"
     arg capture name ident
     arg literal "="
     arg capture bin word
     arg capture argv tail
     write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${toJSON argv},"implicit":true},"capture_into":${toJSON name}}
-`
-end
-function let_implicit_exec
-    priority -51
-    arg literal "let"
-    arg capture name ident
-    arg literal "="
-    arg capture bin word
-    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"implicit":true},"capture_into":${toJSON name}}
 `
 end
 

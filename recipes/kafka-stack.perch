@@ -39,12 +39,12 @@ end
 command start_kafka
     private
     do
-        let r = docker ps -q -f name=^${K_NAME}$
+        r = docker ps -q -f name=^${K_NAME}$
         if r
             ok "kafka already running"
         end
         if not r
-            let e = docker ps -aq -f name=^${K_NAME}$
+            e = docker ps -aq -f name=^${K_NAME}$
             if e
                 docker start ${K_NAME}
             end
@@ -59,12 +59,12 @@ end
 command start_ui
     private
     do
-        let r = docker ps -q -f name=^${UI_NAME}$
+        r = docker ps -q -f name=^${UI_NAME}$
         if r
             ok "kafka-ui already running"
         end
         if not r
-            let e = docker ps -aq -f name=^${UI_NAME}$
+            e = docker ps -aq -f name=^${UI_NAME}$
             if e
                 docker start ${UI_NAME}
             end

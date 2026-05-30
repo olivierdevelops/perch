@@ -65,7 +65,7 @@ command test_build_writes_a_real_binary
     description "build should produce an executable, not an empty file"
     do
         build
-        let size = file_size "bin/darwin/app"
+        size = file_size "bin/darwin/app"
         if size < 1000
             fail "binary is suspiciously small (${size} bytes)"
         end
@@ -154,7 +154,7 @@ command test_against_real_api
     test_keep_cwd                     # read fixtures from the file's dir
     test_timeout 10                   # cap at 10s
     do
-        let body = http_get "https://api.staging.example.com/health"
+        body = http_get "https://api.staging.example.com/health"
         assert_contains "${body}" "ok"
     end
 end
@@ -180,7 +180,7 @@ template assert_built
     arg target type string end
     do
         assert_exists "bin/${target}/app"
-        let size = file_size "bin/${target}/app"
+        size = file_size "bin/${target}/app"
         if size < 1000
             fail "${target} binary too small (${size} bytes)"
         end

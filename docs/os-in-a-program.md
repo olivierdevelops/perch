@@ -159,7 +159,7 @@ What this gets you: **a `.perch` file is a portable shell script.** Disable the 
 Linux distros each have their own; macOS has brew; Windows has three. perch papers over them:
 
 ```capy
-let mgr = detect_pkg_mgr      # "brew" / "apt" / "dnf" / "pacman" / "apk" / "zypper" / "winget" / "choco" / "scoop" / ""
+mgr = detect_pkg_mgr      # "brew" / "apt" / "dnf" / "pacman" / "apk" / "zypper" / "winget" / "choco" / "scoop" / ""
 pkg_install "ripgrep"          # picks the right manager automatically
 ```
 

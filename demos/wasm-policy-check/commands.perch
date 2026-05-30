@@ -9,7 +9,7 @@ end
 command enforce
     description "Run every policy against ./deploy — exit non-zero on any violation"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/policy-check.wasm"
             wasm_arg "/ro/deploy"
             wasm_mount_read "${assets}/deploy"
@@ -25,7 +25,7 @@ command enforce_dir
         description "Path to a directory containing K8s manifests"
     end
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/policy-check.wasm"
             wasm_arg "/ro/in/${dir}"
             wasm_mount_read "${dir}"
@@ -36,7 +36,7 @@ end
 command demo_good
     description "Pass — every policy honored"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/policy-check.wasm"
             wasm_arg "/ro/deploy/api-good.yaml"
             wasm_mount_read "${assets}/deploy"
@@ -47,7 +47,7 @@ end
 command demo_bad
     description "Fail — every policy violated"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/policy-check.wasm"
             wasm_arg "/ro/deploy/api-bad.yaml"
             wasm_mount_read "${assets}/deploy"
@@ -63,7 +63,7 @@ command rebuild
                 go build -o policy-check.wasm .
             end
         end
-        let size = file_size "${script_dir}/policy-check.wasm"
+        size = file_size "${script_dir}/policy-check.wasm"
         print "✓ rebuilt policy-check.wasm (${size} bytes)"
     end
 end

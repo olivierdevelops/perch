@@ -52,7 +52,7 @@ end`,
 	"sandbox": `sandbox no_network
     read_file "./config.json"
 end`,
-	"pipe": `let out = pipe
+	"pipe": `out = pipe
     exec grep ERROR
     exec wc -l
 end`,
@@ -63,23 +63,23 @@ end`,
 end`,
 	"exec":           `exec git status`,
 	"shell":          `shell "git status"`,
-	"shell_output":   `let out = shell_output "git rev-parse HEAD"`,
+	"shell_output":   `out = shell_output "git rev-parse HEAD"`,
 	"shell_detached": `shell_detached "myserver start"`,
 	"shell_in":       `shell_in "cat" "input data"`,
 	"try_shell":      `try_shell "maybe_fails"`,
 	"run":            `run deploy`,
 	"list_commands":  `list_commands`,
 	"write_file":     `write_file "./out.txt" "hello"`,
-	"read_file":      `let body = read_file "./config.json"`,
-	"http_get":       `let body = http_get "https://example.com/api"`,
-	"http_post":      `let resp = http_post "https://example.com/hook" "{\"ok\":true}"`,
+	"read_file":      `body = read_file "./config.json"`,
+	"http_get":       `body = http_get "https://example.com/api"`,
+	"http_post":      `resp = http_post "https://example.com/hook" "{\"ok\":true}"`,
 	"download":       `download "https://example.com/pkg.tgz" "./pkg.tgz"`,
-	"replace":        `let out = replace "hello world" "world,universe"`,
-	"json_get":       `let name = json_get "${doc}" "user.name"`,
-	"get_env":        `let path = get_env "PATH"`,
+	"replace":        `out = replace "hello world" "world,universe"`,
+	"json_get":       `name = json_get "${doc}" "user.name"`,
+	"get_env":        `path = get_env "PATH"`,
 	"set_env":        `set_env "MY_FLAG" "1"`,
-	"cache":          `let hit = cache "build" "v1" "compute_key"`,
-	"bundle_dir":     `let assets = bundle_dir`,
+	"cache":          `hit = cache "build" "v1" "compute_key"`,
+	"bundle_dir":     `assets = bundle_dir`,
 	"bundle_extract": `bundle_extract "./plugin.wasm"`,
 	"wasm_run": `wasm_run
     wasm_arg count 42
@@ -90,13 +90,13 @@ end`,
 	"assert_exists":       `assert_exists "./bin/app"`,
 	"assert_match":        `assert_match "${tag}" "^v[0-9]+"`,
 	"assert_version_ge":   `assert_version_ge "1.2.0" "1.0.0"`,
-	"version_compat":      `let ok = version_compat "^1.2" "1.2.3"`,
+	"version_compat":      `ok = version_compat "^1.2" "1.2.3"`,
 	"wait_for_port":       `wait_for_port "localhost" "8080" "30"`,
 	"wait_for_url":        `wait_for_url "https://example.com/health" "60"`,
 	"ensure_line_in_file": `ensure_line_in_file "./.gitignore" "node_modules/"`,
 	"replace_in_file":     `replace_in_file "./config.ini" "debug=false" "debug=true"`,
-	"csv_parse":           `let rows = csv_parse "${csv_text}"`,
-	"csv_stringify":       `let csv = csv_stringify rows`,
+	"csv_parse":           `rows = csv_parse "${csv_text}"`,
+	"csv_stringify":       `csv = csv_stringify rows`,
 }
 
 func exampleForOp(kind string, args []Arg, signature string) string {
@@ -104,7 +104,7 @@ func exampleForOp(kind string, args []Arg, signature string) string {
 		return ex
 	}
 	if returnsValue(signature) {
-		return fmt.Sprintf("let result = %s", callExpr(kind, args, signature))
+		return fmt.Sprintf("result = %s", callExpr(kind, args, signature))
 	}
 	return callExpr(kind, args, signature)
 }

@@ -21,8 +21,8 @@ end
 command sysinfo
     description "Print info about this machine"
     do
-        let host = hostname
-        let now  = now "rfc3339"
+        host = hostname
+        now  = now "rfc3339"
         print "host:  ${host}"
         print "user:  ${USER}"
         print "home:  ${HOME}"

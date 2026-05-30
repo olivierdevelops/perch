@@ -48,7 +48,7 @@ RATE       = 0.5              # float
 BUILD_DIR  = "./builds"       # string
 ```
 
-Bindings are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc., and can be referenced by name in the `requires` block — `write BUILD_DIR` is sugar for `write "${BUILD_DIR}"`. By convention, UPPER_SNAKE_CASE bindings are also exported as environment variables to every spawned `shell`/`exec` call. A bare `NAME = value` is only legal at file scope; inside a command body use `let NAME = …`.
+Bindings are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc., and can be referenced by name in the `requires` block — `write BUILD_DIR` is sugar for `write "${BUILD_DIR}"`. By convention, UPPER_SNAKE_CASE bindings are also exported as environment variables to every spawned `shell`/`exec` call. A bare `NAME = value` is only legal at file scope; inside a command body use `NAME = …`.
 
 ## `requires … end` — the file-declared manifest
 
@@ -213,7 +213,7 @@ end
 ```capy
 do
     OP ARGS...
-    let NAME = OP ARGS...        # capture an op's return value
+    NAME = OP ARGS...        # capture an op's return value
     if os == "darwin"
         OP ARGS...               # nested ops, only run on macOS
     end
@@ -233,7 +233,7 @@ Inside the body, **every line starts with a name**, and that leading name is res
 
 There is **no `run` or `call` keyword** — a bare name *is* the call. Resolution is unambiguous because **every name is globally unique**: a command, template, or bin may not shadow a built-in op/keyword or each other, and `perch --check` errors on any collision. (`exec NAME` stays available to force the subprocess reading when you want to be explicit.)
 
-- **`let NAME = EXPR`** runs `EXPR` (an op, a command, or an `exec`) and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
+- **`NAME = EXPR`** runs `EXPR` (an op, a command, or an `exec`) and stores the return value under `NAME`. Subsequent strings interpolate via `${NAME}`.
 - **Block ops** — the unified `if EXPR ... end` wraps a nested body that runs only when the condition holds. EXPR may be a comparison (`os == "linux"`, `size > 1000000`), a truthy/falsy check (`has_bin`, `not has_bin`), or a predicate call (`exists "./bin"`). See "Conditionals" in the [op catalog](op-reference.md).
 
 See the [op catalog](op-reference.md) for every built-in op.
@@ -249,12 +249,12 @@ shell "docker compose up -d"          # via the host shell (bash/cmd.exe)
 ```
 
 - **Bare `BIN tok…`** runs `BIN` directly (`os/exec`, never a shell). Each token is exactly one argv slot — bare flags/paths work unquoted (`git log --oneline -10`); quote a token only to keep embedded spaces (`git commit -m "fix the bug"`); `${x}` always fills exactly one slot, even if its value has spaces or metacharacters (no injection). Captures stdout *and* streams it. When a `requires` block is present, `BIN` must be a declared `bin`.
-- **`exec BIN tok…`** is the explicit form of the same thing. You need it only when the binary's name **collides with a built-in op** (`exec rm`, `exec mkdir`, `exec chmod` — bare `rm` is the cross-platform op, not the binary). Captures work bare too — `let head = git rev-parse HEAD` runs the subprocess and captures its stdout; the loader knows `git` is a declared bin, not an op. Otherwise prefer the bare form.
+- **`exec BIN tok…`** is the explicit form of the same thing. You need it only when the binary's name **collides with a built-in op** (`exec rm`, `exec mkdir`, `exec chmod` — bare `rm` is the cross-platform op, not the binary). Captures work bare too — `head = git rev-parse HEAD` runs the subprocess and captures its stdout; the loader knows `git` is a declared bin, not an op. Otherwise prefer the bare form.
 - **`shell "…"`** hands the string to bash (POSIX) / `cmd.exe` (Windows). Pipes/globs/`&&` work because the shell expands them — at the cost of per-OS quoting differences and an injection surface. Reach for it only for genuine shell needs (a value that must word-split, like `${proxy_args}`).
 - **`pipe … end`** wires `stdout → stdin` between bin stages with in-process pipes — no shell:
 
   ```perch
-  let n = pipe
+  n = pipe
       docker ps -q
       wc -l
   end
@@ -380,7 +380,7 @@ parallel
 end
 ```
 
-Each direct child of `parallel` runs in its own goroutine; the block exits when ALL goroutines have completed. The first error becomes the block's error; siblings finish regardless. Each branch sees its own `Bindings` copy — `let X = …` captures inside parallel are local to the branch and do not survive the block.
+Each direct child of `parallel` runs in its own goroutine; the block exits when ALL goroutines have completed. The first error becomes the block's error; siblings finish regardless. Each branch sees its own `Bindings` copy — `X = …` captures inside parallel are local to the branch and do not survive the block.
 
 ### `timeout`
 
@@ -446,11 +446,11 @@ Narrows the active capability mask for the body. Available flags inside the stri
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
     go build -o bin/${target} ./cmd
-    let size = file_size "bin/${target}"
+    size = file_size "bin/${target}"
 end
 ```
 
-User-keyed body cache. First arg = cache key. Second = TTL duration. On miss: runs the body and persists every `let X = …` binding produced. On hit within TTL: skips the body entirely and replays the captured bindings into scope. Stored at `~/.cache/perch/blocks/<sha256(key)>.json`.
+User-keyed body cache. First arg = cache key. Second = TTL duration. On miss: runs the body and persists every `X = …` binding produced. On hit within TTL: skips the body entirely and replays the captured bindings into scope. Stored at `~/.cache/perch/blocks/<sha256(key)>.json`.
 
 **Honest framing:** perch does NOT hash the body's transitive inputs. The user picks the key, and the key is the contract. If a stale input is left out of the key, you get stale cache. This is intentional — perch lacks the hermeticity needed for content-addressed caching (see [ideas/05](https://github.com/olivierdevelops/perch/blob/main/ideas/05-build-system-direction.md)). The user-keyed model matches how every practical caching layer (GitHub Actions cache, Earthly `--cache-id`, etc.) actually works.
 
@@ -482,7 +482,7 @@ This matters for JSON, SQL, and shell-with-quotes — content that would otherwi
 
 ```capy
 # JSON — content has " but no '. Use single quotes.
-let body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
+body = format '{"order_id":"${order_id}","amount":${amount},"reason":"${reason}"}'
 
 # SQL with quoted literals — content has both " and '. Use backticks.
 shell_output `psql -h db -c "SELECT * FROM users WHERE name='${name}'"`

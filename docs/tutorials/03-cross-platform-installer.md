@@ -93,7 +93,7 @@ command fetch_config
 end
 ```
 
-That `if exists "X" … end` / inverse pair is the perch idiom for "do X if Y else do Z." (A formal `else` is on the roadmap — for now, two complementary `if` blocks do the job. Use `let e = exists "PATH"` followed by `if not e` for the inverse branch.)
+That `if exists "X" … end` / inverse pair is the perch idiom for "do X if Y else do Z." (A formal `else` is on the roadmap — for now, two complementary `if` blocks do the job. Use `e = exists "PATH"` followed by `if not e` for the inverse branch.)
 
 ## Step 4 — Per-OS env files
 

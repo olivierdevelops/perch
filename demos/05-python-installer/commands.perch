@@ -14,8 +14,8 @@ end
 command install
     description "Install the embedded Python project into a hash-addressed dir"
     do
-        let h         = bundle_hash
-        let installed = exists "${INSTALL_BASE}/${h}/.installed"
+        h         = bundle_hash
+        installed = exists "${INSTALL_BASE}/${h}/.installed"
 
         if installed
             print "✓ Already installed at ${INSTALL_BASE}/${h}"
@@ -46,9 +46,9 @@ end
 command status
     description "Where things are"
     do
-        let h     = bundle_hash
-        let there = exists "${INSTALL_BASE}/${h}/.installed"
-        let launch = exists "${LAUNCHER}"
+        h     = bundle_hash
+        there = exists "${INSTALL_BASE}/${h}/.installed"
+        launch = exists "${LAUNCHER}"
         print "bundle hash:  ${h}"
         print "install dir:  ${INSTALL_BASE}/${h}"
         if there
@@ -70,7 +70,7 @@ command launch
     description "Run the embedded program directly (skips the launcher)"
     proxy_args
     do
-        let dir = bundle_dir
+        dir = bundle_dir
         # ${proxy_args} is a space-joined string that must word-split into
         # separate argv — that needs the shell, so this stays `shell` (the
         # legitimate escape case; everything else in this file uses `exec`).

@@ -45,7 +45,7 @@ command greet
         default "world"
     end
     do
-        let shout = upper who
+        shout = upper who
         print shout
     end
 end
@@ -100,13 +100,13 @@ requires
 end
 command c
     do
-        let a = path_join SRC DST
+        a = path_join SRC DST
         print "a=${a}"
-        let b = path_join "SRC" DST
+        b = path_join "SRC" DST
         print "b=${b}"
-        let d = path_join "${SRC}" "lit"
+        d = path_join "${SRC}" "lit"
         print "d=${d}"
-        let e = format "Hello %s" "world"
+        e = format "Hello %s" "world"
         print "e=${e}"
     end
 end
@@ -176,9 +176,9 @@ command c
         print "${GREETING}"
         print "${who}"
         print "${n}"
-        let up = upper "redis"
+        up = upper "redis"
         print "${up}"
-        let j = path_join "a" "b"
+        j = path_join "a" "b"
         print "${j}"
     end
 end
@@ -200,9 +200,9 @@ command c
         print ${GREETING}
         print ${who}
         print ${n}
-        let up = upper redis
+        up = upper redis
         print ${up}
-        let j = path_join a b
+        j = path_join a b
         print ${j}
     end
 end

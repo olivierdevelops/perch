@@ -344,8 +344,8 @@ requires
 end
 command t
     do
-        let h = sha256_file "./bin"
-        let name = json_get "{}" "user.name"
+        h = sha256_file "./bin"
+        name = json_get "{}" "user.name"
     end
 end
 `
@@ -634,4 +634,61 @@ end
 	if !contains(err.Error(), "this_var_does_not_exist") {
 		t.Errorf("expected error to name the placeholder; got %v", err)
 	}
+}
+
+// The `let` keyword was removed: `=` is the universal assignment operator. A
+// body capture is written `NAME = op args` (no `let`); top-level `NAME = value`
+// stays a binding. Old `let` files get a clear migration error.
+func TestLetKeywordRemoved(t *testing.T) {
+	// No-`let` capture inside a do block parses into a capture op.
+	src := `name "x"
+requires
+end
+command c
+    do
+        u = upper "hi"
+        print "${u}"
+    end
+end
+`
+	p, err := LoadFromString(src)
+	if err != nil {
+		t.Fatalf("no-let capture failed to load: %v", err)
+	}
+	ops := p.Commands["c"].Ops
+	if len(ops) < 1 || ops[0].Kind != "upper" || ops[0].CaptureInto != "u" {
+		t.Fatalf("want first op upper capture into u, got %+v", ops)
+	}
+
+	// Old `let NAME = …` is a clear migration error.
+	old := `name "x"
+requires
+end
+command c
+    do
+        v = upper "hi"
+    end
+end
+`
+	old = replaceFirst(old, "v = upper", "let v = upper")
+	if _, err := LoadFromString(old); err == nil || !contains(err.Error(), "let` keyword was removed") {
+		t.Errorf("expected a let-removed migration error, got %v", err)
+	}
+}
+
+func replaceFirst(s, old, new string) string {
+	i := indexOf(s, old)
+	if i < 0 {
+		return s
+	}
+	return s[:i] + new + s[i+len(old):]
+}
+
+func indexOf(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
 }

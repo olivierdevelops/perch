@@ -707,6 +707,10 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			return nil, nil, fmt.Errorf("line %d: the `globals ... end` block was removed — "+
 				"declare shared bindings bare at top level instead, e.g. `BUILD_DIR = \"%s/.out\"`",
 				lineNum, "${script_dir}")
+		case "let_removed":
+			return nil, nil, fmt.Errorf("line %d: the `let` keyword was removed — write `%s = …` "+
+				"instead (`=` is the assignment operator: a binding at file scope, a capture inside `do`)",
+				lineNum, ev.Name)
 		case "bundle_begin":
 			if state != stTop {
 				return nil, nil, fmt.Errorf("line %d: bundle block must be at top level", lineNum)
@@ -813,12 +817,26 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			prog.Requirements.Arch = append(prog.Requirements.Arch, ev.Name)
 
 		case "global":
-			// Bare top-level `NAME = value` binding (the `globals` block was
-			// removed). Allowed only at file scope — a bare assignment inside
-			// a command body is an error (use `let` there instead).
+			// `NAME = VALUE`. The `=` operator is universal (no `let` keyword):
+			//   • at FILE scope it declares a shared binding;
+			//   • inside a `do` block (single-token RHS) it's a CAPTURE — the
+			//     value resolves as a bare op / bin / command via the normal
+			//     capture pipeline (resolveBareDispatch), with its output bound
+			//     to NAME. Multi-token captures (`x = docker ps -q`) come in as
+			//     `op` events from the assign_* grammar forms instead.
+			if len(opStack) > 0 {
+				bin, _ := ev.Value.(string)
+				op := domain.Op{
+					Kind:        "exec",
+					Args:        map[string]any{"bin": bin, "implicit": true},
+					CaptureInto: ev.Name,
+					Line:        lineNum,
+				}
+				*opStack[len(opStack)-1] = append(*opStack[len(opStack)-1], op)
+				break
+			}
 			if state != stTop {
-				return nil, nil, fmt.Errorf("line %d: a bare `%s = ...` binding must be at top level "+
-					"(inside a command body use `let %s = ...`)", lineNum, ev.Name, ev.Name)
+				return nil, nil, fmt.Errorf("line %d: assignment `%s = ...` not allowed here", lineNum, ev.Name)
 			}
 			prog.Globals.Bindings = append(prog.Globals.Bindings, domain.GlobalBinding{
 				Name:  ev.Name,

@@ -30,7 +30,7 @@ end
 command backup
     description "Snapshot the primary DB to S3"
     do
-        let stamp = now "unix"
+        stamp = now "unix"
         shell "pg_dump -h ${DB_HOST} -Fc > /tmp/backup-${stamp}.dump"
         aws s3 cp /tmp/backup-${stamp}.dump ${BACKUP_S3}/db-${stamp}.dump
         rm "/tmp/backup-${stamp}.dump"

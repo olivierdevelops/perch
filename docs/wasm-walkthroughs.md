@@ -170,7 +170,7 @@ end
 command validate_all
     description "Validate every .md under ./posts"
     do
-        let files = glob "${script_dir}/posts/*.md"
+        files = glob "${script_dir}/posts/*.md"
         for_each "${files}" file
             wasm_run "${script_dir}/frontmatter.wasm"
                 wasm_arg "/ro/posts/${file}"
@@ -185,7 +185,7 @@ command test_validator_catches_missing_title
     test_allow_write
     do
         write_file "${script_dir}/posts/_bad.md" "---\ndate: 2026-01-01\ntags: [a]\n---\nbody"
-        let r = try_shell "perch -f ${script_dir}/docs-ci.perch validate_one /ro/posts/_bad.md"
+        r = try_shell "perch -f ${script_dir}/docs-ci.perch validate_one /ro/posts/_bad.md"
         rm "${script_dir}/posts/_bad.md"
         assert_neq "${r}" "0"
     end
@@ -221,7 +221,7 @@ Exit code is non-zero on any failure — drop it into CI directly:
 ```capy
 command validate_all
     do
-        let files = glob "${script_dir}/posts/*.md"
+        files = glob "${script_dir}/posts/*.md"
         parallel
             for_each "${files}" file
                 wasm_run "${script_dir}/frontmatter.wasm"
@@ -318,10 +318,10 @@ command validate_dir
         description "Directory of JSON documents to validate"
     end
     do
-        let schema_hash = sha256_file "${schema}"
-        let docs = glob "${dir}/*.json"
+        schema_hash = sha256_file "${schema}"
+        docs = glob "${dir}/*.json"
         for_each "${docs}" doc
-            let doc_hash = sha256_file "${doc}"
+            doc_hash = sha256_file "${doc}"
             cache "schema-${schema_hash}-${doc_hash}" "30d"
                 wasm_run "${script_dir}/jsonschema.wasm"
                     wasm_arg "/ro/schema/${schema}"
@@ -592,7 +592,7 @@ command process
         # Each stage writes its output to a tmpdir; the next stage
         # reads from it. perch's mount_write convention puts files
         # under /rw/<basename> inside the module.
-        let work = mktemp_dir
+        work = mktemp_dir
         cp "${input}" "${work}/input.xml"
 
         timeout "30s"
@@ -630,8 +630,8 @@ end
 command process_batch
     description "Process every input under ./batch — three at a time"
     do
-        let inputs = glob "${script_dir}/batch/*.xml"
-        let n = 0
+        inputs = glob "${script_dir}/batch/*.xml"
+        n = 0
         for_each "${inputs}" f
             parallel
                 process "${f}" "${script_dir}/out/$(basename ${f} .xml).jsonl"
@@ -689,11 +689,11 @@ LINTER = "${script_dir}/wasm/golint.wasm"
 command lint_all
     description "Lint every file under ./src — cache results per (linter, file)"
     do
-        let linter_hash = sha256_file "${LINTER}"
-        let files = glob "${script_dir}/src/**/*.go"
+        linter_hash = sha256_file "${LINTER}"
+        files = glob "${script_dir}/src/**/*.go"
         parallel
             for_each "${files}" f
-                let file_hash = sha256_file "${f}"
+                file_hash = sha256_file "${f}"
                 cache "lint-${linter_hash}-${file_hash}" "30d"
                     wasm_run "${LINTER}"
                         wasm_arg "/ro/src/${f}"
@@ -792,7 +792,7 @@ Inside the module: `bufio.NewReader(os.Stdin)` works. perch's stdin is wired thr
 `wasm_run` itself returns no value, but you can use `shell_output` to capture another perch op's view of the module's stdout:
 
 ```capy
-let result = perch -f pipeline.perch invoke ${input}
+result = perch -f pipeline.perch invoke ${input}
 # Now ${result} contains the module's stdout
 ```
 
@@ -803,7 +803,7 @@ wasm_run "./extractor.wasm"
     wasm_arg "/rw/out/result.json"
     wasm_mount_write "${cwd}/out"
 end
-let result = read_file "${cwd}/out/result.json"
+result = read_file "${cwd}/out/result.json"
 ```
 
 ### Pattern: composition with retry

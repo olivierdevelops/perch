@@ -84,10 +84,10 @@ template check_one
         type string
     end
     do
-        let h = has_bin "${bin}"
+        h = has_bin "${bin}"
         if h
-            let raw = ${bin} --version
-            let v = head "1" "${raw}"
+            raw = ${bin} --version
+            v = head "1" "${raw}"
             print "  ✓ ${bin}   ${v}"
         end
         if not h

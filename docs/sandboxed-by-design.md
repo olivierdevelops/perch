@@ -130,11 +130,11 @@ command build
         git status                         # bin handle + bare argv — reads like the shell
         kc apply -f k8s/                   #   (no shell, no string parsing, no metachar surface)
 
-        let conf = read_file src config.yaml    # path handle + bare subpath, joined + re-checked
+        conf = read_file src config.yaml    # path handle + bare subpath, joined + re-checked
         write_file dist out.txt "${conf}"       # path handle; value with content stays quoted/interpolated
 
-        let repo = http_get gh /repos/me/app    # host handle + bare path → https://api.github.com/...
-        let kube = get_env kubeconfig            # env handle
+        repo = http_get gh /repos/me/app    # host handle + bare path → https://api.github.com/...
+        kube = get_env kubeconfig            # env handle
     end
 end
 ```
@@ -185,7 +185,7 @@ Because the handle can only exist if it was declared, **referencing it is the va
 
 ### Disambiguation from value bindings
 
-perch already has value bindings (`let url = …`, `${url}`) and the bare-ident arg form (`print url`). Capability handles are a **separate namespace**, resolved by op-position: the first arg of `exec` / `read_file` / `http_get` / `get_env` is a *handle*, not a value binding. Where ambiguity would arise, the value form stays available with the string syntax (`http_get "${url}"`), and the handle form is the bare ident (`http_get gh "/path"`). `--check` flags a bare ident in a handle position that matches no declared handle.
+perch already has value bindings (`url = …`, `${url}`) and the bare-ident arg form (`print url`). Capability handles are a **separate namespace**, resolved by op-position: the first arg of `exec` / `read_file` / `http_get` / `get_env` is a *handle*, not a value binding. Where ambiguity would arise, the value form stays available with the string syntax (`http_get "${url}"`), and the handle form is the bare ident (`http_get gh "/path"`). `--check` flags a bare ident in a handle position that matches no declared handle.
 
 ### Honest caveats
 
@@ -205,7 +205,7 @@ shell "docker ps -q -f name=^web$ | wc -l"
 
 # Sandboxed-by-design, shell removed (ships today). Bare flags/filters
 # need no quotes; a quoted token keeps embedded spaces as one slot.
-let n =
+n =
     pipe
         docker ps -q -f name=^web$
         wc -l
@@ -243,7 +243,7 @@ Removing `shell` is only reasonable once the common shell idioms have first-clas
       wc -l
   end                                  # → no sh -c; perch connects the pipes
   ```
-- **A `glob` op** — `let files = glob "*.tmp"` (scoped to a declared `read` root) so wildcard removal/iteration has a structured form.
+- **A `glob` op** — `files = glob "*.tmp"` (scoped to a declared `read` root) so wildcard removal/iteration has a structured form.
 - **`with_env`** (already exists) covers env prefixes; **ops run in sequence** already covers `;`; **`if` / `try`** cover `&&` / `||`.
 - **Output capture + the string/JSON/regex ops** (already exist) cover most of what a pipeline's middle stages did with `grep`/`awk`/`sed`.
 
@@ -416,10 +416,10 @@ A note on legend: **(exists)** = shippable today with the current ops; **(propos
 
 ```perch
 # bash:  docker ps -q | wc -l
-let n = exec docker ps -q | exec wc -l            # inline, two stages
+n = exec docker ps -q | exec wc -l            # inline, two stages
 
 # bash:  kubectl get pods -o json | jq -r '.items[].metadata.name' | sort
-let names =
+names =
     pipe
         kubectl get pods -o json
         jq -r ".items[].metadata.name"
@@ -437,10 +437,10 @@ The left side of `|` may be a **string value** instead of an `exec` — perch fe
 
 ```perch
 # bash:  echo "$json" | jq '.name'
-let name = "${json}" | exec jq -r ".name"
+name = "${json}" | exec jq -r ".name"
 
 # bash:  jq '.x' <<< "$data"
-let x = "${data}" | exec jq ".x"
+x = "${data}" | exec jq ".x"
 ```
 
 `"${json}"` is one stdin stream, never re-parsed — the §3.3 keystone holds: an interpolated value can only ever be *data on a stream*, never new commands.
@@ -451,7 +451,7 @@ The shell expands `*.tmp` before the command sees it. perch never does ambient g
 
 ```perch
 # today (exists): walk + filter
-let all = walk_dir src
+all = walk_dir src
 for_each all f
     if regex_match "\\.tmp$" f
         rm f                                       # within a declared write root
@@ -459,7 +459,7 @@ for_each all f
 end
 
 # proposed sugar: one op
-let tmp = glob "src/**/*.tmp"                       # list, scoped to read root `src`
+tmp = glob "src/**/*.tmp"                       # list, scoped to read root `src`
 for_each tmp f
     rm f
 end
@@ -486,14 +486,14 @@ Work on captured output as **lines**. Most of this exists today with string/rege
 
 ```perch
 # bash:  git log --oneline | grep fix | head -5
-let log = git log --oneline
-let fixes =
+log = git log --oneline
+fixes =
     pipe_value log                 # proposed: thread a value through line transforms
         | grep "fix"
         | head 5
     end
 # or, with today's ops only:
-let lines = split "${log}" "\n"
+lines = split "${log}" "\n"
 for_each lines l
     if contains l "fix"
         print l
@@ -509,8 +509,8 @@ The most ergonomic move is often to **skip the external tool entirely**. perch s
 
 ```perch
 # bash:  kubectl get pods -o json | jq -r '.items[0].metadata.name'
-let raw  = kubectl get pods -o json
-let name = json_get "${raw}" ".items[0].metadata.name"     # no jq, no pipe, no second bin to declare
+raw  = kubectl get pods -o json
+name = json_get "${raw}" ".items[0].metadata.name"     # no jq, no pipe, no second bin to declare
 ```
 
 When you *do* compose tools, do it with managed pipes (above), `&&`/`||` (§3.3), `with_exec` (§3.4), and `for_each` over captured lists — every step a declared bin, every wire owned by perch.
@@ -520,18 +520,18 @@ When you *do* compose tools, do it with managed pipes (above), `&&`/`||` (§3.3)
 The building blocks shipping today:
 
 ```perch
-let body = curl -s https://api.github.com/repos/me/app    # (curl declared)
-let stars = json_get "${body}" ".stargazers_count"
-let topics = json_count "${body}" ".topics"
+body = curl -s https://api.github.com/repos/me/app    # (curl declared)
+stars = json_get "${body}" ".stargazers_count"
+topics = json_count "${body}" ".topics"
 print "${stars} stars, ${topics} topics"
 
 # text munging without sed/awk:
-let csv  = read_file data "report.csv"
-let rows = csv_parse csv                       # exists
-let first = split (slice rows 0 1) ","         # first row → fields
+csv  = read_file data "report.csv"
+rows = csv_parse csv                       # exists
+first = split (slice rows 0 1) ","         # first row → fields
 
 # build JSON safely (single-quote delimiter avoids escaping the "):
-let payload = format '{"name":"${name}","count":${count}}'
+payload = format '{"name":"${name}","count":${count}}'
 "${payload}" | exec http post-helper            # or use http_post directly
 ```
 
@@ -542,7 +542,7 @@ let payload = format '{"name":"${name}","count":${count}}'
 | Primitive | Status |
 |---|---|
 | `exec` of a declared bin with structured argv | **ships** (core of §3.2) — `exec BIN tok…`; bare flags/paths unquoted, quote only tokens with spaces |
-| `pipe … end` block (stdout→stdin between exec stages, no shell) | **ships** — `let out = pipe … end` captures the final stage |
+| `pipe … end` block (stdout→stdin between exec stages, no shell) | **ships** — `out = pipe … end` captures the final stage |
 | `glob` | **ships** (read-scoped) |
 | `grep` / `reject` / `cut` / `head` / `tail` / `sort_lines` / `uniq_lines` / `count_lines` | **ships** (pure ops) |
 | `&&` / `\|\|` / `;` between execs | proposed (§3.3) |

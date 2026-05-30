@@ -20,12 +20,12 @@ command up
     end
     do
         require_docker
-        let running = docker ps -q -f name=^${NAME}$
+        running = docker ps -q -f name=^${NAME}$
         if running
             ok "${NAME} already running"
         end
         if not running
-            let existing = docker ps -aq -f name=^${NAME}$
+            existing = docker ps -aq -f name=^${NAME}$
             if existing
                 docker rm ${NAME}
             end
@@ -39,7 +39,7 @@ end
 command down
     description "Stop and remove the container"
     do
-        let exists = docker ps -aq -f name=^${NAME}$
+        exists = docker ps -aq -f name=^${NAME}$
         if exists
             docker rm -f ${NAME}
             ok "${NAME} removed"
@@ -82,7 +82,7 @@ end
 command status
     description "Is it running? On what port?"
     do
-        let info = docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
+        info = docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             ok "${info}"
         end

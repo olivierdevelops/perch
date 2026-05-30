@@ -26,7 +26,7 @@ command build
         with_env "GOOS=${target}"
             go build "-ldflags=-s -w" -o "${BIN_DIR}/${target}/${APP_NAME}" "${MAIN_PKG}"
         end
-        let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
+        size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
         print "✓ ${size} bytes."
     end
 end

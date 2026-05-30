@@ -18,7 +18,7 @@ command build
         mkdir "${BUILD_DIR}"
         print "Building ${BUILD_OUT}…"
         go build -o ${BUILD_OUT} .
-        let size = file_size "${BUILD_OUT}"
+        size = file_size "${BUILD_OUT}"
         print "Built ${size} bytes."
         print "Registering with bman…"
         bman add ${BUILD_OUT}

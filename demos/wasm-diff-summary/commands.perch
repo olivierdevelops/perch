@@ -16,7 +16,7 @@ command summarize_file
         description "Diff file name (under ./diffs)"
     end
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/diff-summary.wasm"
             wasm_arg "/ro/diffs/${path}"
             wasm_mount_read "${assets}/diffs"
@@ -27,7 +27,7 @@ end
 command summarize_stdin
     description "Read a diff from stdin, print summary JSON to stdout"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/diff-summary.wasm"
             wasm_env ""
         end
@@ -37,7 +37,7 @@ end
 command demo
     description "Summarize the bundled sample.diff"
     do
-        let assets = bundle_dir
+        assets = bundle_dir
         wasm_run "${assets}/diff-summary.wasm"
             wasm_arg "/ro/diffs/sample.diff"
             wasm_mount_read "${assets}/diffs"
@@ -63,7 +63,7 @@ command rebuild
                 go build -o diff-summary.wasm .
             end
         end
-        let size = file_size "${script_dir}/diff-summary.wasm"
+        size = file_size "${script_dir}/diff-summary.wasm"
         print "✓ rebuilt diff-summary.wasm (${size} bytes)"
     end
 end

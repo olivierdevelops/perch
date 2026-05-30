@@ -70,7 +70,7 @@ end
 
 ```capy
 # JSON — use single quotes (content has " but no ')
-let body = format '{"order_id":"${order_id}","amount":${amount}}'
+body = format '{"order_id":"${order_id}","amount":${amount}}'
 
 # SQL with quoted literals — use backticks (content has both " and ')
 shell `psql -c "SELECT * FROM t WHERE name='${name}'"`
@@ -83,7 +83,7 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 3. **Op arguments are positional, not named.** `cp "src" "dst"` is right; `cp src:"a" dst:"b"` is wrong.
 4. **`${name}` is the only runtime interpolation form.** Don't use Go's `{{.name}}` or shell's `$name`. perch parses `${name}` after capy is done.
 5. **One op per line. Block ops — the unified `if EXPR ... end` form (comparisons, predicates, truthy/falsy) — wrap a nested body terminated by `end`. See the dedicated section below.**
-6. **`let NAME = OP ARG` form is for capturing return values. `let` is NOT a standalone op — it must precede an op-call expression with 0, 1, or 2 args.**
+6. **`NAME = OP ARG…` captures a return value into a variable. There is NO `let` keyword — `=` is the assignment operator: `NAME = value` at file scope is a shared binding, the same `NAME = op/bin args` inside `do` captures the result.**
 
 ## The full config vocabulary (config region, before `do`)
 
@@ -116,7 +116,7 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 ### Process / I/O
 - `print MSG`, `println MSG`, `eprintln MSG`
 - `BIN arg…` (bare) — **the normal way to run a subprocess.** A bare declared bin runs shell-free with structured argv (`git commit -m "fix it"`, `docker ps`). Each token is one argv slot. `BIN` must be a declared `bin`. Chain with `&&`/`||`/`;`; wire stages with `pipe … end`.
-- `exec BIN arg…` — explicit form; needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`). Captures work bare: `let h = git rev-parse HEAD`.
+- `exec BIN arg…` — explicit form; needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`). Captures work bare: `h = git rev-parse HEAD`.
 - `shell CMD` — runs in bash / cmd.exe. Deprecated; keep only for genuine shell needs (pipes, `${proxy_args}` word-splitting, `awk`/`sed` one-liners)
 - `shell_detached CMD` — fire-and-forget
 - `fail MSG` — exits non-zero
@@ -180,7 +180,7 @@ Every conditional is the same `if … end` block. The expression takes one of th
 For complex predicates — e.g. comparing a captured value — capture first then compare:
 
 ```capy
-let size = file_size "./bin"
+size = file_size "./bin"
 if size > 1000000
     print "big"
 end
@@ -282,7 +282,7 @@ These cover the things every install script otherwise re-implements with shell g
 **Integrity**
 - `verify_sha256 PATH HASH` (bool)
 
-### Capturable ops (use via `let X = OP ARG`)
+### Capturable ops (use via `X = OP ARG`)
 
 **0-arg:** `hostname`, `cwd`, `get_os`, `get_arch`, `home_dir`, `temp_dir`, `cache_dir`, `app_data_dir`, `pid`, `user`
 
@@ -309,11 +309,11 @@ Map the request to perch concepts:
 | "install dev tools cross-platform" | `if os == "darwin"` / `if os == "linux"` blocks running brew / apt / choco |
 | "I want a help text on this" | `description "..."` in the config region |
 | "make this command not show up in --help" | `private` modifier |
-| "compute a checksum" | `let h = sha256_file "..."` |
+| "compute a checksum" | `h = sha256_file "..."` |
 | "fetch a URL and save it" | `download "url" "dst"` (no `let` needed) |
-| "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get "${body}" "a.b.c"` |
+| "fetch JSON, read a field" | `body = http_get "url"` then `v = json_get "${body}" "a.b.c"` |
 | "compress this folder" | `tar_create "src" "out.tar.gz"` |
-| "skip a step if a file already exists" | `if exists "PATH" ... end` — or `let e = exists "PATH"; if not e ... end` for the inverse |
+| "skip a step if a file already exists" | `if exists "PATH" ... end` — or `e = exists "PATH"; if not e ... end` for the inverse |
 | "wrap / extend an existing tool, forwarding unknown commands" | `catch passthrough ... shell "REAL_TOOL ${proxy_args}"` — see Language Reference for the passthrough pattern |
 | "ship this as a binary" | `perch --build -f commands.perch -o NAME` |
 | "serve a web UI" | `perch --server` |
@@ -392,7 +392,7 @@ command build
     do
         mkdir "${BIN_DIR}/${target}"
         shell "GOOS=${target} go build -ldflags='-s -w' -o ${BIN_DIR}/${target}/${APP_NAME} ${MAIN_PKG}"
-        let size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
+        size = file_size "${BIN_DIR}/${target}/${APP_NAME}"
         print "✓ built (${size} bytes)"
     end
 end

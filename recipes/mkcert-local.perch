@@ -65,9 +65,9 @@ end
 command status
     description "Where is mkcert installed and which CA is active?"
     do
-        let h = has_bin "mkcert"
+        h = has_bin "mkcert"
         if h
-            let ver = mkcert -version
+            ver = mkcert -version
             print "  ✓ mkcert ${ver}"
             mkcert -CAROOT
         end

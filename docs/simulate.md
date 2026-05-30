@@ -229,7 +229,7 @@ For those, point `simulate` at a JSON **fixture file** with `--sim-file FIXTURE.
 ### What the stateful walker does
 
 - **State threads through ops.** `write_file "/tmp/x"` records the file as existing; downstream `if exists "/tmp/x"` evaluates true. `rm` flips it back. `cd /srv` shifts the cwd used to resolve relative paths.
-- **`let` captures consult oracles.** `let rev = shell_output "git rev-parse HEAD"` looks up the post-interpolation command in `oracles.shell_output`. If present, `${rev}` resolves to the simulated value; if absent, `${rev}` is marked *symbolic* and downstream uses surface MIGHT_FAIL.
+- **`let` captures consult oracles.** `rev = shell_output "git rev-parse HEAD"` looks up the post-interpolation command in `oracles.shell_output`. If present, `${rev}` resolves to the simulated value; if absent, `${rev}` is marked *symbolic* and downstream uses surface MIGHT_FAIL.
 - **HTTP outcomes are oracled per URL.** Status 2xx → WILL_RUN; 4xx/5xx → WILL_FAIL with the simulated body; 3xx with a `redirect` field → MIGHT_FAIL, and if the redirect destination's host isn't in your network allowlist → WILL_FAIL (the practical answer to "what if upstream redirects me to evil.com?").
 - **`has_bin` oracles override the capability list.** Lets you simulate "what if `kubectl` is suddenly missing?" without removing it from `bins`.
 

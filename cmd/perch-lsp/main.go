@@ -512,8 +512,6 @@ func completionsFor(text string, s scope) []completionItem {
 			items = append(items, completionItem{Label: op.name, Kind: 3, Detail: op.detail, Doc: op.doc})
 		}
 		// Keywords valid in body.
-		items = append(items, completionItem{Label: "let", Kind: 14, Detail: "let NAME = OP ARGS  — capture an op's output"})
-		items = append(items, completionItem{Label: "run", Kind: 14, Detail: "run NAME — call another command"})
 		items = append(items, completionItem{Label: "end", Kind: 14, Detail: "close do block"})
 		// `if` block opener — surfaces the unified `if EXPR ... end`.
 		items = append(items, completionItem{Label: "if", Kind: 14, Detail: "if EXPR ... end — comparison / predicate / truthy / falsy"})
@@ -744,8 +742,6 @@ var keywordDocs = map[string]string{
 	"env":          "Set an env var for the body's `shell` calls.",
 	"do":           "Open the executable body block.",
 	"end":          "Close the most-recent block.",
-	"let":          "`let NAME = OP ARGS` — capture an op's return value; later strings interpolate `${NAME}`.",
-	"run":          "`run NAME` — call another command in the same program.",
 }
 
 // opDocs covers the catalogue. Keep in sync with infra/ops/.
@@ -779,7 +775,7 @@ var opDocs = map[string]opDoc{
 	"if":      {"EXPR … end", "Run nested ops when EXPR holds. EXPR can be: `NAME == LIT` / `!= LIT` / `> N` / `< N` / `>= N` / `<= N` / bare `NAME` (truthy) / `not NAME` (falsy)."},
 	"if_call": {"FUNC ARG … end", "Run nested ops if FUNC(ARG) is truthy. E.g. `if exists \"./bin\"`."},
 
-	"upper":      {"(string) → string", "Uppercase. Use via `let X = upper \"hi\"`."},
+	"upper":      {"(string) → string", "Uppercase. Use via `X = upper \"hi\"`."},
 	"lower":      {"(string) → string", "Lowercase."},
 	"trim":       {"(string) → string", "Strip surrounding whitespace."},
 	"capitalize": {"(string) → string", "Title-case first letter."},

@@ -130,9 +130,9 @@ end
 command who_am_i
     description "Show current context + namespace + user"
     do
-        let ctx = kubectl config current-context
-        let ns = kubectl config view --minify -o jsonpath={..namespace}
-        let user = kubectl config view --minify -o jsonpath={.users[0].name}
+        ctx = kubectl config current-context
+        ns = kubectl config view --minify -o jsonpath={..namespace}
+        user = kubectl config view --minify -o jsonpath={.users[0].name}
         print "context:   ${ctx}"
         print "namespace: ${ns}"
         print "user:      ${user}"

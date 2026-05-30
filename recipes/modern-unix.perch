@@ -82,7 +82,7 @@ template check_one
         type string
     end
     do
-        let h = has_bin "${bin}"
+        h = has_bin "${bin}"
         if h
             print "  ✓ ${bin}"
         end

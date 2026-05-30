@@ -222,7 +222,7 @@ end
 - The block exits when ALL children complete.
 - If any child errored, the block's error is the first one (siblings
   finish regardless).
-- `let X = …` captures inside `parallel` are local to the branch and
+- `X = …` captures inside `parallel` are local to the branch and
   do not survive the block — use the `cache` block or a file if you
   need cross-branch state.
 - Nesting is permitted: `parallel { … parallel { … } }`.
@@ -351,7 +351,7 @@ User-keyed body cache:
 ```capy
 cache "build-${target}-${sha256_file('go.sum')}" "24h"
     go build -o bin/${target} ./cmd
-    let size = file_size "bin/${target}"
+    size = file_size "bin/${target}"
 end
 ```
 
@@ -359,7 +359,7 @@ end
   so `${target}` and `${sha256_file('go.sum')}` materialize at run
   time.
 - **Second arg** = TTL duration (`"24h"`, `"5m"`, `"1h30m"`, etc.).
-- **On miss:** runs the body and persists every `let X = …` binding
+- **On miss:** runs the body and persists every `X = …` binding
   newly produced. Auto-bindings (`os`, `home`, `cache_dir`, …) are
   excluded so the cache file stays small.
 - **On hit (within TTL):** skips the body entirely and replays the

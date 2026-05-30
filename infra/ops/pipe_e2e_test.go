@@ -22,7 +22,7 @@ requires
 end
 command t
     do
-        let out = pipe
+        out = pipe
             exec echo hello
             exec tr a-z A-Z
             exec rev
@@ -48,7 +48,7 @@ requires
 end
 command t
     do
-        let out = pipe
+        out = pipe
             exec echo "hi"
             exec wc -c
         end

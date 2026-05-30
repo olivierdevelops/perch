@@ -18,7 +18,7 @@ end
 command t
     do
         exec echo hello world
-        let got = exec echo captured
+        got = exec echo captured
         print "v=${got}"
     end
 end
@@ -47,7 +47,7 @@ end
 command t
     do
         exec echo hello --flag -x world
-        let msg = exec echo one "two three" four
+        msg = exec echo one "two three" four
         print "cap=${msg}"
     end
 end
@@ -75,7 +75,7 @@ end
 command t
     do
         exec echo BARE
-        let q = exec echo CAPTURED
+        q = exec echo CAPTURED
         print "q=${q}"
     end
 end

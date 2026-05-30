@@ -37,7 +37,7 @@ end
 command stop_all
     description "Stop EVERY running container"
     do
-        let running = docker ps -q
+        running = docker ps -q
         if not running
             ok "nothing running"
             exit 0
@@ -52,7 +52,7 @@ end
 command restart_all
     description "Restart EVERY running container"
     do
-        let running = docker ps -q
+        running = docker ps -q
         if not running
             ok "nothing to restart"
             exit 0

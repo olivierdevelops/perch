@@ -25,7 +25,7 @@ end
 command whoami
     description "Read a declared env var (HOME)"
     do
-        let h = get_env "HOME"
+        h = get_env "HOME"
         print "HOME=${h}"
     end
 end
@@ -33,7 +33,7 @@ end
 command fetch
     description "Hit a declared host (api.github.com)"
     do
-        let body = http_get "https://api.github.com"
+        body = http_get "https://api.github.com"
         print "github API reachable"
     end
 end

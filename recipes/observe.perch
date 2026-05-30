@@ -40,12 +40,12 @@ end
 command start_prom
     private
     do
-        let r = docker ps -q -f name=^${PROM_NAME}$
+        r = docker ps -q -f name=^${PROM_NAME}$
         if r
             ok "prometheus already running"
         end
         if not r
-            let e = docker ps -aq -f name=^${PROM_NAME}$
+            e = docker ps -aq -f name=^${PROM_NAME}$
             if e
                 docker start ${PROM_NAME}
             end
@@ -60,12 +60,12 @@ end
 command start_grafana
     private
     do
-        let r = docker ps -q -f name=^${GRAF_NAME}$
+        r = docker ps -q -f name=^${GRAF_NAME}$
         if r
             ok "grafana already running"
         end
         if not r
-            let e = docker ps -aq -f name=^${GRAF_NAME}$
+            e = docker ps -aq -f name=^${GRAF_NAME}$
             if e
                 docker start ${GRAF_NAME}
             end
@@ -80,12 +80,12 @@ end
 command start_loki
     private
     do
-        let r = docker ps -q -f name=^${LOKI_NAME}$
+        r = docker ps -q -f name=^${LOKI_NAME}$
         if r
             ok "loki already running"
         end
         if not r
-            let e = docker ps -aq -f name=^${LOKI_NAME}$
+            e = docker ps -aq -f name=^${LOKI_NAME}$
             if e
                 docker start ${LOKI_NAME}
             end

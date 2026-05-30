@@ -542,7 +542,7 @@ Under sandbox:
 - The `env` clause declares the whitelist.
 - The interpolation function is wrapped: `Lookup(name)` rejects un-whitelisted names with `"env var ${X} not declared in sandbox env"`.
 - `--check` walks every literal `${…}` in op args + top-level bindings + on_signal handlers. Any name not in (autobound ∪ args ∪ top-level bindings ∪ env vars ∪ command env ∪ sandbox env) is flagged at validation time.
-- Dynamic forms — `let n = format "${X}_${Y}" …; print "${n}"` — can't be statically caught fully, but the interpreter still enforces at runtime.
+- Dynamic forms — `n = format "${X}_${Y}" …; print "${n}"` — can't be statically caught fully, but the interpreter still enforces at runtime.
 
 The autobound names (`os`, `arch`, `home`, `cache_dir`, `exe_path`, …) are unaffected — they're host facts, not env vars, and the sandbox controls them via `private_ops` separately.
 
@@ -829,8 +829,8 @@ command run
     do
         mkdir "${cwd}/out"
         tar_extract "${cwd}/in/${input}" "${cwd}/out"
-        let files = list_dir "${cwd}/out"
-        let h = sha256_file "${cwd}/in/${input}"
+        files = list_dir "${cwd}/out"
+        h = sha256_file "${cwd}/in/${input}"
         write_file "${cwd}/out/SHA256SUMS" "${h}  ${input}\n"
         print "extracted: ${files}"
     end
@@ -869,7 +869,7 @@ Estimate: ~1500 lines + ~300 lines of tests. Not small, but well-bounded.
 - **Globs in `read` / `write`.** `read "${HOME}/*/.config"` is reasonable. The pattern matching should be eager (resolved at startup) and re-evaluated per op call (so newly-created dirs land in scope). Or static — both have trade-offs. Probably static + a `glob_extend` flag for the dynamic case.
 - **Net allowlist for DNS-only ops.** `dns_lookup "example.com"` doesn't connect, but does leak the hostname to the resolver. Treat as a network op? I'd say yes — covered by `offline` / `net`.
 - **Capability tokens.** Instead of `shell_bins git`, declare `cap git "git"` and require `shell.git "status"` syntax. More robust but more grammar to learn. Worth a follow-up RFC.
-- **Effects in the type system.** `let h = sha256_file "X"` is pure; `let r = http_get "Y"` is impure. We could surface effects in op metadata so the sandbox classifies ops automatically. Probably overkill v1.
+- **Effects in the type system.** `h = sha256_file "X"` is pure; `r = http_get "Y"` is impure. We could surface effects in op metadata so the sandbox classifies ops automatically. Probably overkill v1.
 - **Per-arg policy.** `download URL DST` has different policy needs for URL (net) vs DST (write). Currently the enforce dispatch handles both; should arg-policy be declared per-arg in `infra/ops/<op>.go`? Probably yes.
 
 ---

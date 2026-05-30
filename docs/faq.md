@@ -60,7 +60,7 @@ command test_against_real_api
     test_allow_network         # opt out of the default --no-network
     test_timeout 10            # cap at 10s
     do
-        let body = http_get "https://api.staging.example.com/health"
+        body = http_get "https://api.staging.example.com/health"
         assert_contains "${body}" "ok"
     end
 end

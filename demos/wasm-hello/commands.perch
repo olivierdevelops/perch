@@ -48,7 +48,7 @@ command rebuild
                 go build -o hello.wasm .
             end
         end
-        let size = file_size "${script_dir}/hello.wasm"
+        size = file_size "${script_dir}/hello.wasm"
         print "✓ rebuilt hello.wasm (${size} bytes)"
     end
 end

@@ -16,7 +16,7 @@ command t
     do
         exec git status
         exec docker run -d --name web
-        let head = exec git rev-parse HEAD
+        head = exec git rev-parse HEAD
     end
 end
 `

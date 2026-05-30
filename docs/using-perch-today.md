@@ -50,7 +50,7 @@ command build
         with_env "GOOS=${target}"
             go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
         end
-        let size = file_size "${BUILD_DIR}/${target}/myapp"
+        size = file_size "${BUILD_DIR}/${target}/myapp"
         print "built ${size} bytes"
     end
 end
@@ -141,16 +141,16 @@ Today you run external tools with the **`shell`** op (a string command):
 
 ```perch
 docker compose up -d
-let out = git rev-parse HEAD
+out = git rev-parse HEAD
 shell_detached "my-server --port 8080"
 ```
 
 For most data work you don't need a shell at all — perch ships ~140 cross-platform ops. Prefer them over shelling out:
 
 ```perch
-let body = http_get "https://api.github.com/repos/me/app"
-let stars = json_get "${body}" ".stargazers_count"
-let h = sha256_file "./dist/app"
+body = http_get "https://api.github.com/repos/me/app"
+stars = json_get "${body}" ".stargazers_count"
+h = sha256_file "./dist/app"
 mkdir "./out"
 write_file "./out/manifest.json" "${body}"
 ```
@@ -160,11 +160,11 @@ Capture an op's result with `let`. See the full list in [op-reference.md](op-ref
 ### Argument forms (shipped)
 
 ```perch
-let url = get_env "API_URL"
+url = get_env "API_URL"
 print "${url}"        # string form
 print url             # bare ident — resolves the binding directly
 
-let u = upper url     # let-captured op with a bare-ident arg
+u = upper url     # let-captured op with a bare-ident arg
 ```
 
 Bare idents work for plain binding names **and dotted member paths** — `match err.kind` and `match os` both work (capy `dotted_ident`). The string form `match "${err.kind}"` still works too.

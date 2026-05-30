@@ -11,7 +11,7 @@
 
 ```perch
 try
-    let body = http_get "${url}"
+    body = http_get "${url}"
 rescue err
     match "${err.kind}"
         case http_5xx
@@ -263,7 +263,7 @@ The classic "retry on transient errors, fail loudly on permanent ones":
 ```perch
 retry max=5 delay=2s
     try
-        let body = http_get "${url}"
+        body = http_get "${url}"
     rescue err
         match "${err.kind}"
             case http_5xx
@@ -306,7 +306,7 @@ end
 ```perch
 try
     timeout secs=10
-        let body = http_get "${slow_url}"
+        body = http_get "${slow_url}"
     end
 rescue err
     match "${err.kind}"
@@ -325,7 +325,7 @@ end
 ### 1. Cleanup with `finally`
 
 ```perch
-let tmp = mktemp_dir
+tmp = mktemp_dir
 try
     cp "./src/big-file" "${tmp}/staged"
     process ${tmp}/staged
@@ -339,12 +339,12 @@ end
 
 ```perch
 try
-    let cached = http_get "http://redis:6379/value"
+    cached = http_get "http://redis:6379/value"
     print "from cache: ${cached}"
 rescue err
     # Cache down — proceed without
     print "cache miss / unreachable: ${err.kind}"
-    let cached = "${default_value}"
+    cached = "${default_value}"
 end
 # ${cached} is set either way
 ```

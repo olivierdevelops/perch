@@ -95,7 +95,7 @@ command greet
     end
 
     do
-        let upper_name = upper "${name}"
+        upper_name = upper "${name}"
         print "Hello, ${upper_name}!"
     end
 end
@@ -110,7 +110,7 @@ Three new ideas just appeared:
 
 - **`arg NAME ... end`** declares a typed CLI argument as a block. Each property — `type`, `default`, `description`, `optional`, `index` — is its own labelled line. Only `type` is required.
 - **The `default` value makes the arg optional.** Without `default`, the arg is required and perch errors if you omit it.
-- **`let X = OP ARGS`** runs an op and stores the result; later strings interpolate `${X}`.
+- **`X = OP ARGS`** runs an op and stores the result; later strings interpolate `${X}`.
 
 ## Declare what it needs — `requires`
 

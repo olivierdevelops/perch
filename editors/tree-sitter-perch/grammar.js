@@ -121,13 +121,14 @@ module.exports = grammar({
     ),
 
     _op: $ => choice(
-      $.let_stmt,
+      $.assign_stmt,
       $.block_op,
       $.call_op,
     ),
 
-    let_stmt: $ => seq(
-      'let',
+    // `NAME = callee args…` — capture. No `let` keyword; `=` is the assignment
+    // operator (a top-level `NAME = value` is a binding).
+    assign_stmt: $ => seq(
       field('name', $.identifier),
       '=',
       field('callee', $.identifier),
