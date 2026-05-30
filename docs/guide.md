@@ -194,7 +194,7 @@ command build
         description "Target OS"
     end
     do
-        call ensure_dir "${BUILD_DIR}/${target}"
+        ensure_dir "${BUILD_DIR}/${target}"
         exec go build -o ${BUILD_DIR}/${target}/myapp ./cmd/myapp
     end
 end
@@ -763,15 +763,15 @@ end
 command up
     description "Start the dev stack"
     do
-        call require_bin "docker"
-        call require_bin "docker-compose"
+        require_bin "docker"
+        require_bin "docker-compose"
         exec docker-compose up -d
     end
 end
 
 command down
     do
-        call require_bin "docker-compose"
+        require_bin "docker-compose"
         exec docker-compose down
     end
 end
@@ -792,7 +792,7 @@ import "recipes/redis.perch" as redis    # namespaced; verbs become `redis.up`, 
 
 command full_stack
     do
-        call require_docker
+        require_docker
         redis.up
         exec ./scripts/seed-data.sh
     end
@@ -1097,8 +1097,8 @@ end
 
 command setup
     do
-        call install_pkg "jq"
-        call install_pkg "ripgrep"
+        install_pkg "jq"
+        install_pkg "ripgrep"
     end
 end
 ```
@@ -1276,7 +1276,7 @@ command test_lower
     test                                # marks this as a test
     do
         let result = lower "HÉLLO"
-        call suite_assert "${result}" "héllo"
+        suite_assert "${result}" "héllo"
     end
 end
 
@@ -1562,8 +1562,8 @@ template require_bin
 end
 
 # Use:
-call require_bin "kubectl"
-call require_bin "docker"
+require_bin "kubectl"
+require_bin "docker"
 ```
 
 ### 2. Idempotent setup ("install if missing")
@@ -1593,7 +1593,7 @@ template wait_for_port
 end
 
 # Use:
-call wait_for_port "localhost" "5432" "30"
+wait_for_port "localhost" "5432" "30"
 ```
 
 ### 4. Capture and reuse stdin / piped input
@@ -1858,7 +1858,7 @@ end
 command build
     description "Compile for the current platform"
     do
-        call ensure_clean "${OUT_DIR}/${os}-${arch}"
+        ensure_clean "${OUT_DIR}/${os}-${arch}"
         exec go build -o ${OUT_DIR}/${os}-${arch}/${APP_NAME} ./cmd/${APP_NAME}
         let size = file_size "${OUT_DIR}/${os}-${arch}/${APP_NAME}"
         print "✓ built ${size} bytes"
@@ -1969,7 +1969,7 @@ command install
         end
 
         let install_dir = format "${cache_dir}/stt/${bundle_hash}"
-        call ensure_dir "${install_dir}"
+        ensure_dir "${install_dir}"
 
         if not exists "${install_dir}/.installed"
             print "→ extracting source to ${install_dir}"
@@ -1985,7 +1985,7 @@ command install
         end
 
         # Drop a launcher into ~/.local/bin
-        call ensure_dir "${home_dir}/.local/bin"
+        ensure_dir "${home_dir}/.local/bin"
         write_file "${home_dir}/.local/bin/stt" "#!/bin/sh\nexec ${install_dir}/.venv/bin/python ${install_dir}/src/main.py \"$@\"\n"
         chmod "${home_dir}/.local/bin/stt" "755"
 
@@ -2290,7 +2290,7 @@ command backup
         description "Tag for the backup filename"
     end
     do
-        call ensure_dir "${BACKUP_DIR}"
+        ensure_dir "${BACKUP_DIR}"
         let stamp = format_time "now" "2006-01-02_150405"
         let out = format "${BACKUP_DIR}/${engine}-${label}-${stamp}.sql"
 
@@ -2455,7 +2455,7 @@ command issue
     arg domain type string description "Domain (e.g. example.com)" end
     arg email  type string description "Contact email for LE registration" end
     do
-        call require_bin "certbot"
+        require_bin "certbot"
         exec certbot certonly --non-interactive --agree-tos --email ${email} --webroot -w /var/www/html -d ${domain}
         install_to_nginx "-domain=${domain}"
         alert "-msg=issued cert for ${domain}"
@@ -2889,7 +2889,7 @@ command pr
         end
 
         # Open the PR via gh
-        call require_bin "gh"
+        require_bin "gh"
         let url = exec gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
         print "✓ PR opened: ${url}"
 
@@ -2907,7 +2907,7 @@ end
 command land
     description "Squash-merge the current PR + delete the branch + sync local"
     do
-        call require_bin "gh"
+        require_bin "gh"
         let branch = exec git symbolic-ref --short HEAD
         let base = exec gh pr view --json baseRefName -q .baseRefName
         exec gh pr merge --squash --auto --delete-branch

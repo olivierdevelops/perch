@@ -202,7 +202,7 @@ end
 
 ```perch
 build "-target=linux"      # invoke another command; args are quoted, CLI-style
-call ensure_dir "./out"        # expand a template with positional args
+ensure_dir "./out"        # expand a template with positional args
 ```
 
 ---

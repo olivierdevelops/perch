@@ -18,7 +18,7 @@ command pr
         description "PR title (defaults to last commit subject)"
     end
     do
-        call require_bin "gh"
+        require_bin "gh"
         exec gh pr create ${title}
     end
 end
@@ -26,9 +26,9 @@ end
 command land
     description "Squash-merge the current branch's PR and delete the branch"
     do
-        call require_bin "gh"
+        require_bin "gh"
         exec gh pr merge --squash --delete-branch --auto
-        call ok "PR landed (queued for auto-merge after checks pass)"
+        ok "PR landed (queued for auto-merge after checks pass)"
     end
 end
 
@@ -38,11 +38,11 @@ command sync
         let branch = exec git rev-parse --abbrev-ref HEAD
         exec git fetch origin main:main
         if branch == "main"
-            call ok "already on main; pulled latest"
+            ok "already on main — pulled latest"
             exit 0
         end
         exec git rebase main
-        call ok "${branch} rebased on main"
+        ok "${branch} rebased on main"
     end
 end
 
@@ -58,7 +58,7 @@ command cleanup
             let name = cut "1" "${line}"
             exec git branch -D ${name}
         end
-        call ok "stale local branches deleted"
+        ok "stale local branches deleted"
     end
 end
 
@@ -68,19 +68,19 @@ command wip
         exec git add -A
         let staged = exec git diff --cached --stat
         if not staged
-            call ok "nothing to commit"
+            ok "nothing to commit"
             exit 0
         end
         exec git commit -m wip
         exec git push
-        call ok "wip saved + pushed"
+        ok "wip saved + pushed"
     end
 end
 
 command status
     description "Show open PRs you authored + the current branch state"
     do
-        call require_bin "gh"
+        require_bin "gh"
         print "── your open PRs ──"
         exec gh pr list --author @me
         print ""
@@ -98,7 +98,7 @@ command review
         description "PR number (defaults to the PR for the current branch)"
     end
     do
-        call require_bin "gh"
+        require_bin "gh"
         exec gh pr view ${pr} --web
     end
 end
@@ -106,7 +106,7 @@ end
 command checks
     description "Show CI status for the current branch's PR"
     do
-        call require_bin "gh"
+        require_bin "gh"
         exec gh pr checks
     end
 end

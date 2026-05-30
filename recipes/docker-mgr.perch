@@ -12,7 +12,7 @@ end
 command status
     description "All running containers with disk + memory"
     do
-        call require_bin "docker"
+        require_bin "docker"
         exec docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Size}}"
     end
 end
@@ -39,13 +39,13 @@ command stop_all
     do
         let running = exec docker ps -q
         if not running
-            call ok "nothing running"
+            ok "nothing running"
             exit 0
         end
         for_each "${running}" id
             exec docker stop ${id}
         end
-        call ok "all containers stopped"
+        ok "all containers stopped"
     end
 end
 
@@ -54,13 +54,13 @@ command restart_all
     do
         let running = exec docker ps -q
         if not running
-            call ok "nothing to restart"
+            ok "nothing to restart"
             exit 0
         end
         for_each "${running}" id
             exec docker restart ${id}
         end
-        call ok "all containers restarted"
+        ok "all containers restarted"
     end
 end
 
@@ -70,16 +70,16 @@ command prune_safe
         exec docker container prune -f
         exec docker image prune -f
         exec docker network prune -f
-        call ok "safe prune done"
+        ok "safe prune done"
     end
 end
 
 command prune_all
     description "AGGRESSIVE — remove every stopped container, every unused image, every unused volume"
     do
-        call warn "this WILL delete unused volumes — data loss possible"
+        warn "this WILL delete unused volumes — data loss possible"
         exec docker system prune -a --volumes -f
-        call ok "aggressive prune done"
+        ok "aggressive prune done"
     end
 end
 

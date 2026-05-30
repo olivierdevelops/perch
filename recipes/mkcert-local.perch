@@ -14,27 +14,27 @@ command install_mkcert
     description "Install the mkcert binary via the host package manager"
     do
         if os == "darwin"
-            call require_bin "brew"
+            require_bin "brew"
             exec brew install mkcert nss
         end
         if os == "linux"
-            call warn "Linux: install mkcert via your distro's package or release binary"
+            warn "Linux: install mkcert via your distro's package or release binary"
             print "  see: https://github.com/FiloSottile/mkcert#linux"
         end
         if os == "windows"
-            call require_bin "winget"
+            require_bin "winget"
             exec winget install --id FiloSottile.mkcert -e
         end
-        call ok "mkcert installed"
+        ok "mkcert installed"
     end
 end
 
 command install_ca
     description "Install mkcert's root CA into the OS + browser trust stores"
     do
-        call require_bin "mkcert"
+        require_bin "mkcert"
         exec mkcert -install
-        call ok "root CA installed (browsers will trust certs minted by mkcert)"
+        ok "root CA installed (browsers will trust certs minted by mkcert)"
     end
 end
 
@@ -47,18 +47,18 @@ command cert
         description "Domains to cover (e.g. localhost 127.0.0.1 dev.local)"
     end
     do
-        call require_bin "mkcert"
+        require_bin "mkcert"
         exec mkcert ${domains}
-        call ok "wrote *.pem files to current directory"
+        ok "wrote *.pem files to current directory"
     end
 end
 
 command uninstall_ca
     description "Remove the mkcert root CA from trust stores"
     do
-        call require_bin "mkcert"
+        require_bin "mkcert"
         exec mkcert -uninstall
-        call ok "root CA removed"
+        ok "root CA removed"
     end
 end
 

@@ -17,7 +17,7 @@ command install_uv
     description "Install Astral's uv — a fast drop-in for pip + venv + pip-tools"
     do
         if os == "darwin"
-            call require_bin "brew"
+            require_bin "brew"
             exec brew install uv
         end
         if os == "linux"
@@ -27,10 +27,10 @@ command install_uv
             end
         end
         if os == "windows"
-            call require_bin "winget"
+            require_bin "winget"
             exec winget install --id astral-sh.uv -e
         end
-        call ok "uv installed"
+        ok "uv installed"
     end
 end
 
@@ -45,12 +45,12 @@ command bootstrap
         default "3.12"
     end
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv init ${name} --python ${python}
         with_cwd "${name}"
             exec uv venv
         end
-        call ok "project ${name} ready"
+        ok "project ${name} ready"
         print ""
         print "  cd ${name}"
         print "  uv add fastapi uvicorn   # add dependencies"
@@ -65,18 +65,18 @@ command venv
         default "3.12"
     end
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv venv --python ${python}
-        call ok ".venv ready (python ${python})"
+        ok ".venv ready (python ${python})"
     end
 end
 
 command sync
     description "Install dependencies from uv.lock / pyproject.toml"
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv sync
-        call ok "synced"
+        ok "synced"
     end
 end
 
@@ -87,7 +87,7 @@ command add
         index 0
     end
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv add ${pkg}
     end
 end
@@ -99,7 +99,7 @@ command remove
         index 0
     end
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv remove ${pkg}
     end
 end
@@ -112,7 +112,7 @@ command launch
         index 0
     end
     do
-        call require_bin "uv"
+        require_bin "uv"
         exec uv run ${cmd}
     end
 end
@@ -122,7 +122,7 @@ command clean
     do
         if exists ".venv"
             exec rm -rf .venv
-            call ok ".venv removed"
+            ok ".venv removed"
         end
     end
 end

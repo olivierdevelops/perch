@@ -24,10 +24,10 @@ command up
         default "9001"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
             print "  console: http://localhost:${console_port} (${USER} / ${PASS})"
         end
         if not running
@@ -38,7 +38,7 @@ command up
             if not existing
                 exec docker run -d --name ${NAME} -p ${api_port}:9000 -p ${console_port}:9001 -e MINIO_ROOT_USER=${USER} -e MINIO_ROOT_PASSWORD=${PASS} -v ${NAME}-data:/data ${IMAGE} server /data --console-address :9001
             end
-            call ok "minio up"
+            ok "minio up"
             print "  S3 endpoint:  http://localhost:${api_port}"
             print "  web console:  http://localhost:${console_port}"
             print "  credentials:  ${USER} / ${PASS}"
@@ -49,7 +49,7 @@ end
 command down
     do
         exec docker stop ${NAME}
-        call ok "${NAME} stopped"
+        ok "${NAME} stopped"
     end
 end
 
@@ -60,7 +60,7 @@ command destroy
             exec docker rm -f ${NAME}
         end
         exec docker volume rm ${NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 
@@ -73,7 +73,7 @@ command make_bucket
     do
         exec docker exec ${NAME} mc alias set local http://localhost:9000 ${USER} ${PASS}
         exec docker exec ${NAME} mc mb --ignore-existing local/${name}
-        call ok "bucket: ${name}"
+        ok "bucket: ${name}"
     end
 end
 
@@ -87,7 +87,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"

@@ -22,10 +22,10 @@ command up
         default "15672"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
             print "  mgmt: http://localhost:${mgmt_port} (guest/guest)"
         end
         if not running
@@ -36,7 +36,7 @@ command up
             if not existing
                 exec docker run -d --name ${NAME} -p ${amqp_port}:5672 -p ${mgmt_port}:15672 -v ${NAME}-data:/var/lib/rabbitmq ${IMAGE}
             end
-            call ok "rabbitmq up"
+            ok "rabbitmq up"
             print "  AMQP:  localhost:${amqp_port}"
             print "  mgmt:  http://localhost:${mgmt_port} (guest/guest)"
         end
@@ -46,7 +46,7 @@ end
 command down
     do
         exec docker stop ${NAME}
-        call ok "${NAME} stopped"
+        ok "${NAME} stopped"
     end
 end
 
@@ -57,7 +57,7 @@ command destroy
             exec docker rm -f ${NAME}
         end
         exec docker volume rm ${NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 
@@ -71,7 +71,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"

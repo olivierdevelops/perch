@@ -338,10 +338,10 @@ end
 
 command setup
     do
-        call check_bin "docker"
-        call check_bin "kubectl"
-        call install_pkg "jq"
-        call install_pkg "ripgrep" "13.0"
+        check_bin "docker"
+        check_bin "kubectl"
+        install_pkg "jq"
+        install_pkg "ripgrep" "13.0"
     end
 end
 ```

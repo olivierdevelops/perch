@@ -18,15 +18,15 @@ M_IMG = "minio/minio:latest"
 command up
     description "Bring up Postgres, Redis, and MinIO concurrently"
     do
-        call require_docker
-        call say "Starting devstack"
+        require_docker
+        say "Starting devstack"
         parallel
             start_postgres
             start_redis
             start_minio
         end
         print ""
-        call ok "devstack ready"
+        ok "devstack ready"
         print ""
         print "  Postgres:  postgres://postgres:postgres@localhost:5432/app"
         print "  Redis:     redis://localhost:6379"
@@ -40,7 +40,7 @@ command start_postgres
     do
         let r = exec docker ps -q -f name=^${PG_NAME}$
         if r
-            call ok "postgres already running"
+            ok "postgres already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${PG_NAME}$
@@ -50,7 +50,7 @@ command start_postgres
             if not e
                 exec docker run -d --name ${PG_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=app -v ${PG_NAME}-data:/var/lib/postgresql/data -p 5432:5432 ${PG_IMG}
             end
-            call ok "postgres up"
+            ok "postgres up"
         end
     end
 end
@@ -60,7 +60,7 @@ command start_redis
     do
         let r = exec docker ps -q -f name=^${RD_NAME}$
         if r
-            call ok "redis already running"
+            ok "redis already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${RD_NAME}$
@@ -68,7 +68,7 @@ command start_redis
                 exec docker rm ${RD_NAME}
             end
             exec docker run -d --name ${RD_NAME} -p 6379:6379 ${RD_IMG}
-            call ok "redis up"
+            ok "redis up"
         end
     end
 end
@@ -78,7 +78,7 @@ command start_minio
     do
         let r = exec docker ps -q -f name=^${M_NAME}$
         if r
-            call ok "minio already running"
+            ok "minio already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${M_NAME}$
@@ -88,7 +88,7 @@ command start_minio
             if not e
                 exec docker run -d --name ${M_NAME} -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin -v ${M_NAME}-data:/data ${M_IMG} server /data --console-address :9001
             end
-            call ok "minio up"
+            ok "minio up"
         end
     end
 end
@@ -101,7 +101,7 @@ command down
             exec docker stop ${RD_NAME}
             exec docker stop ${M_NAME}
         end
-        call ok "devstack stopped"
+        ok "devstack stopped"
     end
 end
 
@@ -110,7 +110,7 @@ command destroy
     do
         exec docker rm -f ${PG_NAME} ${RD_NAME} ${M_NAME}
         exec docker volume rm ${PG_NAME}-data ${M_NAME}-data
-        call ok "devstack destroyed"
+        ok "devstack destroyed"
     end
 end
 

@@ -194,8 +194,8 @@ command test_all_targets_built
             build_darwin
             build_linux
         end
-        call assert_built "darwin"
-        call assert_built "linux"
+        assert_built "darwin"
+        assert_built "linux"
     end
 end
 
@@ -206,7 +206,7 @@ command test_release_pipeline
         timeout "30s"
             release
         end
-        call assert_built "darwin"
+        assert_built "darwin"
     end
 end
 ```

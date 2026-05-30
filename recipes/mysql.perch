@@ -23,10 +23,10 @@ command up
         default "app"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
         end
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
@@ -36,7 +36,7 @@ command up
             if not existing
                 exec docker run -d --name ${NAME} -e MYSQL_ROOT_PASSWORD=${ROOT_PASS} -e MYSQL_DATABASE=${db} -v ${NAME}-data:/var/lib/mysql -p ${port}:3306 ${IMAGE}
             end
-            call ok "mysql up on port ${port}"
+            ok "mysql up on port ${port}"
             print "  connect: mysql -h 127.0.0.1 -P ${port} -uroot -p${ROOT_PASS} ${db}"
         end
     end
@@ -45,7 +45,7 @@ end
 command down
     do
         exec docker stop ${NAME}
-        call ok "${NAME} stopped"
+        ok "${NAME} stopped"
     end
 end
 
@@ -56,7 +56,7 @@ command destroy
             exec docker rm -f ${NAME}
         end
         exec docker volume rm ${NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 
@@ -82,7 +82,7 @@ command dump
     do
         exec docker exec ${NAME} mysqldump -uroot -p${ROOT_PASS} ${db} -r /tmp/perch-dump.sql
         exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
-        call ok "wrote ${out}"
+        ok "wrote ${out}"
     end
 end
 
@@ -100,7 +100,7 @@ command restore
             exec cat "${file}"
             exec docker exec -i ${NAME} mysql -uroot -p${ROOT_PASS} ${db}
         end
-        call ok "restored ${file} → ${db}"
+        ok "restored ${file} → ${db}"
     end
 end
 
@@ -108,7 +108,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"

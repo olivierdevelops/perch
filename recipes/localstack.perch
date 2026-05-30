@@ -24,10 +24,10 @@ command up
         description "Comma-joined AWS services to enable"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
             print "  endpoint: http://localhost:${port}"
         end
         if not running
@@ -38,7 +38,7 @@ command up
             if not existing
                 exec docker run -d --name ${NAME} -p ${port}:4566 -e SERVICES=${services} -e PERSISTENCE=1 -v ${NAME}-data:/var/lib/localstack ${IMAGE}
             end
-            call ok "localstack up"
+            ok "localstack up"
             print "  endpoint: http://localhost:${port}"
             print "  use:      aws --endpoint-url http://localhost:${port} s3 ls"
         end
@@ -48,7 +48,7 @@ end
 command down
     do
         exec docker stop ${NAME}
-        call ok "${NAME} stopped"
+        ok "${NAME} stopped"
     end
 end
 
@@ -59,7 +59,7 @@ command destroy
             exec docker rm -f ${NAME}
         end
         exec docker volume rm ${NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 
@@ -67,7 +67,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format {{.Status}}
         if info
-            call ok "${info}"
+            ok "${info}"
             let health = exec curl -fsS http://localhost:4566/_localstack/health
             print "${health}"
         end

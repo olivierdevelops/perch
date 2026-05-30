@@ -77,9 +77,9 @@ expands to a 4-op body wherever it's called.
 ```capy
 command setup
     do
-        call check_bin "docker"
-        call check_bin "kubectl"
-        call check_bin "jq"
+        check_bin "docker"
+        check_bin "kubectl"
+        check_bin "jq"
     end
 end
 ```
@@ -129,8 +129,8 @@ end
 
 command setup
     do
-        call install_pkg "jq"            # version defaults to "latest"
-        call install_pkg "ripgrep" "13.0"
+        install_pkg "jq"            # version defaults to "latest"
+        install_pkg "ripgrep" "13.0"
     end
 end
 ```
@@ -155,14 +155,14 @@ template install_pkg
         type string
     end
     do
-        call log_step "Installing ${pkg}"
+        log_step "Installing ${pkg}"
         exec brew install ${pkg}
     end
 end
 
 command setup
     do
-        call install_pkg "jq"
+        install_pkg "jq"
     end
 end
 ```
@@ -492,7 +492,7 @@ command release
     description "Build, test, sign and publish for all targets"
     do
         sandbox "no_network"
-            call with_log "Setting up"
+            with_log "Setting up"
             with_env "GOFLAGS=-trimpath,CGO_ENABLED=0"
                 # Three parallel builds with shared env
                 parallel
@@ -522,12 +522,12 @@ command release
         end
 
         # Network needed for signing + publish; sandbox above doesn't apply here
-        call with_log "Signing"
+        with_log "Signing"
         retry 3
             exec cosign sign --key cosign.key bin/*/app
         end
 
-        call with_log "Publishing"
+        with_log "Publishing"
         retry 3
             exec scp -r bin/ releases-server:/srv/releases/v${version}/
         end

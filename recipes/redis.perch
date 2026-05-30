@@ -19,10 +19,10 @@ command up
         description "Host port to bind"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
         end
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
@@ -30,7 +30,7 @@ command up
                 exec docker rm ${NAME}
             end
             exec docker run -d --name ${NAME} -p ${port}:6379 ${IMAGE}
-            call ok "redis up on port ${port}"
+            ok "redis up on port ${port}"
             print "  connect: redis-cli -p ${port}"
         end
     end
@@ -42,7 +42,7 @@ command down
         let exists = exec docker ps -aq -f name=^${NAME}$
         if exists
             exec docker rm -f ${NAME}
-            call ok "${NAME} removed"
+            ok "${NAME} removed"
         end
         if not exists
             print "${NAME} not running"
@@ -61,7 +61,7 @@ command flush
     description "FLUSHALL — destroy every key (use with care)"
     do
         exec docker exec ${NAME} redis-cli FLUSHALL
-        call ok "flushed"
+        ok "flushed"
     end
 end
 
@@ -84,7 +84,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"
@@ -97,6 +97,6 @@ command backup
     do
         exec docker exec ${NAME} redis-cli SAVE
         exec docker cp ${NAME}:/data/dump.rdb ./redis-backup.rdb
-        call ok "wrote redis-backup.rdb"
+        ok "wrote redis-backup.rdb"
     end
 end

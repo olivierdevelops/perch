@@ -21,15 +21,15 @@ LOKI_IMG = "grafana/loki:latest"
 command up
     description "Start Prometheus + Grafana + Loki"
     do
-        call require_docker
-        call say "Starting observability stack"
+        require_docker
+        say "Starting observability stack"
         parallel
             start_prom
             start_loki
         end
         start_grafana
         print ""
-        call ok "observe stack ready"
+        ok "observe stack ready"
         print ""
         print "  Grafana:     http://localhost:3001  (admin/admin)"
         print "  Prometheus:  http://localhost:9090"
@@ -42,7 +42,7 @@ command start_prom
     do
         let r = exec docker ps -q -f name=^${PROM_NAME}$
         if r
-            call ok "prometheus already running"
+            ok "prometheus already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${PROM_NAME}$
@@ -52,7 +52,7 @@ command start_prom
             if not e
                 exec docker run -d --name ${PROM_NAME} -p 9090:9090 -v ${PROM_NAME}-data:/prometheus ${PROM_IMG}
             end
-            call ok "prometheus up"
+            ok "prometheus up"
         end
     end
 end
@@ -62,7 +62,7 @@ command start_grafana
     do
         let r = exec docker ps -q -f name=^${GRAF_NAME}$
         if r
-            call ok "grafana already running"
+            ok "grafana already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${GRAF_NAME}$
@@ -72,7 +72,7 @@ command start_grafana
             if not e
                 exec docker run -d --name ${GRAF_NAME} -p 3001:3000 -e GF_SECURITY_ADMIN_PASSWORD=admin --add-host=host.docker.internal:host-gateway -v ${GRAF_NAME}-data:/var/lib/grafana ${GRAF_IMG}
             end
-            call ok "grafana up"
+            ok "grafana up"
         end
     end
 end
@@ -82,7 +82,7 @@ command start_loki
     do
         let r = exec docker ps -q -f name=^${LOKI_NAME}$
         if r
-            call ok "loki already running"
+            ok "loki already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${LOKI_NAME}$
@@ -92,7 +92,7 @@ command start_loki
             if not e
                 exec docker run -d --name ${LOKI_NAME} -p 3100:3100 -v ${LOKI_NAME}-data:/loki ${LOKI_IMG}
             end
-            call ok "loki up"
+            ok "loki up"
         end
     end
 end
@@ -119,7 +119,7 @@ command down
             exec docker stop ${GRAF_NAME}
             exec docker stop ${LOKI_NAME}
         end
-        call ok "observe stack stopped"
+        ok "observe stack stopped"
     end
 end
 
@@ -127,7 +127,7 @@ command destroy
     do
         exec docker rm -f ${PROM_NAME} ${GRAF_NAME} ${LOKI_NAME}
         exec docker volume rm ${PROM_NAME}-data ${GRAF_NAME}-data ${LOKI_NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 

@@ -13,7 +13,7 @@ import "./_lib.perch"
 command install
     description "Install every modern-unix tool via the host package manager (brew / apt / winget)"
     do
-        call say "Detecting package manager"
+        say "Detecting package manager"
         if os == "darwin"
             install_brew
         end
@@ -24,7 +24,7 @@ command install
             install_winget
         end
         print ""
-        call ok "modern-unix toolkit installed"
+        ok "modern-unix toolkit installed"
         print "  ripgrep (rg), fd, bat, fzf, jq, yq, eza, zoxide"
     end
 end
@@ -32,7 +32,7 @@ end
 command install_brew
     private
     do
-        call require_bin "brew"
+        require_bin "brew"
         exec brew install ripgrep fd bat fzf jq yq eza zoxide
     end
 end
@@ -40,18 +40,18 @@ end
 command install_apt
     private
     do
-        call require_bin "apt-get"
+        require_bin "apt-get"
         exec sudo apt-get update
         exec sudo apt-get install -y ripgrep fd-find bat fzf jq
-        call warn "On Debian/Ubuntu fd is installed as 'fdfind' and bat as 'batcat' — add aliases or symlinks."
-        call warn "yq, eza, zoxide are not in apt — install via cargo or their release pages."
+        warn "On Debian/Ubuntu fd is installed as 'fdfind' and bat as 'batcat' — add aliases or symlinks."
+        warn "yq, eza, zoxide are not in apt — install via cargo or their release pages."
     end
 end
 
 command install_winget
     private
     do
-        call require_bin "winget"
+        require_bin "winget"
         exec winget install --id BurntSushi.ripgrep.MSVC -e
         exec winget install --id sharkdp.fd -e
         exec winget install --id sharkdp.bat -e
@@ -66,14 +66,14 @@ end
 command check
     description "Report which tools are installed and which are missing"
     do
-        call check_one "rg"
-        call check_one "fd"
-        call check_one "bat"
-        call check_one "fzf"
-        call check_one "jq"
-        call check_one "yq"
-        call check_one "eza"
-        call check_one "zoxide"
+        check_one "rg"
+        check_one "fd"
+        check_one "bat"
+        check_one "fzf"
+        check_one "jq"
+        check_one "yq"
+        check_one "eza"
+        check_one "zoxide"
     end
 end
 

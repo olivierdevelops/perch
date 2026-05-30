@@ -25,10 +25,10 @@ command up
         default "8025"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
             print "  inbox: http://localhost:${ui_port}"
         end
         if not running
@@ -37,7 +37,7 @@ command up
                 exec docker rm ${NAME}
             end
             exec docker run -d --name ${NAME} -p ${smtp_port}:1025 -p ${ui_port}:8025 ${IMAGE}
-            call ok "mailpit up"
+            ok "mailpit up"
             print "  send SMTP to localhost:${smtp_port}"
             print "  view inbox at http://localhost:${ui_port}"
         end
@@ -47,7 +47,7 @@ end
 command down
     do
         exec docker rm -f ${NAME}
-        call ok "${NAME} removed"
+        ok "${NAME} removed"
     end
 end
 
@@ -80,7 +80,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"

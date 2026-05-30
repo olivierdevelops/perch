@@ -17,17 +17,17 @@ command install
     description "Install restic via the host package manager"
     do
         if os == "darwin"
-            call require_bin "brew"
+            require_bin "brew"
             exec brew install restic
         end
         if os == "linux"
             exec sudo apt-get install -y restic
         end
         if os == "windows"
-            call require_bin "winget"
+            require_bin "winget"
             exec winget install --id restic.restic -e
         end
-        call ok "restic installed"
+        ok "restic installed"
     end
 end
 
@@ -39,10 +39,10 @@ command init_repo
         index 0
     end
     do
-        call require_bin "restic"
-        call warn "you will be prompted for a passphrase — write it down"
+        require_bin "restic"
+        warn "you will be prompted for a passphrase — write it down"
         exec restic init --repo ${repo}
-        call ok "repo initialized at ${repo}"
+        ok "repo initialized at ${repo}"
     end
 end
 
@@ -58,9 +58,9 @@ command snapshot
         default "${home}/restic-repo"
     end
     do
-        call require_bin "restic"
+        require_bin "restic"
         exec restic --repo ${repo} backup ${path}
-        call ok "snapshot saved"
+        ok "snapshot saved"
     end
 end
 
@@ -93,7 +93,7 @@ command restore
     end
     do
         exec restic --repo ${repo} restore latest --path ${path} --target ${target}
-        call ok "restored to ${target}"
+        ok "restored to ${target}"
     end
 end
 
@@ -105,7 +105,7 @@ command forget
     end
     do
         exec restic --repo ${repo} forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune
-        call ok "retention applied"
+        ok "retention applied"
     end
 end
 

@@ -25,10 +25,10 @@ command up
         default "app"
     end
     do
-        call require_docker
+        require_docker
         let running = exec docker ps -q -f name=^${NAME}$
         if running
-            call ok "${NAME} already running"
+            ok "${NAME} already running"
         end
         if not running
             let existing = exec docker ps -aq -f name=^${NAME}$
@@ -38,7 +38,7 @@ command up
             if not existing
                 exec docker run -d --name ${NAME} -e POSTGRES_USER=${USER} -e POSTGRES_PASSWORD=${PASS} -e POSTGRES_DB=${db} -v ${NAME}-data:/var/lib/postgresql/data -p ${port}:5432 ${IMAGE}
             end
-            call ok "postgres up on port ${port}"
+            ok "postgres up on port ${port}"
             print "  connect: psql 'postgres://${USER}:${PASS}@localhost:${port}/${db}'"
         end
     end
@@ -48,7 +48,7 @@ command down
     description "Stop the container (keeps the volume)"
     do
         exec docker stop ${NAME}
-        call ok "${NAME} stopped"
+        ok "${NAME} stopped"
     end
 end
 
@@ -60,7 +60,7 @@ command destroy
             exec docker rm -f ${NAME}
         end
         exec docker volume rm ${NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 
@@ -83,7 +83,7 @@ command createdb
     end
     do
         exec docker exec ${NAME} createdb -U ${USER} ${db}
-        call ok "created database ${db}"
+        ok "created database ${db}"
     end
 end
 
@@ -100,7 +100,7 @@ command dump
     do
         exec docker exec ${NAME} pg_dump -U ${USER} ${db} -f /tmp/perch-dump.sql
         exec docker cp ${NAME}:/tmp/perch-dump.sql "${out}"
-        call ok "wrote ${out}"
+        ok "wrote ${out}"
     end
 end
 
@@ -119,7 +119,7 @@ command restore
             exec cat "${file}"
             exec docker exec -i ${NAME} psql -U ${USER} ${db}
         end
-        call ok "restored ${file} → ${db}"
+        ok "restored ${file} → ${db}"
     end
 end
 
@@ -127,7 +127,7 @@ command status
     do
         let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
-            call ok "${info}"
+            ok "${info}"
         end
         if not info
             print "${NAME} is not running"

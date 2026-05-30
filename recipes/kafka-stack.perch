@@ -24,12 +24,12 @@ command up
         default "8080"
     end
     do
-        call require_docker
-        call say "Starting kafka-stack"
+        require_docker
+        say "Starting kafka-stack"
         start_kafka
         start_ui
         print ""
-        call ok "kafka-stack ready"
+        ok "kafka-stack ready"
         print ""
         print "  Brokers:  localhost:${port}"
         print "  Kafka UI: http://localhost:${ui_port}"
@@ -41,7 +41,7 @@ command start_kafka
     do
         let r = exec docker ps -q -f name=^${K_NAME}$
         if r
-            call ok "kafka already running"
+            ok "kafka already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${K_NAME}$
@@ -51,7 +51,7 @@ command start_kafka
             if not e
                 exec docker run -d --name ${K_NAME} -p 9092:9092 -e KAFKA_CFG_NODE_ID=0 -e KAFKA_CFG_PROCESS_ROLES=controller,broker -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 -v ${K_NAME}-data:/bitnami/kafka ${K_IMG}
             end
-            call ok "kafka up"
+            ok "kafka up"
         end
     end
 end
@@ -61,7 +61,7 @@ command start_ui
     do
         let r = exec docker ps -q -f name=^${UI_NAME}$
         if r
-            call ok "kafka-ui already running"
+            ok "kafka-ui already running"
         end
         if not r
             let e = exec docker ps -aq -f name=^${UI_NAME}$
@@ -71,7 +71,7 @@ command start_ui
             if not e
                 exec docker run -d --name ${UI_NAME} -p 8080:8080 -e KAFKA_CLUSTERS_0_NAME=local -e KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=host.docker.internal:9092 --add-host=host.docker.internal:host-gateway ${UI_IMG}
             end
-            call ok "kafka-ui up"
+            ok "kafka-ui up"
         end
     end
 end
@@ -84,7 +84,7 @@ command topic_create
     end
     do
         exec docker exec ${K_NAME} kafka-topics.sh --create --topic ${name} --bootstrap-server localhost:9092 --if-not-exists
-        call ok "topic: ${name}"
+        ok "topic: ${name}"
     end
 end
 
@@ -101,7 +101,7 @@ command down
             exec docker stop ${K_NAME}
             exec docker stop ${UI_NAME}
         end
-        call ok "kafka-stack stopped"
+        ok "kafka-stack stopped"
     end
 end
 
@@ -109,7 +109,7 @@ command destroy
     do
         exec docker rm -f ${K_NAME} ${UI_NAME}
         exec docker volume rm ${K_NAME}-data
-        call ok "destroyed"
+        ok "destroyed"
     end
 end
 

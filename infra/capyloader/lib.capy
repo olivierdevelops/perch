@@ -1695,42 +1695,9 @@ end
 # arg names.
 # ────────────────────────────────────────────────────────────────────────────
 
-function call_0args
-    arg literal "call"
-    arg capture name ident
-    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name}}}
-`
-end
 
-function call_1arg
-    priority 50
-    arg literal "call"
-    arg capture name ident
-    arg capture a0 any
-    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0}}}
-`
-end
 
-function call_2args
-    priority 100
-    arg literal "call"
-    arg capture name ident
-    arg capture a0 any
-    arg capture a1 any
-    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0},"_1":${a1}}}
-`
-end
 
-function call_3args
-    priority 150
-    arg literal "call"
-    arg capture name ident
-    arg capture a0 any
-    arg capture a1 any
-    arg capture a2 any
-    write `{"event":"op","kind":"_template_call","args":{"name":${toJSON name},"_0":${a0},"_1":${a1},"_2":${a2}}}
-`
-end
 
 # ────────────────────────────────────────────────────────────────────────────
 # Block closer (no-op)

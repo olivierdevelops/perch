@@ -17,13 +17,13 @@ command ctx
         description "Context name (omit to list)"
     end
     do
-        call require_bin "kubectl"
+        require_bin "kubectl"
         if not name
             exec kubectl config get-contexts
             exit 0
         end
         exec kubectl config use-context ${name}
-        call ok "context: ${name}"
+        ok "context: ${name}"
     end
 end
 
@@ -35,13 +35,13 @@ command ns
         optional
     end
     do
-        call require_bin "kubectl"
+        require_bin "kubectl"
         if not name
             exec kubectl get namespaces
             exit 0
         end
         exec kubectl config set-context --current --namespace=${name}
-        call ok "namespace: ${name}"
+        ok "namespace: ${name}"
     end
 end
 
@@ -109,7 +109,7 @@ command restart
     do
         exec kubectl rollout restart deployment/${deploy}
         exec kubectl rollout status deployment/${deploy}
-        call ok "${deploy} restarted"
+        ok "${deploy} restarted"
     end
 end
 

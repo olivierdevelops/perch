@@ -28,7 +28,7 @@ command install_all
             winget_install
         end
         print ""
-        call ok "cloud CLIs installed"
+        ok "cloud CLIs installed"
         check
     end
 end
@@ -36,7 +36,7 @@ end
 command brew_install
     private
     do
-        call require_bin "brew"
+        require_bin "brew"
         exec brew install awscli google-cloud-sdk azure-cli kubectl helm terraform
     end
 end
@@ -44,7 +44,7 @@ end
 command linux_install
     private
     do
-        call warn "Linux: install via the official vendor scripts for best results"
+        warn "Linux: install via the official vendor scripts for best results"
         print "  AWS CLI:   curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscli.zip && unzip awscli.zip && sudo ./aws/install"
         print "  gcloud:    curl https://sdk.cloud.google.com | bash"
         print "  Azure:     curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash"
@@ -57,7 +57,7 @@ end
 command winget_install
     private
     do
-        call require_bin "winget"
+        require_bin "winget"
         exec winget install --id Amazon.AWSCLI -e
         exec winget install --id Google.CloudSDK -e
         exec winget install --id Microsoft.AzureCLI -e
@@ -70,12 +70,12 @@ end
 command check
     description "Report which cloud CLIs are installed"
     do
-        call check_one "aws"
-        call check_one "gcloud"
-        call check_one "az"
-        call check_one "kubectl"
-        call check_one "helm"
-        call check_one "terraform"
+        check_one "aws"
+        check_one "gcloud"
+        check_one "az"
+        check_one "kubectl"
+        check_one "helm"
+        check_one "terraform"
     end
 end
 
@@ -103,7 +103,7 @@ command aws_login
         default "default"
     end
     do
-        call require_bin "aws"
+        require_bin "aws"
         exec aws sso login --profile ${profile}
     end
 end
@@ -111,7 +111,7 @@ end
 command gcp_login
     description "gcloud login + default project"
     do
-        call require_bin "gcloud"
+        require_bin "gcloud"
         exec gcloud auth login
         exec gcloud auth application-default login
     end
@@ -120,7 +120,7 @@ end
 command azure_login
     description "Azure CLI login"
     do
-        call require_bin "az"
+        require_bin "az"
         exec az login
     end
 end
