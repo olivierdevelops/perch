@@ -507,23 +507,11 @@ func (i *Interpreter) parseArgs(cmd *domain.Command, cliArgs []string) (map[stri
 			d, _ := def.(string)
 			ref.val = fs.String(a.Name, d, a.Description)
 		case "bool":
-			d, _ := def.(bool)
-			ref.val = fs.Bool(a.Name, d, a.Description)
+			ref.val = fs.Bool(a.Name, defBool(def), a.Description)
 		case "int":
-			d := 0
-			switch v := def.(type) {
-			case int:
-				d = v
-			case float64:
-				d = int(v)
-			}
-			ref.val = fs.Int(a.Name, d, a.Description)
+			ref.val = fs.Int(a.Name, defInt(def), a.Description)
 		case "float":
-			d := 0.0
-			if f, ok := def.(float64); ok {
-				d = f
-			}
-			ref.val = fs.Float64(a.Name, d, a.Description)
+			ref.val = fs.Float64(a.Name, defFloat(def), a.Description)
 		default:
 			return nil, fmt.Errorf("arg %q: unknown type %q", a.Name, a.Type)
 		}
@@ -606,4 +594,45 @@ func (i *Interpreter) parseArgs(cmd *domain.Command, cliArgs []string) (map[stri
 		}
 	}
 	return out, nil
+}
+
+// def{Bool,Int,Float} coerce an arg's declared default into a typed value.
+// Quote-optional capture normalizes every default to a STRING (`default 6379`
+// → "6379"), so these parse the string form; they also accept the native JSON
+// types for defaults built directly in a domain.Program (tests, embeds).
+func defBool(def any) bool {
+	switch v := def.(type) {
+	case bool:
+		return v
+	case string:
+		b, _ := strconv.ParseBool(v)
+		return b
+	}
+	return false
+}
+
+func defInt(def any) int {
+	switch v := def.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	case string:
+		n, _ := strconv.Atoi(v)
+		return n
+	}
+	return 0
+}
+
+func defFloat(def any) float64 {
+	switch v := def.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case string:
+		f, _ := strconv.ParseFloat(v, 64)
+		return f
+	}
+	return 0
 }

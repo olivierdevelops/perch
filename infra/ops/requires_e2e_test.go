@@ -155,6 +155,76 @@ end
 	}
 }
 
+// Quotes are optional at runtime too: a fully-bare program and its fully-quoted
+// twin must produce IDENTICAL output. Covers scalars, bindings (typed via
+// parse), arg defaults, op args, and a let-capture.
+func TestE2E_QuotesOptional_SameOutput(t *testing.T) {
+	quoted := `name "x"
+GREETING = "hi"
+requires
+end
+command c
+    arg who
+        type string
+        default "team"
+    end
+    arg n
+        type int
+        default 3
+    end
+    do
+        print "${GREETING}"
+        print "${who}"
+        print "${n}"
+        let up = upper "redis"
+        print "${up}"
+        let j = path_join "a" "b"
+        print "${j}"
+    end
+end
+`
+	bare := `name x
+GREETING = hi
+requires
+end
+command c
+    arg who
+        type string
+        default team
+    end
+    arg n
+        type int
+        default 3
+    end
+    do
+        print ${GREETING}
+        print ${who}
+        print ${n}
+        let up = upper redis
+        print ${up}
+        let j = path_join a b
+        print ${j}
+    end
+end
+`
+	qo, err := runSource(t, quoted, "c")
+	if err != nil {
+		t.Fatalf("quoted run: %v", err)
+	}
+	bo, err := runSource(t, bare, "c")
+	if err != nil {
+		t.Fatalf("bare run: %v", err)
+	}
+	if qo != bo {
+		t.Errorf("quoted vs bare output differ:\nquoted=%q\nbare  =%q", qo, bo)
+	}
+	for _, want := range []string{"hi", "team", "3", "REDIS"} {
+		if !strings.Contains(bo, want) {
+			t.Errorf("bare output missing %q:\n%s", want, bo)
+		}
+	}
+}
+
 // match on a bare ident (`match os`) must dispatch on the host fact.
 func TestE2E_MatchIdent(t *testing.T) {
 	src := `name "x"

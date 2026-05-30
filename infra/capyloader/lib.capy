@@ -26,22 +26,22 @@ end
 
 function name
     arg literal "name"
-    arg capture v string
-    write `{"event":"name","value":${v}}
+    arg capture v word
+    write `{"event":"name","value":${asString v}}
 `
 end
 
 function about
     arg literal "about"
-    arg capture v string
-    write `{"event":"about","value":${v}}
+    arg capture v word
+    write `{"event":"about","value":${asString v}}
 `
 end
 
 function version
     arg literal "version"
-    arg capture v string
-    write `{"event":"version","value":${v}}
+    arg capture v word
+    write `{"event":"version","value":${asString v}}
 `
 end
 
@@ -50,8 +50,8 @@ end
 # --check.
 function import_flat
     arg literal "import"
-    arg capture path string
-    write `{"event":"import","path":${path},"alias":""}
+    arg capture path word
+    write `{"event":"import","path":${asString path},"alias":""}
 `
 end
 
@@ -61,10 +61,10 @@ end
 function import_aliased
     priority 100
     arg literal "import"
-    arg capture path string
+    arg capture path word
     arg literal "as"
     arg capture alias ident
-    write `{"event":"import","path":${path},"alias":${toJSON alias}}
+    write `{"event":"import","path":${asString path},"alias":${toJSON alias}}
 `
 end
 
@@ -110,17 +110,17 @@ end
 function bundle_include_alias
     priority 50
     arg literal "include"
-    arg capture path any
+    arg capture path word
     arg literal "as"
     arg capture alias ident
-    write `{"event":"bundle_include","value":${path},"alias":${toJSON alias}}
+    write `{"event":"bundle_include","value":${asString path},"alias":${toJSON alias}}
 `
 end
 
 function bundle_include
     arg literal "include"
-    arg capture path any
-    write `{"event":"bundle_include","value":${path}}
+    arg capture path word
+    write `{"event":"bundle_include","value":${asString path}}
 `
 end
 
@@ -177,14 +177,14 @@ end
 # binary lies about its version. Pin the artifact, don't ask it to self-report.)
 function requires_bin_hash
     arg literal "hash"
-    arg capture v any
-    write `{"event":"requires_bin_field","kind":"hash","value":${v}}
+    arg capture v word
+    write `{"event":"requires_bin_field","kind":"hash","value":${asString v}}
 `
 end
 function requires_bin_hash_file
     arg literal "hash_file"
-    arg capture v any
-    write `{"event":"requires_bin_field","kind":"hash_file","value":${v}}
+    arg capture v word
+    write `{"event":"requires_bin_field","kind":"hash_file","value":${asString v}}
 `
 end
 
@@ -194,20 +194,20 @@ end
 function requires_bin_as_optional
     priority 70
     arg literal "bin"
-    arg capture name any
+    arg capture name word
     arg literal "as"
     arg capture alias ident
     arg literal "optional"
-    write `{"event":"requires_bin","name":${name},"alias":${toJSON alias},"optional":true}
+    write `{"event":"requires_bin","name":${asString name},"alias":${toJSON alias},"optional":true}
 `
 end
 function requires_bin_as
     priority 65
     arg literal "bin"
-    arg capture name any
+    arg capture name word
     arg literal "as"
     arg capture alias ident
-    write `{"event":"requires_bin","name":${name},"alias":${toJSON alias}}
+    write `{"event":"requires_bin","name":${asString name},"alias":${toJSON alias}}
 `
 end
 
@@ -215,9 +215,9 @@ end
 function requires_bin_optional
     priority 55
     arg literal "bin"
-    arg capture name any
+    arg capture name word
     arg literal "optional"
-    write `{"event":"requires_bin","name":${name},"optional":true}
+    write `{"event":"requires_bin","name":${asString name},"optional":true}
 `
 end
 
@@ -225,42 +225,42 @@ end
 function requires_bin
     priority 40
     arg literal "bin"
-    arg capture name any
-    write `{"event":"requires_bin","name":${name}}
+    arg capture name word
+    write `{"event":"requires_bin","name":${asString name}}
 `
 end
 
 function requires_env_optional
     priority 55
     arg literal "env"
-    arg capture name any
+    arg capture name word
     arg literal "optional"
-    write `{"event":"requires_env","name":${name},"optional":true}
+    write `{"event":"requires_env","name":${asString name},"optional":true}
 `
 end
 
 function requires_env
     priority 40
     arg literal "env"
-    arg capture name any
-    write `{"event":"requires_env","name":${name}}
+    arg capture name word
+    write `{"event":"requires_env","name":${asString name}}
 `
 end
 
 function requires_host_optional
     priority 55
     arg literal "host"
-    arg capture name any
+    arg capture name word
     arg literal "optional"
-    write `{"event":"requires_host","name":${name},"optional":true}
+    write `{"event":"requires_host","name":${asString name},"optional":true}
 `
 end
 
 function requires_host
     priority 40
     arg literal "host"
-    arg capture name any
-    write `{"event":"requires_host","name":${name}}
+    arg capture name word
+    write `{"event":"requires_host","name":${asString name}}
 `
 end
 
@@ -269,7 +269,7 @@ end
 # so it's declared like bins/hosts/env. A write root implies read.
 # Bare-name forms — `read SRC` / `write BUILD_DIR` reference a top-level
 # binding by name instead of repeating a "${…}" string. The loader wraps the
-# captured name back into "${name}" so it interpolates exactly like the string
+# captured name back into "${asString name}" so it interpolates exactly like the string
 # form. Higher priority than the string forms so a bare ident routes here; a
 # quoted "path" still falls through to requires_read/requires_write (the
 # `ident` capture won't match a string token).
@@ -291,15 +291,15 @@ end
 
 function requires_read
     arg literal "read"
-    arg capture path any
-    write `{"event":"requires_read","value":${path}}
+    arg capture path word
+    write `{"event":"requires_read","value":${asString path}}
 `
 end
 
 function requires_write
     arg literal "write"
-    arg capture path any
-    write `{"event":"requires_write","value":${path}}
+    arg capture path word
+    write `{"event":"requires_write","value":${asString path}}
 `
 end
 
@@ -312,17 +312,17 @@ end
 # keyword. (Earlier this needed the `run_on` / `run_arch` rename — no longer.)
 function requires_os
     arg literal "os"
-    arg capture name any
+    arg capture name word
     when_not_followed_by indent
-    write `{"event":"requires_os","name":${name}}
+    write `{"event":"requires_os","name":${asString name}}
 `
 end
 
 function requires_arch
     arg literal "arch"
-    arg capture name any
+    arg capture name word
     when_not_followed_by indent
-    write `{"event":"requires_arch","name":${name}}
+    write `{"event":"requires_arch","name":${asString name}}
 `
 end
 
@@ -330,8 +330,8 @@ end
 function global_assign
     arg capture k ident
     arg literal "="
-    arg capture v any
-    write `{"event":"global","name":${toJSON k},"value":${v}}
+    arg capture v word
+    write `{"event":"global","name":${toJSON k},"value":${asString v}}
 `
 end
 
@@ -377,8 +377,8 @@ end
 
 function description
     arg literal "description"
-    arg capture v string
-    write `{"event":"config","kind":"description","value":${v}}
+    arg capture v word
+    write `{"event":"config","kind":"description","value":${asString v}}
 `
 end
 
@@ -415,8 +415,8 @@ end
 
 function default
     arg literal "default"
-    arg capture v any
-    write `{"event":"arg_field","kind":"default","value":${v}}
+    arg capture v word
+    write `{"event":"arg_field","kind":"default","value":${asString v}}
 `
 end
 
@@ -511,22 +511,22 @@ end
 
 function require_os
     arg literal "require_os"
-    arg capture v string
-    write `{"event":"config","kind":"require_os","value":${v}}
+    arg capture v word
+    write `{"event":"config","kind":"require_os","value":${asString v}}
 `
 end
 
 function require_arch
     arg literal "require_arch"
-    arg capture v string
-    write `{"event":"config","kind":"require_arch","value":${v}}
+    arg capture v word
+    write `{"event":"config","kind":"require_arch","value":${asString v}}
 `
 end
 
 function dir
     arg literal "dir"
-    arg capture v string
-    write `{"event":"config","kind":"dir","value":${v}}
+    arg capture v word
+    write `{"event":"config","kind":"dir","value":${asString v}}
 `
 end
 
@@ -540,8 +540,8 @@ end
 function env
     arg literal "env"
     arg capture k ident
-    arg capture v string
-    write `{"event":"config","kind":"env","name":${toJSON k},"value":${v}}
+    arg capture v word
+    write `{"event":"config","kind":"env","name":${toJSON k},"value":${asString v}}
 `
 end
 
@@ -563,8 +563,8 @@ end
 
 function print
     arg literal "print"
-    arg capture msg string
-    write `{"event":"op","kind":"print","args":{"msg":${msg}}}
+    arg capture msg word
+    write `{"event":"op","kind":"print","args":{"msg":${asString msg}}}
 `
 end
 # Bare ident form — `print msg` (no quotes, no ${...}). Emits `_msg_var`
@@ -579,8 +579,8 @@ end
 
 function println
     arg literal "println"
-    arg capture msg string
-    write `{"event":"op","kind":"println","args":{"msg":${msg}}}
+    arg capture msg word
+    write `{"event":"op","kind":"println","args":{"msg":${asString msg}}}
 `
 end
 function println_ident
@@ -593,8 +593,8 @@ end
 
 function eprintln
     arg literal "eprintln"
-    arg capture msg string
-    write `{"event":"op","kind":"eprintln","args":{"msg":${msg}}}
+    arg capture msg word
+    write `{"event":"op","kind":"eprintln","args":{"msg":${asString msg}}}
 `
 end
 function eprintln_ident
@@ -607,8 +607,8 @@ end
 
 function shell
     arg literal "shell"
-    arg capture cmd string
-    write `{"event":"op","kind":"shell","args":{"cmd":${cmd}}}
+    arg capture cmd word
+    write `{"event":"op","kind":"shell","args":{"cmd":${asString cmd}}}
 `
 end
 function shell_ident
@@ -621,8 +621,8 @@ end
 
 function shell_detached
     arg literal "shell_detached"
-    arg capture cmd string
-    write `{"event":"op","kind":"shell_detached","args":{"cmd":${cmd}}}
+    arg capture cmd word
+    write `{"event":"op","kind":"shell_detached","args":{"cmd":${asString cmd}}}
 `
 end
 
@@ -730,8 +730,8 @@ end
 
 function fail
     arg literal "fail"
-    arg capture msg string
-    write `{"event":"op","kind":"fail","args":{"msg":${msg}}}
+    arg capture msg word
+    write `{"event":"op","kind":"fail","args":{"msg":${asString msg}}}
 `
 end
 
@@ -744,8 +744,8 @@ end
 
 function sleep
     arg literal "sleep"
-    arg capture seconds any
-    write `{"event":"op","kind":"sleep","args":{"seconds":${seconds}}}
+    arg capture seconds word
+    write `{"event":"op","kind":"sleep","args":{"seconds":${asString seconds}}}
 `
 end
 
@@ -768,46 +768,46 @@ end
 
 function mkdir
     arg literal "mkdir"
-    arg capture path string
-    write `{"event":"op","kind":"mkdir","args":{"path":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"mkdir","args":{"path":${asString path}}}
 `
 end
 
 function cp
     arg literal "cp"
-    arg capture src string
-    arg capture dst string
-    write `{"event":"op","kind":"cp","args":{"src":${src},"dst":${dst}}}
+    arg capture src word
+    arg capture dst word
+    write `{"event":"op","kind":"cp","args":{"src":${asString src},"dst":${asString dst}}}
 `
 end
 
 function mv
     arg literal "mv"
-    arg capture src string
-    arg capture dst string
-    write `{"event":"op","kind":"mv","args":{"src":${src},"dst":${dst}}}
+    arg capture src word
+    arg capture dst word
+    write `{"event":"op","kind":"mv","args":{"src":${asString src},"dst":${asString dst}}}
 `
 end
 
 function rm
     arg literal "rm"
-    arg capture path string
-    write `{"event":"op","kind":"rm","args":{"path":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"rm","args":{"path":${asString path}}}
 `
 end
 
 function cd
     arg literal "cd"
-    arg capture path string
-    write `{"event":"op","kind":"cd","args":{"path":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"cd","args":{"path":${asString path}}}
 `
 end
 
 function chmod
     arg literal "chmod"
-    arg capture path string
-    arg capture mode string
-    write `{"event":"op","kind":"chmod","args":{"path":${path},"mode":${mode}}}
+    arg capture path word
+    arg capture mode word
+    write `{"event":"op","kind":"chmod","args":{"path":${asString path},"mode":${asString mode}}}
 `
 end
 
@@ -817,43 +817,43 @@ end
 # For env that auto-restores at block exit, use `with_env "K=v" ... end`.
 function export_env
     arg literal "export"
-    arg capture name string
-    arg capture value string
-    write `{"event":"op","kind":"set_env","args":{"name":${name},"value":${value}}}
+    arg capture name word
+    arg capture value word
+    write `{"event":"op","kind":"set_env","args":{"name":${asString name},"value":${asString value}}}
 `
 end
 function set_env_op
     arg literal "set_env"
-    arg capture name string
-    arg capture value string
-    write `{"event":"op","kind":"set_env","args":{"name":${name},"value":${value}}}
+    arg capture name word
+    arg capture value word
+    write `{"event":"op","kind":"set_env","args":{"name":${asString name},"value":${asString value}}}
 `
 end
 function unset_env_op
     arg literal "unset"
-    arg capture name string
-    write `{"event":"op","kind":"unset_env","args":{"name":${name}}}
+    arg capture name word
+    write `{"event":"op","kind":"unset_env","args":{"name":${asString name}}}
 `
 end
 function unset_env_op2
     arg literal "unset_env"
-    arg capture name string
-    write `{"event":"op","kind":"unset_env","args":{"name":${name}}}
+    arg capture name word
+    write `{"event":"op","kind":"unset_env","args":{"name":${asString name}}}
 `
 end
 
 function touch
     arg literal "touch"
-    arg capture path string
-    write `{"event":"op","kind":"touch","args":{"path":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"touch","args":{"path":${asString path}}}
 `
 end
 
 function write_file
     arg literal "write_file"
-    arg capture path string
-    arg capture content string
-    write `{"event":"op","kind":"write_file","args":{"path":${path},"content":${content}}}
+    arg capture path word
+    arg capture content word
+    write `{"event":"op","kind":"write_file","args":{"path":${asString path},"content":${asString content}}}
 `
 end
 
@@ -861,17 +861,17 @@ end
 
 function gzip
     arg literal "gzip"
-    arg capture src string
-    arg capture dst string
-    write `{"event":"op","kind":"gzip","args":{"src":${src},"dst":${dst}}}
+    arg capture src word
+    arg capture dst word
+    write `{"event":"op","kind":"gzip","args":{"src":${asString src},"dst":${asString dst}}}
 `
 end
 
 function ungzip
     arg literal "ungzip"
-    arg capture src string
-    arg capture dst string
-    write `{"event":"op","kind":"ungzip","args":{"src":${src},"dst":${dst}}}
+    arg capture src word
+    arg capture dst word
+    write `{"event":"op","kind":"ungzip","args":{"src":${asString src},"dst":${asString dst}}}
 `
 end
 
@@ -879,9 +879,9 @@ end
 
 function download
     arg literal "download"
-    arg capture url string
-    arg capture dst string
-    write `{"event":"op","kind":"download","args":{"url":${url},"dst":${dst}}}
+    arg capture url word
+    arg capture dst word
+    write `{"event":"op","kind":"download","args":{"url":${asString url},"dst":${asString dst}}}
 `
 end
 
@@ -889,8 +889,8 @@ end
 
 function bundle_extract
     arg literal "bundle_extract"
-    arg capture dst string
-    write `{"event":"op","kind":"bundle_extract","args":{"dst":${dst}}}
+    arg capture dst word
+    write `{"event":"op","kind":"bundle_extract","args":{"dst":${asString dst}}}
 `
 end
 
@@ -924,9 +924,9 @@ function cond_eq
     arg literal "if"
     arg capture lhs ident
     arg literal "=="
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"eq","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"eq","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -936,9 +936,9 @@ function cond_neq
     arg literal "if"
     arg capture lhs ident
     arg literal "!="
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"neq","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"neq","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -950,10 +950,10 @@ end
 function for_each
     priority 50
     arg literal "for_each"
-    arg capture source any
+    arg capture source word
     arg capture loopvar ident
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"for_each","args":{"_0":${source},"_1":${toJSON loopvar}}}
+    write `{"event":"op","kind":"_enter","name":"for_each","args":{"_0":${asString source},"_1":${toJSON loopvar}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -963,9 +963,9 @@ function cond_gt
     arg literal "if"
     arg capture lhs ident
     arg literal ">"
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"gt","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"gt","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -975,9 +975,9 @@ function cond_lt
     arg literal "if"
     arg capture lhs ident
     arg literal "<"
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"lt","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"lt","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -987,9 +987,9 @@ function cond_ge
     arg literal "if"
     arg capture lhs ident
     arg literal ">="
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"ge","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"ge","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -999,9 +999,9 @@ function cond_le
     arg literal "if"
     arg capture lhs ident
     arg literal "<="
-    arg capture rhs any
+    arg capture rhs word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"le","lhs":${toJSON lhs},"rhs":${rhs}}}
+    write `{"event":"op","kind":"_enter","name":"if","args":{"op":"le","lhs":${toJSON lhs},"rhs":${asString rhs}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1023,9 +1023,9 @@ function cond_call
     priority 150
     arg literal "if"
     arg capture func ident
-    arg capture a0 string
+    arg capture a0 word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"if_call","args":{"func":${toJSON func},"_0":${a0}}}
+    write `{"event":"op","kind":"_enter","name":"if_call","args":{"func":${toJSON func},"_0":${asString a0}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1063,9 +1063,9 @@ end
 
 function timeout
     arg literal "timeout"
-    arg capture duration string
+    arg capture duration word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"timeout","args":{"duration":${duration}}}
+    write `{"event":"op","kind":"_enter","name":"timeout","args":{"duration":${asString duration}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1087,18 +1087,18 @@ end
 
 function with_env
     arg literal "with_env"
-    arg capture env string
+    arg capture env word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"with_env","args":{"env":${env}}}
+    write `{"event":"op","kind":"_enter","name":"with_env","args":{"env":${asString env}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
 
 function with_cwd
     arg literal "with_cwd"
-    arg capture path string
+    arg capture path word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"with_cwd","args":{"path":${path}}}
+    write `{"event":"op","kind":"_enter","name":"with_cwd","args":{"path":${asString path}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1110,9 +1110,9 @@ end
 # for allow_bin / allow_host / env / read_only / max_runtime.
 function sandbox
     arg literal "sandbox"
-    arg capture flags string
+    arg capture flags word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"sandbox","args":{"flags":${flags}}}
+    write `{"event":"op","kind":"_enter","name":"sandbox","args":{"flags":${asString flags}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1155,38 +1155,38 @@ end
 
 function wasm_run
     arg literal "wasm_run"
-    arg capture path string
+    arg capture path word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"wasm_run","args":{"path":${path}}}
+    write `{"event":"op","kind":"_enter","name":"wasm_run","args":{"path":${asString path}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
 
 function wasm_arg
     arg literal "wasm_arg"
-    arg capture v string
-    write `{"event":"op","kind":"wasm_arg","args":{"value":${v}}}
+    arg capture v word
+    write `{"event":"op","kind":"wasm_arg","args":{"value":${asString v}}}
 `
 end
 
 function wasm_mount_read
     arg literal "wasm_mount_read"
-    arg capture v string
-    write `{"event":"op","kind":"wasm_mount_read","args":{"path":${v}}}
+    arg capture v word
+    write `{"event":"op","kind":"wasm_mount_read","args":{"path":${asString v}}}
 `
 end
 
 function wasm_mount_write
     arg literal "wasm_mount_write"
-    arg capture v string
-    write `{"event":"op","kind":"wasm_mount_write","args":{"path":${v}}}
+    arg capture v word
+    write `{"event":"op","kind":"wasm_mount_write","args":{"path":${asString v}}}
 `
 end
 
 function wasm_env
     arg literal "wasm_env"
-    arg capture v string
-    write `{"event":"op","kind":"wasm_env","args":{"names":${v}}}
+    arg capture v word
+    write `{"event":"op","kind":"wasm_env","args":{"names":${asString v}}}
 `
 end
 
@@ -1196,8 +1196,8 @@ end
 # wasm_allow_host see http_get → -1 for every URL.
 function wasm_allow_host
     arg literal "wasm_allow_host"
-    arg capture v string
-    write `{"event":"op","kind":"wasm_allow_host","args":{"host":${v}}}
+    arg capture v word
+    write `{"event":"op","kind":"wasm_allow_host","args":{"host":${asString v}}}
 `
 end
 
@@ -1228,10 +1228,10 @@ end
 
 function os_block
     arg literal "os"
-    arg capture target string
+    arg capture target word
     when_followed_by indent
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"os","args":{"target":${target}}}
+    write `{"event":"op","kind":"_enter","name":"os","args":{"target":${asString target}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1260,10 +1260,10 @@ end
 
 function arch_block
     arg literal "arch"
-    arg capture target string
+    arg capture target word
     when_followed_by indent
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"arch","args":{"target":${target}}}
+    write `{"event":"op","kind":"_enter","name":"arch","args":{"target":${asString target}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1299,8 +1299,8 @@ end
 # clearly as "I caught this and decided to re-raise."
 function throw_op
     arg literal "throw"
-    arg capture msg string
-    write `{"event":"op","kind":"fail","args":{"msg":${msg}}}
+    arg capture msg word
+    write `{"event":"op","kind":"fail","args":{"msg":${asString msg}}}
 `
 end
 
@@ -1312,9 +1312,9 @@ end
 # without quotes, matching the error-kind enum spelling).
 function match_block
     arg literal "match"
-    arg capture target string
+    arg capture target word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"match","args":{"target":${target}}}
+    write `{"event":"op","kind":"_enter","name":"match","args":{"target":${asString target}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1349,8 +1349,8 @@ end
 
 function case_arm
     arg literal "case"
-    arg capture value string
-    write `{"event":"op","kind":"_case","args":{"value":${value}}}
+    arg capture value word
+    write `{"event":"op","kind":"_case","args":{"value":${asString value}}}
 `
 end
 
@@ -1367,10 +1367,10 @@ end
 # NOT hash the body's transitive inputs (see ideas/05 for why).
 function cache
     arg literal "cache"
-    arg capture key string
-    arg capture ttl string
+    arg capture key word
+    arg capture ttl word
     block_closer end
-    write `{"event":"op","kind":"_enter","name":"cache","args":{"key":${key},"ttl":${ttl}}}
+    write `{"event":"op","kind":"_enter","name":"cache","args":{"key":${asString key},"ttl":${asString ttl}}}
 ${body}{"event":"op","kind":"_leave"}
 `
 end
@@ -1487,8 +1487,8 @@ function assert_version_ge_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal ">="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"ge","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"ge","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1497,8 +1497,8 @@ function assert_version_gt_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal ">"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"gt","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"gt","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1507,8 +1507,8 @@ function assert_version_le_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal "<="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"le","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"le","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1517,8 +1517,8 @@ function assert_version_lt_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal "<"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"lt","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"lt","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1527,8 +1527,8 @@ function assert_version_eq_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal "=="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"eq","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"eq","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1537,8 +1537,8 @@ function assert_version_ne_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal "!="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"ne","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"ne","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
@@ -1547,126 +1547,126 @@ function assert_version_compat_ident
     arg literal "assert_version"
     arg capture lhs ident
     arg literal "~"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"compat","_lhs_var":${toJSON lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"compat","_lhs_var":${toJSON lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_ge_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal ">="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"ge","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"ge","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_gt_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal ">"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"gt","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"gt","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_le_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal "<="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"le","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"le","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_lt_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal "<"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"lt","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"lt","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_eq_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal "=="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"eq","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"eq","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_version_ne_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal "!="
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"ne","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"ne","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 # ~ is the "same major" / compatibility check (PEP 440 ~= / Cargo caret).
 function assert_version_compat_infix
     arg literal "assert_version"
-    arg capture lhs string
+    arg capture lhs word
     arg literal "~"
-    arg capture rhs string
-    write `{"event":"op","kind":"assert_version","args":{"op":"compat","lhs":${lhs},"rhs":${rhs}}}
+    arg capture rhs word
+    write `{"event":"op","kind":"assert_version","args":{"op":"compat","lhs":${asString lhs},"rhs":${asString rhs}}}
 `
 end
 
 function assert_eq
     arg literal "assert_eq"
-    arg capture actual string
-    arg capture expected string
-    write `{"event":"op","kind":"assert_eq","args":{"_0":${actual},"_1":${expected}}}
+    arg capture actual word
+    arg capture expected word
+    write `{"event":"op","kind":"assert_eq","args":{"_0":${asString actual},"_1":${asString expected}}}
 `
 end
 
 function assert_neq
     arg literal "assert_neq"
-    arg capture actual string
-    arg capture not_expected string
-    write `{"event":"op","kind":"assert_neq","args":{"_0":${actual},"_1":${not_expected}}}
+    arg capture actual word
+    arg capture not_expected word
+    write `{"event":"op","kind":"assert_neq","args":{"_0":${asString actual},"_1":${asString not_expected}}}
 `
 end
 
 function assert_contains
     arg literal "assert_contains"
-    arg capture haystack string
-    arg capture needle string
-    write `{"event":"op","kind":"assert_contains","args":{"_0":${haystack},"_1":${needle}}}
+    arg capture haystack word
+    arg capture needle word
+    write `{"event":"op","kind":"assert_contains","args":{"_0":${asString haystack},"_1":${asString needle}}}
 `
 end
 
 function assert_not_contains
     arg literal "assert_not_contains"
-    arg capture haystack string
-    arg capture needle string
-    write `{"event":"op","kind":"assert_not_contains","args":{"_0":${haystack},"_1":${needle}}}
+    arg capture haystack word
+    arg capture needle word
+    write `{"event":"op","kind":"assert_not_contains","args":{"_0":${asString haystack},"_1":${asString needle}}}
 `
 end
 
 function assert_exists
     arg literal "assert_exists"
-    arg capture path string
-    write `{"event":"op","kind":"assert_exists","args":{"_0":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"assert_exists","args":{"_0":${asString path}}}
 `
 end
 
 function assert_not_exists
     arg literal "assert_not_exists"
-    arg capture path string
-    write `{"event":"op","kind":"assert_not_exists","args":{"_0":${path}}}
+    arg capture path word
+    write `{"event":"op","kind":"assert_not_exists","args":{"_0":${asString path}}}
 `
 end
 
 function assert_match
     arg literal "assert_match"
-    arg capture actual string
-    arg capture pattern string
-    write `{"event":"op","kind":"assert_match","args":{"_0":${actual},"_1":${pattern}}}
+    arg capture actual word
+    arg capture pattern word
+    write `{"event":"op","kind":"assert_match","args":{"_0":${asString actual},"_1":${asString pattern}}}
 `
 end
 

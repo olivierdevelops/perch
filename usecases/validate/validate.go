@@ -13,6 +13,7 @@ package validate
 
 import (
 	"fmt"
+	"strconv"
 	"regexp"
 	"sort"
 	"strings"
@@ -541,6 +542,27 @@ func looksLikeEnv(name string) bool {
 }
 
 func defaultMatchesType(t string, v any) bool {
+	// Defaults are captured quote-optionally (`default 6379`, `default "6379"`,
+	// `default true`) and normalized to a STRING by the grammar's asString. So
+	// type-checking is parse-based: does the string parse as the declared type?
+	if s, ok := v.(string); ok {
+		switch t {
+		case "string":
+			return true
+		case "int":
+			_, err := strconv.ParseInt(s, 10, 64)
+			return err == nil
+		case "float":
+			_, err := strconv.ParseFloat(s, 64)
+			return err == nil
+		case "bool":
+			_, err := strconv.ParseBool(s)
+			return err == nil
+		}
+		return false
+	}
+	// Fallback for a non-string default (e.g. a JSON number/bool from an older
+	// program or a hand-built domain.Program in a test).
 	switch t {
 	case "string":
 		_, ok := v.(string)

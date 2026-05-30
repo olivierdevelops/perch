@@ -53,6 +53,12 @@ func parseCapyArgs() map[string][]Arg {
 				continue
 			}
 			seen[name] = true
+			// `word` is the capy capture used for quote-optional string values
+			// (a bare or quoted token). To authors it's just a string argument,
+			// so surface it as "string" in the user-facing catalog.
+			if typ == "word" {
+				typ = "string"
+			}
 			out[kind] = append(out[kind], Arg{
 				Name:        name,
 				Type:        typ,

@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/olivierdevelops/perch/domain"
@@ -1523,18 +1524,30 @@ func asString(v any) string {
 }
 
 func inferLiteralType(v any) string {
-	switch v.(type) {
+	switch x := v.(type) {
 	case bool:
 		return "bool"
 	case float64:
 		// JSON unmarshal gives all numbers as float64; distinguish int vs
 		// float by checking the fractional part.
-		f := v.(float64)
-		if f == float64(int64(f)) {
+		if x == float64(int64(x)) {
 			return "int"
 		}
 		return "float"
 	case string:
+		// Values are captured quote-optionally and normalized to a string by
+		// the grammar's asString (`n = 42` and `n = "42"` are indistinguishable
+		// — that's the cost of optional quotes), so recover the type by parsing.
+		switch x {
+		case "true", "false":
+			return "bool"
+		}
+		if _, err := strconv.ParseInt(x, 10, 64); err == nil {
+			return "int"
+		}
+		if _, err := strconv.ParseFloat(x, 64); err == nil {
+			return "float"
+		}
 		return "string"
 	default:
 		return "string"
