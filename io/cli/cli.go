@@ -192,7 +192,8 @@ func (c *CLI) Run() int {
 		fmt.Println(c.Config.Version)
 		return 0
 	case "--init":
-		return errExit(c.UseCases.Init.Execute(c.Config.DefaultCommandsFile))
+		path, _ := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
+		return errExit(c.UseCases.Init.Execute(path))
 	case "--build":
 		path, rest := parseFileFlag(remaining, c.Config.DefaultCommandsFile)
 		return errExit(c.UseCases.Build.Execute(path, rest))

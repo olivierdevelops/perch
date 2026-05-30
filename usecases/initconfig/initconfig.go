@@ -49,7 +49,7 @@ end
 command main
     description "Default action — runs when the file is invoked with no command"
     do
-        run hello
+        hello
     end
 end
 `, filepath.Base(cwd))) + "\n"

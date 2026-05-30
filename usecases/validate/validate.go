@@ -80,7 +80,7 @@ func (i *Impl) Execute(configPath string) error {
 	}
 
 	if errors == 0 {
-		fmt.Printf("✓ %s: %d command%s, %d catch, %d global%s — %s\n",
+		fmt.Printf("✓ %s: %d command%s, %d catch, %d binding%s — %s\n",
 			configPath, cmds, plural(cmds), catch, globals, plural(globals),
 			summary(warnings))
 		return nil
