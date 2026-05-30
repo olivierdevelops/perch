@@ -20,14 +20,14 @@
         <span class="kw">default</span> <span class="num">6379</span>
     <span class="kw">end</span>
     <span class="kw">do</span>
-        <span class="kw">exec</span> docker run -d --name redis -p <span class="str">\${port}</span>:6379 redis:7-alpine
+        docker run -d --name redis -p <span class="str">\${port}</span>:6379 redis:7-alpine
         <span class="kw">print</span> <span class="str">"Redis running on port \${port}"</span>
     <span class="kw">end</span>
 <span class="kw">end</span>
 
 <span class="kw">command</span> stop
     <span class="kw">do</span>
-        <span class="kw">exec</span> docker stop redis
+        docker stop redis
     <span class="kw">end</span>
 <span class="kw">end</span>`,
             type: "type",
