@@ -516,13 +516,13 @@ redis    <span class="info">100%</span>   12MB`,
 (function () {
     const KW = new Set([
         // structural
-        "name", "about", "version", "globals", "command", "catch",
+        "name", "about", "version", "command", "catch", "template", "requires", "bin",
         "description", "do", "end", "arg", "type", "default", "optional", "index",
         // modifiers
         "private", "detached", "proxy_args", "require_os", "require_arch",
         "dir", "on_signal", "env",
-        // control flow
-        "if", "not", "let", "run", "for_each", "fail", "exit",
+        // control flow (no run/call keyword — bare names dispatch)
+        "if", "not", "let", "exec", "for_each", "fail", "exit",
         // sandbox (designed)
         "sandbox", "read", "write", "net", "shell_bins", "no_shell",
         "no_subprocess", "no_network", "no_write", "no_sudo",
@@ -666,9 +666,9 @@ redis    <span class="info">100%</span>   12MB`,
             const line = raw.trim();
             if (!line || line.startsWith("#")) continue;
             // Top-level / block-opener forms.
-            if (/^(name|about|version|globals|command|catch|sandbox|arg)\s/.test(line)) return true;
+            if (/^(name|about|version|requires|command|catch|template|sandbox|arg)\s/.test(line)) return true;
             // Body-form openers (for standalone snippets).
-            if (/^(let\s+\w+\s*=|run\s+\w|if\s+\w|do$|end$|do\b|end\b)/.test(line)) return true;
+            if (/^(let\s+\w+\s*=|exec\s+\w|if\s+\w|do$|end$|do\b|end\b)/.test(line)) return true;
             return false;
         }
         return false;
