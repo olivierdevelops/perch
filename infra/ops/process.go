@@ -278,7 +278,7 @@ func opExec(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 		}
 		argv = append(argv, interpreter.ToStringValue(v))
 	}
-	cmd := exec.Command(bin, argv...)
+	cmd := exec.Command(resolveExecPath(i, bin), argv...)
 	applyEnv(cmd, b)
 	cmd.Dir = b.Cwd
 	// Capture stdout into a buffer (so `let x = exec …` works), then tee
@@ -406,7 +406,7 @@ func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 			}
 			argv = append(argv, interpreter.ToStringValue(v))
 		}
-		c := exec.Command(bin, argv...)
+		c := exec.Command(resolveExecPath(i, bin), argv...)
 		applyEnv(c, b)
 		c.Dir = b.Cwd
 		c.Stderr = i.Stderr

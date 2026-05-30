@@ -112,7 +112,17 @@ type Requirements struct {
 // established, and a trojaned binary can report whatever version satisfies
 // a constraint. Hash pinning needs no execution and pins the exact artifact.
 type BinReq struct {
-	Name     string `json:"name"`
+	// Name is the bin token. It may be a bare command resolved on PATH
+	// (`go`, `docker`) OR a filesystem path to an executable
+	// (`./bins/tool.exe`, `${script_dir}/bin/tool`). Path-form names (those
+	// containing a separator) are resolved relative to the .perch script
+	// directory and checked for existence at preflight instead of PATH lookup.
+	Name string `json:"name"`
+	// Alias, when set via `bin "PATH" as NAME`, gives the bin a clean handle.
+	// Commands invoke it by the alias (`exec NAME …` or bare `NAME …`) and
+	// perch resolves it to Name (the real path) before spawning. Both the
+	// alias and the underlying path satisfy the capability gate.
+	Alias    string `json:"alias,omitempty"`
 	Optional bool   `json:"optional,omitempty"`
 	// Hash, when set, pins the binary's content. Preflight reads the
 	// resolved binary off disk and verifies its SHA-256 matches. Format

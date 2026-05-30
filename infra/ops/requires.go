@@ -75,13 +75,39 @@ func Preflight(i *interpreter.Interpreter, prog *domain.Program) error {
 
 	// Required bins (existence + optional hash pin — no execution).
 	for _, bin := range r.Bins {
-		path, err := exec.LookPath(bin.Name)
-		if err != nil {
-			if bin.Optional {
-				continue
+		// Interpolated names (`bin "${TOOL}"`) can't be resolved at preflight —
+		// defer to the runtime guard, like interpolated hosts/paths.
+		if strings.Contains(bin.Name, "${") {
+			continue
+		}
+		var path string
+		if strings.ContainsAny(bin.Name, "/\\") {
+			// Path-form bin (`./bins/tool.exe`, `${script_dir}/bin/tool`): check
+			// the file exists on disk instead of a PATH lookup. A relative path
+			// is resolved against the .perch script directory (where it was
+			// declared), not the process cwd.
+			p := bin.Name
+			if !filepath.IsAbs(p) && prog.ScriptPath != "" && prog.ScriptPath != "-" {
+				p = filepath.Join(filepath.Dir(prog.ScriptPath), p)
 			}
-			return domain.NewOpError("requires", domain.ErrRequirementUnmet,
-				fmt.Sprintf("required bin %q not found on PATH", bin.Name)).WithDetail(bin.Name)
+			if st, statErr := os.Stat(p); statErr != nil || st.IsDir() {
+				if bin.Optional {
+					continue
+				}
+				return domain.NewOpError("requires", domain.ErrRequirementUnmet,
+					fmt.Sprintf("required bin path %q not found", bin.Name)).WithDetail(bin.Name)
+			}
+			path = p
+		} else {
+			var err error
+			path, err = exec.LookPath(bin.Name)
+			if err != nil {
+				if bin.Optional {
+					continue
+				}
+				return domain.NewOpError("requires", domain.ErrRequirementUnmet,
+					fmt.Sprintf("required bin %q not found on PATH", bin.Name)).WithDetail(bin.Name)
+			}
 		}
 		// Hash pin. Inline `hash "..."` and external `hash_file "PATH"`
 		// both feed into the same comparison; hash_file is resolved here
@@ -338,18 +364,36 @@ func checkExecBin(i *interpreter.Interpreter, name string) error {
 	if name == "" {
 		return nil
 	}
-	base := name
-	if idx := strings.LastIndexAny(base, "/\\"); idx >= 0 {
-		base = base[idx+1:]
-	}
-	for _, b := range i.Program.Requirements.Bins {
-		if b.Name == base {
-			return nil
-		}
+	if i.Program.Requirements.BinAllowed(name) {
+		return nil
 	}
 	return domain.NewOpError("exec", domain.ErrBinNotDeclared,
-		fmt.Sprintf("bin %q is not declared in `requires`", base)).
-		WithDetail(base)
+		fmt.Sprintf("bin %q is not declared in `requires`", name)).
+		WithDetail(name)
+}
+
+// resolveExecPath maps the bin token the user typed to the executable to
+// actually spawn. A declared alias (`bin "./bins/tool" as tool`) resolves to
+// its path; a relative aliased path is resolved against the .perch script
+// directory (the path was declared relative to the file, not the cwd). Plain
+// bins and non-aliased literal paths pass through unchanged so their normal
+// PATH / cwd-relative semantics are preserved.
+func resolveExecPath(i *interpreter.Interpreter, name string) string {
+	if i == nil || i.Program == nil {
+		return name
+	}
+	for _, b := range i.Program.Requirements.Bins {
+		if b.Alias == "" || name != b.Alias {
+			continue
+		}
+		p := b.Name
+		if strings.ContainsAny(p, "/\\") && !filepath.IsAbs(p) &&
+			i.Program.ScriptPath != "" && i.Program.ScriptPath != "-" {
+			return filepath.Join(filepath.Dir(i.Program.ScriptPath), p)
+		}
+		return p
+	}
+	return name
 }
 
 // hostOfURL extracts the hostname from a URL for host-allowlist checks.

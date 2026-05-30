@@ -31,7 +31,6 @@ var opDocs = map[string]docEntry{
 	"sleep":          {"(number)", "Sleep for N seconds."},
 	"run":            {"(ident)", "Call another command in the same program."},
 	"list_commands":  {"()", "Print the visible command list."},
-	"export_ops_catalog": {"(string)", "Write a JSON catalog of all built-in ops to PATH."},
 
 	"mkdir": {"(string)", "Create directories (with parents)."},
 	"cp":    {"(string, string)", "Copy src → dst."},

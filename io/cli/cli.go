@@ -106,6 +106,10 @@ type SimulateEnv struct {
 	NoWrite      bool
 }
 
+type ExportOpsCatalogUseCase interface {
+	Execute(path string) error
+}
+
 type UseCases struct {
 	Run           RunCommandUseCase
 	List          ListCommandsUseCase
@@ -120,8 +124,9 @@ type UseCases struct {
 	ImportSh      ImportShUseCase
 	Scan          ScanUseCase
 	Help          HelpUseCase
-	Test          TestUseCase
-	Simulate      SimulateUseCase
+	Test              TestUseCase
+	Simulate          SimulateUseCase
+	ExportOpsCatalog  ExportOpsCatalogUseCase
 }
 
 type Config struct {
@@ -138,6 +143,10 @@ func (c *CLI) Run() int {
 	if len(os.Args) == 1 {
 		c.printHelp()
 		return 0
+	}
+
+	if path, ok := parseExportFlag(os.Args[1:]); ok {
+		return errExit(c.UseCases.ExportOpsCatalog.Execute(path))
 	}
 
 	args := os.Args[1:]
@@ -317,6 +326,24 @@ func hasHelp(args []string) bool {
 		}
 	}
 	return false
+}
+
+// parseExportFlag reports whether argv requests the language catalog export.
+// Bare `--export` writes JSON to stdout; `--export=PATH` writes to PATH (`-` is stdout).
+func parseExportFlag(args []string) (path string, ok bool) {
+	for _, a := range args {
+		switch {
+		case a == "--export":
+			return "-", true
+		case strings.HasPrefix(a, "--export="):
+			path = a[len("--export="):]
+			if path == "" {
+				path = "-"
+			}
+			return path, true
+		}
+	}
+	return "", false
 }
 
 func errExit(err error) int {

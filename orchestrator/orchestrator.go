@@ -27,6 +27,7 @@ import (
 
 	"github.com/luowensheng/perch/io/cli"
 	"github.com/luowensheng/perch/usecases/commandhelp"
+	"github.com/luowensheng/perch/usecases/exportopscatalog"
 	"github.com/luowensheng/perch/usecases/initconfig"
 	"github.com/luowensheng/perch/usecases/installlsp"
 	"github.com/luowensheng/perch/usecases/installvscode"
@@ -793,6 +794,9 @@ func buildCLI(r ops.Restrictions, envAllow, allowBins map[string]bool, noMeta bo
 		Help:          &help.Impl{Version: Version},
 		Test:     &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
 		Simulate: &simulateAdapter{},
+		ExportOpsCatalog: &exportopscatalog.Impl{
+			Kinds: ops.BuiltinKinds,
+		},
 	}
 
 	return &cli.CLI{
@@ -902,6 +906,9 @@ func buildEmbeddedCLI(bundle *embed.Bundle, r ops.Restrictions, envAllow, allowB
 		Help:          &help.Impl{Version: Version},
 		Test:     &runtests.Impl{Load: capyloader.Load, RunTest: runTestFnFor(r, envAllow, allowBins, noMeta, httpPolicy)},
 		Simulate: &simulateAdapter{},
+		ExportOpsCatalog: &exportopscatalog.Impl{
+			Kinds: ops.BuiltinKinds,
+		},
 	}
 
 	version := p.Version

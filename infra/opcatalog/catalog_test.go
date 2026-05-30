@@ -49,7 +49,16 @@ func TestMarshalJSONValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"schema": "perch.ops.v1"`) {
+	if !strings.Contains(string(data), `"schema": "perch.catalog.v1"`) {
 		t.Fatalf("missing schema: %s", data)
+	}
+	if !strings.Contains(string(data), `"vars"`) {
+		t.Fatal("missing vars section")
+	}
+	if !strings.Contains(string(data), `"name": "script_dir"`) {
+		t.Fatal("missing script_dir var")
+	}
+	if !strings.Contains(string(data), `"example"`) {
+		t.Fatal("missing example fields")
 	}
 }

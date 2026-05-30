@@ -67,6 +67,14 @@ When stdin is the source, perch treats the program as untrusted by default
 		DocURL:      "https://luowensheng.github.io/perch/language/",
 	},
 	{
+		Name: "--export", Kind: "subcommand", Group: "Authoring",
+		Synopsis:    "write JSON catalog of built-in .perch ops and auto-bound vars",
+		Usage:       "perch --export[=-]",
+		Description: `Documents statement-level ops (exec, print, if, write_file, …) and auto-bound ${name} variables (os, script_dir, home_dir, …) for writing .perch files — not CLI commands from commands.perch. Bare flag prints to stdout; --export=PATH writes a file.`,
+		Examples:    []string{"perch --export", "perch --export=catalog.json"},
+		SeeAlso:     []string{"--check"},
+	},
+	{
 		Name: "--scan", Kind: "subcommand", Group: "Authoring",
 		Synopsis:    "static security audit (capabilities + risk findings + recommended invocation)",
 		Usage:       "perch --scan [-f FILE]",

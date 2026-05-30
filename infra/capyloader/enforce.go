@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/luowensheng/perch/domain"
@@ -35,18 +36,20 @@ func enforceZeroAmbient(prog *domain.Program) error {
 	}
 	normalizeRequirements(prog)
 
-	declared := map[string]bool{}
-	for _, b := range prog.Requirements.Bins {
-		declared[b.Name] = true
-	}
+	req := prog.Requirements
 
 	var walk func(ops []domain.Op, where string) error
 	walk = func(ops []domain.Op, where string) error {
 		for _, op := range ops {
 			if op.Kind == "exec" && op.Args != nil {
 				bin, _ := op.Args["bin"].(string)
-				if bin != "" && !declared[bin] {
-					return undeclaredBinError(bin, op, where, declared)
+				// Skip interpolated bins (`exec ${tool} …`, `exec ${HOME}/bin/x`):
+				// their value isn't known until runtime, so the static gate can't
+				// resolve them. They defer to the runtime guard, consistent with
+				// how requires treats interpolated hosts/paths. Only LITERAL bins
+				// are gated at load. A declared alias or path satisfies the gate.
+				if bin != "" && !strings.Contains(bin, "${") && !req.BinAllowed(bin) {
+					return undeclaredBinError(bin, op, where, req)
 				}
 			}
 			if len(op.Body) > 0 {
@@ -96,14 +99,17 @@ func normalizeRequirements(prog *domain.Program) {
 // did-you-mean hint. If the bin name is close to a known op keyword, the user
 // probably typo'd an op (`prnit` → `print`); otherwise they likely forgot to
 // declare a real binary. Both cases suggest the fix.
-func undeclaredBinError(bin string, op domain.Op, where string, declared map[string]bool) error {
+func undeclaredBinError(bin string, op domain.Op, where string, req domain.Requirements) error {
 	var hint string
 	if sug := closest(bin, opVocabulary()); sug != "" {
 		hint = fmt.Sprintf(" — did you mean the op `%s`?", sug)
 	} else {
-		declaredNames := make([]string, 0, len(declared))
-		for n := range declared {
-			declaredNames = append(declaredNames, n)
+		declaredNames := make([]string, 0, len(req.Bins)*2)
+		for _, b := range req.Bins {
+			declaredNames = append(declaredNames, b.Name)
+			if b.Alias != "" {
+				declaredNames = append(declaredNames, b.Alias)
+			}
 		}
 		if sug := closest(bin, declaredNames); sug != "" {
 			hint = fmt.Sprintf(" — did you mean declared bin `%s`?", sug)

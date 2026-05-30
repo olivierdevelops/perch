@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/luowensheng/perch/domain"
+	"github.com/luowensheng/perch/infra/interpreter"
 )
 
 // UseCase is the consumer-owned protocol.
@@ -213,7 +214,7 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 	}
 
 	// Walk the body.
-	known := autoBoundNames()
+	known := interpreter.ProvidedVarNames()
 	// A command declaring the `proxy_args` modifier binds ${proxy_args}
 	// (the full argv joined), same as a catch block does.
 	if cmd.Modifiers.ProxyArgs {
@@ -237,7 +238,7 @@ func (c *checker) checkCommand(cmd *domain.Command) {
 
 func (c *checker) checkCatch(ca *domain.Catch) {
 	where := "catch"
-	known := autoBoundNames()
+	known := interpreter.ProvidedVarNames()
 	known[ca.Bind] = true
 	known["proxy_args"] = true
 	for _, g := range c.prog.Globals.Bindings {
@@ -534,30 +535,6 @@ func placeholders(s string) []string {
 // env var. We can't statically verify env presence, so we treat it as OK.
 func looksLikeEnv(name string) bool {
 	return strings.ToUpper(name) == name
-}
-
-// autoBoundNames returns the set of placeholder names every command
-// has access to without declaring them. Mirrors interpreter.seedGlobalsAndEnv.
-func autoBoundNames() map[string]bool {
-	names := []string{
-		// OS / arch / convenience flags
-		"os", "arch", "is_windows", "is_macos", "is_linux", "is_unix",
-		"is_arm64", "is_amd64",
-		"cpu_count", "pid", "now_unix",
-		// Path conventions
-		"path_sep", "path_list_sep", "exe_ext", "null_device", "shell_name",
-		// Standard directories
-		"home", "home_dir", "config_dir", "cache_dir", "data_dir", "temp_dir",
-		// Binary / script
-		"exe_path", "exe_dir", "exe_name", "script_path", "script_dir",
-		// Identity
-		"user", "uid", "hostname",
-	}
-	m := make(map[string]bool, len(names))
-	for _, n := range names {
-		m[n] = true
-	}
-	return m
 }
 
 func defaultMatchesType(t string, v any) bool {

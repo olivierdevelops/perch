@@ -72,12 +72,15 @@ end
 # globals { NAME = LITERAL } block
 # ────────────────────────────────────────────────────────────────────────────
 
+# The `globals ... end` block was REMOVED. Shared bindings are now declared
+# bare at top level — `NAME = value` directly in the file (handled by
+# global_assign below). This stub stays only to emit a clear migration error
+# for files still using the old block, rather than a cryptic parse failure.
 function globals
     arg literal "globals"
     block_closer end
-    write `{"event":"globals_begin"}
-${body}{"event":"globals_end"}
-`
+    write `{"event":"globals_removed"}
+${body}`
 end
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -185,6 +188,29 @@ function requires_bin_hash_file
 `
 end
 
+# bin "PATH" as NAME [optional] — declare a bin (often a path) with a clean
+# handle. Commands invoke it by the alias; perch resolves alias → path. Higher
+# priority than the plain/optional forms so the `as` clause is consumed here.
+function requires_bin_as_optional
+    priority 70
+    arg literal "bin"
+    arg capture name any
+    arg literal "as"
+    arg capture alias ident
+    arg literal "optional"
+    write `{"event":"requires_bin","name":${name},"alias":${toJSON alias},"optional":true}
+`
+end
+function requires_bin_as
+    priority 65
+    arg literal "bin"
+    arg capture name any
+    arg literal "as"
+    arg capture alias ident
+    write `{"event":"requires_bin","name":${name},"alias":${toJSON alias}}
+`
+end
+
 # bin "NAME" optional
 function requires_bin_optional
     priority 55
@@ -241,6 +267,28 @@ end
 # read "PATH" / write "PATH" — filesystem scopes the program may touch.
 # One path per line, repeatable. The filesystem is an external resource,
 # so it's declared like bins/hosts/env. A write root implies read.
+# Bare-name forms — `read SRC` / `write BUILD_DIR` reference a top-level
+# binding by name instead of repeating a "${…}" string. The loader wraps the
+# captured name back into "${name}" so it interpolates exactly like the string
+# form. Higher priority than the string forms so a bare ident routes here; a
+# quoted "path" still falls through to requires_read/requires_write (the
+# `ident` capture won't match a string token).
+function requires_read_var
+    priority 60
+    arg literal "read"
+    arg capture name ident
+    write `{"event":"requires_read_var","name":${toJSON name}}
+`
+end
+
+function requires_write_var
+    priority 60
+    arg literal "write"
+    arg capture name ident
+    write `{"event":"requires_write_var","name":${toJSON name}}
+`
+end
+
 function requires_read
     arg literal "read"
     arg capture path any
@@ -688,13 +736,6 @@ end
 function list_commands
     arg literal "list_commands"
     write `{"event":"op","kind":"list_commands","args":{}}
-`
-end
-
-function export_ops_catalog
-    arg literal "export_ops_catalog"
-    arg capture path string
-    write `{"event":"op","kind":"export_ops_catalog","args":{"path":${path}}}
 `
 end
 

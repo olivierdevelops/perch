@@ -525,10 +525,10 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			}
 			imports = append(imports, importDirective{Path: ev.Path, Alias: ev.Alias})
 
-		case "globals_begin":
-			state = stGlobals
-		case "globals_end":
-			state = stTop
+		case "globals_removed":
+			return nil, nil, fmt.Errorf("line %d: the `globals ... end` block was removed — "+
+				"declare shared bindings bare at top level instead, e.g. `BUILD_DIR = \"%s/.out\"`",
+				lineNum, "${script_dir}")
 		case "bundle_begin":
 			if state != stTop {
 				return nil, nil, fmt.Errorf("line %d: bundle block must be at top level", lineNum)
@@ -568,6 +568,7 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			}
 			prog.Requirements.Bins = append(prog.Requirements.Bins, domain.BinReq{
 				Name:     ev.Name,
+				Alias:    ev.Alias,
 				Optional: ev.Optional,
 			})
 		case "requires_bin_field":
@@ -610,6 +611,18 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 				return nil, nil, fmt.Errorf("line %d: 'write' outside requires block", lineNum)
 			}
 			prog.Requirements.WriteRoots = append(prog.Requirements.WriteRoots, asString(ev.Value))
+		case "requires_read_var":
+			// Bare-name form `read SRC` → wrap the binding name back into a
+			// "${SRC}" root so it interpolates like the string form.
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'read' outside requires block", lineNum)
+			}
+			prog.Requirements.ReadRoots = append(prog.Requirements.ReadRoots, "${"+ev.Name+"}")
+		case "requires_write_var":
+			if state != stRequires {
+				return nil, nil, fmt.Errorf("line %d: 'write' outside requires block", lineNum)
+			}
+			prog.Requirements.WriteRoots = append(prog.Requirements.WriteRoots, "${"+ev.Name+"}")
 		case "requires_os":
 			if state != stRequires {
 				return nil, nil, fmt.Errorf("line %d: 'os' outside requires block", lineNum)
@@ -622,8 +635,12 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			prog.Requirements.Arch = append(prog.Requirements.Arch, ev.Name)
 
 		case "global":
-			if state != stGlobals {
-				return nil, nil, fmt.Errorf("line %d: 'global' event outside globals block", lineNum)
+			// Bare top-level `NAME = value` binding (the `globals` block was
+			// removed). Allowed only at file scope — a bare assignment inside
+			// a command body is an error (use `let` there instead).
+			if state != stTop {
+				return nil, nil, fmt.Errorf("line %d: a bare `%s = ...` binding must be at top level "+
+					"(inside a command body use `let %s = ...`)", lineNum, ev.Name, ev.Name)
 			}
 			prog.Globals.Bindings = append(prog.Globals.Bindings, domain.GlobalBinding{
 				Name:  ev.Name,

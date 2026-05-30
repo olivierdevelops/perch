@@ -30,15 +30,117 @@ end
 	}
 }
 
+// Bare top-level `NAME = value` bindings replace the removed globals block.
+func TestBareTopLevelBindings(t *testing.T) {
+	src := `name "x"
+BUILD_DIR = "./out"
+flag = true
+requires
+end
+`
+	p, err := LoadFromString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, b := range p.Globals.Bindings {
+		got[b.Name] = b.Type
+	}
+	if got["BUILD_DIR"] != "string" || got["flag"] != "bool" {
+		t.Errorf("bare bindings not collected: %+v", got)
+	}
+}
+
+// An interpolated exec bin (`exec ${tool} …`) can't be resolved statically,
+// so the load-time gate must SKIP it (defer to the runtime guard) rather than
+// flag bin_not_declared — consistent with how requires treats interpolated
+// hosts/paths.
+func TestInterpolatedExecBinSkipsStaticGate(t *testing.T) {
+	src := `name "x"
+TOOL = "echo"
+requires
+end
+command t
+    do
+        exec ${TOOL} hi
+        exec ${HOME}/bin/thing run
+    end
+end
+`
+	if _, err := LoadFromString(src); err != nil {
+		t.Fatalf("interpolated exec bins must not be gated at load, got %v", err)
+	}
+}
+
+// `bin "PATH" as NAME` parses into a BinReq carrying both the path and the
+// alias handle (+ the optional variant).
+func TestBinPathAlias(t *testing.T) {
+	src := `name "x"
+requires
+    bin "./bins/tool.exe" as tool
+    bin "${script_dir}/helper" as helper optional
+end
+`
+	p, err := LoadFromString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bins := p.Requirements.Bins
+	if len(bins) != 2 {
+		t.Fatalf("want 2 bins, got %d (%+v)", len(bins), bins)
+	}
+	if bins[0].Name != "./bins/tool.exe" || bins[0].Alias != "tool" {
+		t.Errorf("bin0 wrong: %+v", bins[0])
+	}
+	if bins[1].Alias != "helper" || !bins[1].Optional {
+		t.Errorf("bin1 should be aliased+optional: %+v", bins[1])
+	}
+}
+
+// The removed `globals` block must yield a clear migration error.
+func TestGlobalsBlockRemoved(t *testing.T) {
+	src := `name "x"
+globals
+    a = 1
+end
+requires
+end
+`
+	_, err := LoadFromString(src)
+	if err == nil || !strings.Contains(err.Error(), "globals") {
+		t.Fatalf("expected a globals-removed migration error, got %v", err)
+	}
+}
+
+// Bare-name requires forms: `write DIR` / `read SRC` resolve a binding.
+func TestRequiresByName(t *testing.T) {
+	src := `name "x"
+DIR = "./out"
+SRC = "./cmd"
+requires
+    write DIR
+    read SRC
+end
+`
+	p, err := LoadFromString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Requirements.WriteRoots) != 1 || p.Requirements.WriteRoots[0] != "${DIR}" {
+		t.Errorf("write-by-name root wrong: %+v", p.Requirements.WriteRoots)
+	}
+	if len(p.Requirements.ReadRoots) != 1 || p.Requirements.ReadRoots[0] != "${SRC}" {
+		t.Errorf("read-by-name root wrong: %+v", p.Requirements.ReadRoots)
+	}
+}
+
 func TestGlobals(t *testing.T) {
 	src := `name "x"
 requires
 end
-globals
-    flag = true
-    n = 42
-    s = "hello"
-end
+flag = true
+n = 42
+s = "hello"
 `
 	p, err := LoadFromString(src)
 	if err != nil {

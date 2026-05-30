@@ -50,7 +50,7 @@ var (
 		"write_file": true, "append_file": true, "append_line": true,
 		"ensure_dir": true, "make_executable": true, "ensure_line_in_file": true,
 		"replace_in_file": true, "symlink": true, "bundle_extract": true,
-		"mktemp_dir": true, "mktemp_file": true, "export_ops_catalog": true,
+		"mktemp_dir": true, "mktemp_file": true,
 	}
 	readWriteOps = strSet{
 		"cp": true, "mv": true, "copy_dir": true, "backup_file": true,
@@ -136,7 +136,7 @@ func appendUnique(xs []string, vals ...string) []string {
 
 func categoryFor(kind string) string {
 	switch {
-	case shellBins[kind] || subprocessBins[kind] || kind == "print" || kind == "println" || kind == "eprintln" || kind == "fail" || kind == "exit" || kind == "sleep" || kind == "run" || kind == "list_commands" || kind == "export_ops_catalog":
+	case shellBins[kind] || subprocessBins[kind] || kind == "print" || kind == "println" || kind == "eprintln" || kind == "fail" || kind == "exit" || kind == "sleep" || kind == "run" || kind == "list_commands":
 		return "process"
 	case readOps[kind] || writeOps[kind] || readWriteOps[kind]:
 		return "filesystem"
