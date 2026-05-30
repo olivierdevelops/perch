@@ -712,6 +712,22 @@ function implicit_exec_bare
 `
 end
 
+# Single bare-ident arg to a flat (non-`let`) statement: `ensure_dir BUILD_DIR`,
+# `print MESSAGE`. The arg is emitted as `_0_var` so InterpolateArgs resolves it
+# to `b.Lookup(<name>)` — the same var-ref ergonomic as `let x = upper who`.
+# Priority sits ABOVE the implicit-exec catch-alls (so a two-ident line carries
+# the var-ref) but BELOW every literal-keyword op. If the leading name turns out
+# to be a bin/command/template, resolveBareDispatch demotes `_0_var` → a literal
+# positional token. (`docker ps` → bin `docker`, literal arg `ps`.)
+function implicit_ident_arg
+    priority -90
+    bare
+    arg capture op_kind ident
+    arg capture a0 ident
+    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0_var":${toJSON a0},"implicit_ident":true}}
+`
+end
+
 function fail
     arg literal "fail"
     arg capture msg string

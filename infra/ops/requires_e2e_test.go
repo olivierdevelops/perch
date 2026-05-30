@@ -2,6 +2,7 @@ package ops_test
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -54,6 +55,35 @@ end
 	}
 	if !strings.Contains(out, "TEAM") {
 		t.Errorf("bare-ident interpolation+capture failed; out=%q", out)
+	}
+}
+
+// Flat (non-`let`) statement with a single bare-ident arg must resolve the
+// ident as a binding, not pass it literally: `ensure_dir BUILD_DIR` writes the
+// directory named by BUILD_DIR's value, mirroring `write BUILD_DIR` in requires.
+func TestE2E_FlatBareIdentArg(t *testing.T) {
+	dir := t.TempDir()
+	src := `name "x"
+OUT = "` + dir + `/sub"
+requires
+    write "${OUT}"
+end
+command build
+    do
+        ensure_dir OUT
+        print "${OUT}"
+    end
+end
+`
+	out, err := runSource(t, src, "build")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(out, dir+"/sub") {
+		t.Errorf("flat bare-ident arg not resolved to binding; out=%q", out)
+	}
+	if _, statErr := os.Stat(dir + "/sub"); statErr != nil {
+		t.Errorf("ensure_dir did not create the binding-named dir: %v", statErr)
 	}
 }
 

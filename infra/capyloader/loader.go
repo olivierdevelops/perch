@@ -245,31 +245,42 @@ func resolveBareDispatch(prog *domain.Program) {
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
 				}
-			} else if op.CaptureInto != "" && op.Kind != "exec" && !opKinds[op.Kind] &&
-				cmds[op.Kind] == nil && tmpls[op.Kind] == nil && len(op.Body) == 0 {
-				// A `let x = NAME arg` single-bare-ident capture (let_1arg_ident)
-				// whose leading NAME is not a built-in op. The bare-ident arg was
-				// emitted as `_0_var` (var-ref, the op default); for a bin/command/
-				// template the ident is instead a LITERAL positional token, so
-				// demote `_0_var` → `_0` before folding to exec/run/_template_call.
-				if vn, ok := op.Args["_0_var"].(string); ok {
-					delete(op.Args, "_0_var")
-					op.Args["_0"] = vn
-				}
+			} else if op.Kind != "exec" && len(op.Body) == 0 && op.Args != nil &&
+				(op.CaptureInto != "" || truthyArg(op.Args["implicit_ident"])) &&
+				(op.Args["_0_var"] != nil || truthyArg(op.Args["implicit_ident"])) {
+				// A single-bare-ident bare-name op: either a capture
+				// (`let x = NAME arg`, let_1arg_ident) or a flat statement
+				// (`ensure_dir BUILD_DIR`, implicit_ident). The arg was emitted as
+				// `_0_var` — a var-ref, the right default when NAME is a built-in
+				// op (`upper who`, `ensure_dir BUILD_DIR`). The marker is internal
+				// only; drop it now.
+				delete(op.Args, "implicit_ident")
 				name := op.Kind
-				switch {
-				case cmds[name] != nil:
-					args := map[string]any{"target": name}
-					copyArgvSlots(op.Args, args)
-					*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
-				case tmpls[name] != nil:
-					args := map[string]any{"name": name}
-					copyArgvSlots(op.Args, args)
-					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
-				default:
-					args := map[string]any{"bin": name, "implicit": true}
-					copyArgvSlots(op.Args, args)
-					*op = domain.Op{Kind: "exec", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+				if opKinds[name] {
+					// Genuine built-in op: leave the var-ref `_0_var` in place for
+					// InterpolateArgs to resolve. Nothing else to do.
+				} else {
+					// NAME is a bin/command/template, not an op: the bare ident is a
+					// LITERAL positional token, not a var-ref, so demote `_0_var` →
+					// `_0` before folding.
+					if vn, ok := op.Args["_0_var"].(string); ok {
+						delete(op.Args, "_0_var")
+						op.Args["_0"] = vn
+					}
+					switch {
+					case cmds[name] != nil:
+						args := map[string]any{"target": name}
+						copyArgvSlots(op.Args, args)
+						*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+					case tmpls[name] != nil:
+						args := map[string]any{"name": name}
+						copyArgvSlots(op.Args, args)
+						*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
+					default:
+						args := map[string]any{"bin": name, "implicit": true}
+						copyArgvSlots(op.Args, args)
+						*op = domain.Op{Kind: "exec", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+					}
 				}
 			}
 			if len(op.Body) > 0 {
