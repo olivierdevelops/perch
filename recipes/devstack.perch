@@ -8,14 +8,12 @@ requires
     bin "docker"
 end
 
-globals
-    PG_NAME = "devstack-pg"
-    RD_NAME = "devstack-redis"
-    M_NAME = "devstack-minio"
-    PG_IMG = "postgres:16-alpine"
-    RD_IMG = "redis:7-alpine"
-    M_IMG = "minio/minio:latest"
-end
+PG_NAME = "devstack-pg"
+RD_NAME = "devstack-redis"
+M_NAME = "devstack-minio"
+PG_IMG = "postgres:16-alpine"
+RD_IMG = "redis:7-alpine"
+M_IMG = "minio/minio:latest"
 
 command up
     description "Bring up Postgres, Redis, and MinIO concurrently"

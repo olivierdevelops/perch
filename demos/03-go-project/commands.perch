@@ -2,10 +2,12 @@ name    "go-project"
 about   "Build / test / lint a Go project — replaces your Makefile"
 version "0.1.0"
 
-globals
-    BIN_DIR    = "./bin"
-    APP_NAME   = "myapp"
-    MAIN_PKG   = "./cmd/myapp"
+BIN_DIR    = "./bin"
+APP_NAME   = "myapp"
+MAIN_PKG   = "./cmd/myapp"
+
+requires
+    bin "go" optional
 end
 
 command build

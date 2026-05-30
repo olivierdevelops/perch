@@ -11,10 +11,8 @@ requires
     bin "xdg-open" optional
 end
 
-globals
-    NAME = "perch-mailpit"
-    IMAGE = "axllent/mailpit:latest"
-end
+NAME = "perch-mailpit"
+IMAGE = "axllent/mailpit:latest"
 
 command up
     description "Start Mailpit — catches every outgoing email; serves a web UI"

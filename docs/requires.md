@@ -34,8 +34,10 @@ If you write `shell "curl ..."` without listing `curl` under `bin`, perch errors
 
 | Form                              | Meaning                                                                 |
 |-----------------------------------|-------------------------------------------------------------------------|
-| `bin "NAME"`                      | Required. Must exist on `PATH`.                                         |
+| `bin "NAME"`                      | Required. Bare name → must exist on `PATH`.                            |
+| `bin "./path/tool"`               | Path-form bin → must exist on disk (resolved relative to the `.perch` file). |
 | `bin "NAME" optional`             | Allowed; absence is not fatal.                                          |
+| `bin "PATH" as HANDLE`            | Declare a (usually path) bin with a clean handle. Invoke it as `HANDLE …`; perch resolves the alias to `PATH` before spawning. Both `HANDLE` and `PATH` satisfy the gate. Combine with `optional`. |
 | `bin "NAME" … hash … end`         | Required + a SHA-256 pin on the binary's bytes (see below).            |
 
 ### No version checking — pin the artifact instead

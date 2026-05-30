@@ -158,10 +158,8 @@ about       "Build, test, ship myapp"
 version     "1.2.0"
 
 # 2. Globals — values shared by every command
-globals
-    BUILD_DIR = "./builds"
-    GIT_OK    = true
-end
+BUILD_DIR = "./builds"
+GIT_OK    = true
 
 # 3. Requires — what this file needs from the host (declared + enforced)
 requires
@@ -217,7 +215,7 @@ end
 |---|---|
 | `name`, `version` | Always. Identifies the program. |
 | `command NAME ... end` | Always. The thing you're declaring. |
-| `globals ... end` | Often. Shared paths / flags / defaults. |
+| `NAME = value` (top-level) | Often. Shared paths / flags / defaults. |
 | `about "..."` | Usually. One-sentence description for `--help`. |
 | `requires ... end` | When you want the file to declare (and enforce) its external needs — bins (+ SHA-256 hash pins), env vars, hosts, filesystem read/write scopes, OS/arch. Every external op then verifies the manifest before it runs; `perch --check` proves feasibility without running. See [capability-gating.md](capability-gating.md). |
 | `bundle ... end` | When you want a portable binary with files embedded. |
@@ -360,7 +358,7 @@ Sources, in resolution order:
 
 1. **`let X = ...` captures** in the current body
 2. **Command args** (declared via `arg NAME ...`)
-3. **Globals** (declared in `globals ... end`)
+3. **Top-level bindings** (declared bare as `NAME = value`)
 4. **Auto-bound vars** (always present: `${os}`, `${arch}`, `${home_dir}`, `${script_dir}`, `${cwd}`, etc.)
 5. **Host env vars** (subject to `--env` allowlist if set)
 
@@ -393,9 +391,7 @@ let rev = exec git rev-parse HEAD
 print "deploying ${rev}"
 
 # 2. Globals — read-only after parse, visible everywhere
-globals
-    APP_DIR = "/opt/myapp"
-end
+APP_DIR = "/opt/myapp"
 
 # 3. Args — values from the caller (CLI flag, MCP arg, web UI form)
 arg target type string default "darwin" end
@@ -1464,7 +1460,7 @@ After the run, prints a tree of every op call, indented by block nesting, annota
 | Error | What it means | Fix |
 |---|---|---|
 | `unknown op kind "foo"` | The op isn't a built-in and isn't a `template` you imported. | `perch --check` lists all unknown kinds. Check spelling. |
-| `unresolved ${name}` | You referenced `${name}` but nothing binds it. | Add an `arg`, `let`, or `globals` entry. |
+| `unresolved ${name}` | You referenced `${name}` but nothing binds it. | Add an `arg`, `let`, or a top-level `NAME = value` binding. |
 | `command "deploy" not found` (with "did you mean…?") | Typo. | The suggestion is fuzzy-matched; usually right. |
 | `host "X" not in --allow-host allowlist` | Tighter outer policy than the command needs. | Either widen the launch flag or add the host to a per-command allowlist. |
 | `module closed with exit_code(N)` | A `wasm_run` module called `os.Exit(N)`. | The exit code is the module's own decision — check the module's source. |
@@ -1740,9 +1736,7 @@ end
 
 ```perch
 # WRONG: secret in source
-globals
-    API_KEY = "sk-abc123"
-end
+API_KEY = "sk-abc123"
 
 # RIGHT: read from env at runtime
 command call_api
@@ -1850,10 +1844,8 @@ name        "myapp"
 version     "1.0.0"
 about       "Build, test, release myapp"
 
-globals
-    APP_NAME = "myapp"
-    OUT_DIR  = "./dist"
-end
+APP_NAME = "myapp"
+OUT_DIR  = "./dist"
 
 template ensure_clean
     arg dir string
@@ -2036,9 +2028,7 @@ name "ops"
 about "Internal ops surface for the platform team"
 version "1.3.0"
 
-globals
-    APPROVED_HOSTS = "api.example.com,deploy.example.com,*.s3.amazonaws.com"
-end
+APPROVED_HOSTS = "api.example.com,deploy.example.com,*.s3.amazonaws.com"
 
 command restart_service
     description "Restart a service on a remote host (validated)"
@@ -2272,10 +2262,8 @@ name "db"
 version "1.0.0"
 about "Database backup + restore — Postgres / MySQL / SQLite"
 
-globals
-    BACKUP_DIR = "${home_dir}/.cache/db-backups"
-    S3_BUCKET  = "my-backups"
-end
+BACKUP_DIR = "${home_dir}/.cache/db-backups"
+S3_BUCKET  = "my-backups"
 
 template ensure_dir
     arg path string
@@ -2458,11 +2446,9 @@ The agent now has typed `backup`, `restore`, `list_backups`, `prune_local` verbs
 name "cert"
 version "1.0.0"
 
-globals
-    CERT_DIR   = "/etc/letsencrypt/live"
-    NGINX_CONF = "/etc/nginx/conf.d"
-    ALERT_WEBHOOK = "https://hooks.slack.com/services/REPLACEME"
-end
+CERT_DIR   = "/etc/letsencrypt/live"
+NGINX_CONF = "/etc/nginx/conf.d"
+ALERT_WEBHOOK = "https://hooks.slack.com/services/REPLACEME"
 
 command issue
     description "Get a new cert from Let's Encrypt for a domain"
@@ -2568,9 +2554,7 @@ One file. Replaces three tools (the Ansible cert role, the cron entry, the alert
 name "deploy"
 version "2.0.0"
 
-globals
-    PROD_CONFIRM_TOKEN = "yes-deploy-prod"
-end
+PROD_CONFIRM_TOKEN = "yes-deploy-prod"
 
 command deploy
     description "Deploy to a target environment"
@@ -2718,9 +2702,7 @@ Same file. Three environments. Confirmation gate that's IMPOSSIBLE to bypass via
 name "etl"
 version "1.0.0"
 
-globals
-    SCHEMA_HASH = "v1"
-end
+SCHEMA_HASH = "v1"
 
 command process
     description "Run the full pipeline: extract → transform → load"
@@ -2836,9 +2818,7 @@ name "pr"
 version "1.0.0"
 about "Standardised git workflow — branch, commit, push, PR"
 
-globals
-    DEFAULT_BASE = "main"
-end
+DEFAULT_BASE = "main"
 
 command branch
     description "Create a branch from the latest base"
@@ -3252,12 +3232,10 @@ end
 
 The cache will hit; `${now}` won't update. **Cache only deterministic body shapes** — same key + same inputs → same outputs.
 
-### Shadowing globals with args
+### Shadowing top-level bindings with args
 
 ```perch
-globals
-    region = "us-east-1"
-end
+region = "us-east-1"
 
 command deploy
     arg region type string end
@@ -3267,7 +3245,7 @@ command deploy
 end
 ```
 
-Args win over globals within their command body. If you want the global, rename one of them (`g_region`, or `target_region` for the arg).
+Args win over top-level bindings within their command body. If you want the binding, rename one of them (`g_region`, or `target_region` for the arg).
 
 ### `for_each` over unparsed string
 
@@ -3425,7 +3403,7 @@ What perch does **not** do (be precise about scope so you can decide):
 
 ```perch
 name "..." about "..." version "..."     # identity
-globals NAME = VALUE ... end             # shared bindings
+NAME = VALUE                             # shared bindings (bare, top level)
 bundle include "PATH" [as NAME] ... end  # embed at --build time
 template NAME arg X string … do … end    # reusable body
 import "PATH" [as NAMESPACE]             # multi-file projects

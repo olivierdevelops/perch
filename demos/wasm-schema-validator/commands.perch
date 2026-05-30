@@ -2,6 +2,10 @@ name "schema-validator"
 about "Deterministic JSON schema validation via embedded WASM module"
 version "1.0.0"
 
+requires
+    bin "go" optional
+end
+
 command validate
     description "Validate ONE JSON file against ONE schema"
     arg schema

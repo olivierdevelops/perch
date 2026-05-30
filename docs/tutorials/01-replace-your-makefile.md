@@ -43,18 +43,16 @@ This writes a starter `commands.perch`. Open it and clear the body — we're goi
 
 ## Step 2 — Globals
 
-Things you reference in multiple commands go in `globals`:
+Things you reference in multiple commands are declared bare at the top level:
 
 ```capy
 name    "myapp"
 about   "Build, test, lint, release myapp"
 version "0.1.0"
 
-globals
-    APP_NAME = "myapp"
-    BIN_DIR  = "./bin"
-    MAIN     = "./cmd/myapp"
-end
+APP_NAME = "myapp"
+BIN_DIR  = "./bin"
+MAIN     = "./cmd/myapp"
 ```
 
 While you're here, declare what this file needs from the host. A `requires`

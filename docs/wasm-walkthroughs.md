@@ -684,9 +684,7 @@ The `.wasm` modules are embedded inside the perch binary; recipient doesn't need
 ```capy
 name "lint"
 
-globals
-    LINTER = "${script_dir}/wasm/golint.wasm"
-end
+LINTER = "${script_dir}/wasm/golint.wasm"
 
 command lint_all
     description "Lint every file under ./src — cache results per (linter, file)"

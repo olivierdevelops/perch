@@ -31,13 +31,11 @@ Most applications below lean on one or both of these.
 
 ### 1. Replace your Makefile
 
-The base case. Every `make target:` becomes a `command NAME ... end`. Cross-cutting variables go in `globals`. The `if os == "darwin"` form covers the platform-conditional code you'd normally write with three Makefiles.
+The base case. Every `make target:` becomes a `command NAME ... end`. Cross-cutting variables are declared bare at the top level (`NAME = value`). The `if os == "darwin"` form covers the platform-conditional code you'd normally write with three Makefiles.
 
 ```capy
-globals
-    BIN_DIR  = "./bin"
-    APP_NAME = "myapp"
-end
+BIN_DIR  = "./bin"
+APP_NAME = "myapp"
 
 command build
     arg target
@@ -141,10 +139,8 @@ name    "redis"
 about   "Friendly wrapper around the official Redis Docker image"
 version "0.1.0"
 
-globals
-    IMAGE     = "redis:7-alpine"
-    CONTAINER = "my-redis"
-end
+IMAGE     = "redis:7-alpine"
+CONTAINER = "my-redis"
 
 requires
     bin "docker"
@@ -450,12 +446,10 @@ name "devtools"
 about "Install / status / update the team's dev toolkit"
 version "0.1.0"
 
-globals
-    NODE_VER  = "20"
-    PG_VER    = "15"
-    HELM_VER  = "3.14"
-    TF_VER    = "1.7"
-end
+NODE_VER  = "20"
+PG_VER    = "15"
+HELM_VER  = "3.14"
+TF_VER    = "1.7"
 
 command install_all
     description "Install everything"
@@ -594,10 +588,8 @@ name    "stt_bin"
 about   "Ship a Python project as one self-installing binary"
 version "0.1.0"
 
-globals
-    INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
-    LAUNCHER     = "${HOME}/.local/bin/stt"
-end
+INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
+LAUNCHER     = "${HOME}/.local/bin/stt"
 
 command install
     do
@@ -1215,7 +1207,7 @@ Your team's `dev-setup.perch` does the new-machine setup. Build it (`perch --bui
 
 Some things that have shaken out as best-practice from real use:
 
-**Put everything stable in `globals`.** Paths, names, build dirs, common env. If you reference it from two commands, hoist it.
+**Put everything stable in top-level bindings.** Paths, names, build dirs, common env. If you reference it from two commands, hoist it.
 
 **Use `private` aggressively for helpers.** Anything that isn't meant as a top-level operation gets `private` so `--help` stays clean and the MCP surface stays minimal.
 

@@ -2,6 +2,11 @@ name "gh-flow"
 about "Common GitHub workflow on top of gh: pr, land, sync, cleanup, wip"
 version "1.0.0"
 
+requires
+    bin "git" optional
+    bin "gh" optional
+end
+
 import "./_lib.perch"
 
 command pr

@@ -93,7 +93,7 @@ The default view. Lists every visible command from the loaded `.perch` file:
 - **Type-aware form inputs** — `bool` args get a checkbox; `int` / `float` get number spinners; `rest` args get a multi-line textarea (one value per line); strings get text inputs.
 - **Defaults render as placeholders**, not pre-filled values. Submitting an empty field uses the runtime default; this matches the CLI's behavior exactly.
 - **Mod badges** show which commands are `test`, `detached`, or `proxy_args`.
-- **Globals panel** (collapsible) at the top — every binding from the program's `globals` block, with type and value.
+- **Globals panel** (collapsible) at the top — every top-level binding in the program, with type and value.
 - Click **Run** → output streams live in a dark output panel (separated by `out` / `err` / `status` channels). Hit **Clear** between runs.
 - **Copy as CLI** button — generates a shell-escaped `perch -f file.perch CMD -arg=val …` string mirroring the form so you can paste it back to a terminal for automation.
 

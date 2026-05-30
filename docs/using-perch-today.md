@@ -26,9 +26,7 @@ name    "myapp"
 about   "Build and ship myapp"
 version "0.3.0"
 
-globals
-    BUILD_DIR = "./builds"
-end
+BUILD_DIR = "./builds"
 
 requires
     bin "go"
@@ -95,7 +93,7 @@ perch -f myapp.perch status           # falls through catch → `git status`
 | Section | Purpose |
 |---|---|
 | `name` / `about` / `version` | Metadata for `--help` / `--version`. |
-| `globals … end` | `NAME = value` bindings shared by every command; UPPER_SNAKE ones also reach `shell` as env. |
+| `NAME = value` (top level) | Bindings shared by every command; UPPER_SNAKE ones also reach `shell`/`exec` as env. |
 | `requires … end` | The file-declared manifest — see below. Opt-in; enforces strictly when present. |
 | `bundle … end` | Files to embed in the `--build` fat binary (`include "./x" as alias`). |
 | `template NAME … end` | Reusable op-sequence stamps, expanded at each `call`. |

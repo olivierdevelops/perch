@@ -2,6 +2,12 @@ name "modern-unix"
 about "Install the modern Unix toolkit (ripgrep, fd, bat, fzf, jq, yq, eza, zoxide) cross-platform"
 version "1.0.0"
 
+requires
+    bin "winget" optional
+    bin "sudo" optional
+    bin "brew" optional
+end
+
 import "./_lib.perch"
 
 command install

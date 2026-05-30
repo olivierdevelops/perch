@@ -2,6 +2,20 @@ name "node-stack"
 about "Install fnm (Node version manager) + pnpm; pin Node version; init projects"
 version "1.0.0"
 
+requires
+    write "pnpm-lock.yaml"
+    write ".gitignore"
+    write ".nvmrc"
+    bin "winget" optional
+    bin "sh" optional
+    bin "bash" optional
+    bin "curl" optional
+    bin "brew" optional
+    bin "pnpm" optional
+    bin "rm" optional
+    bin "fnm" optional
+end
+
 import "./_lib.perch"
 
 command install

@@ -8,10 +8,8 @@ requires
     bin "docker"
 end
 
-globals
-    NAME = "perch-rabbit"
-    IMAGE = "rabbitmq:3-management-alpine"
-end
+NAME = "perch-rabbit"
+IMAGE = "rabbitmq:3-management-alpine"
 
 command up
     description "Start RabbitMQ with the management UI enabled"

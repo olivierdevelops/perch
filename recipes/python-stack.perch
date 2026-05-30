@@ -2,6 +2,15 @@ name "python-stack"
 about "Install uv (the fast Python package manager) + bootstrap projects + manage venvs"
 version "1.0.0"
 
+requires
+    bin "winget" optional
+    bin "sh" optional
+    bin "curl" optional
+    bin "brew" optional
+    bin "rm" optional
+    bin "uv" optional
+end
+
 import "./_lib.perch"
 
 command install_uv

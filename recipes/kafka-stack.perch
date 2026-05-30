@@ -8,12 +8,10 @@ requires
     bin "docker"
 end
 
-globals
-    K_NAME = "kafka-stack-kafka"
-    UI_NAME = "kafka-stack-ui"
-    K_IMG = "bitnami/kafka:3.7"
-    UI_IMG = "provectuslabs/kafka-ui:latest"
-end
+K_NAME = "kafka-stack-kafka"
+UI_NAME = "kafka-stack-ui"
+K_IMG = "bitnami/kafka:3.7"
+UI_IMG = "provectuslabs/kafka-ui:latest"
 
 command up
     description "Start a single-broker Kafka (KRaft mode) + a web UI"

@@ -8,12 +8,10 @@ requires
     bin "docker"
 end
 
-globals
-    NAME = "perch-minio"
-    IMAGE = "minio/minio:latest"
-    USER = "minioadmin"
-    PASS = "minioadmin"
-end
+NAME = "perch-minio"
+IMAGE = "minio/minio:latest"
+USER = "minioadmin"
+PASS = "minioadmin"
 
 command up
     description "Start MinIO with persistent storage + web console"

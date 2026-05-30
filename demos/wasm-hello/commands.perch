@@ -2,6 +2,10 @@ name "wasm-hello"
 about "Demo of perch's wasm_run — capability-constrained module execution"
 version "1.0.0"
 
+requires
+    bin "go" optional
+end
+
 command demo
     description "Run the bundled hello.wasm with declared capabilities"
     do

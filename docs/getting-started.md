@@ -41,14 +41,18 @@ name    "hello-perch"
 about   "A perch project"
 version "0.1.0"
 
-globals
-    verbose = false
+# Shared bindings are declared bare at top level (no globals block).
+verbose = false
+
+# The manifest is mandatory. An empty block means "pure ops only, spawns
+# nothing"; add bin/host/env/read/write lines as your commands need them.
+requires
 end
 
 command hello
     description "Say hello"
     do
-        print "Hello from ${HOME}"
+        print "Hello from perch"
     end
 end
 

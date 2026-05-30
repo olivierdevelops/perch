@@ -11,14 +11,12 @@ requires
     bin "xdg-open" optional
 end
 
-globals
-    PROM_NAME = "observe-prometheus"
-    GRAF_NAME = "observe-grafana"
-    LOKI_NAME = "observe-loki"
-    PROM_IMG = "prom/prometheus:latest"
-    GRAF_IMG = "grafana/grafana:latest"
-    LOKI_IMG = "grafana/loki:latest"
-end
+PROM_NAME = "observe-prometheus"
+GRAF_NAME = "observe-grafana"
+LOKI_NAME = "observe-loki"
+PROM_IMG = "prom/prometheus:latest"
+GRAF_IMG = "grafana/grafana:latest"
+LOKI_IMG = "grafana/loki:latest"
 
 command up
     description "Start Prometheus + Grafana + Loki"

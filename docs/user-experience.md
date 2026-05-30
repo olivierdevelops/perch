@@ -258,14 +258,14 @@ $ perch why "unknown placeholder"
   This means perch saw `${name}` in a string but couldn't find `name`
   in any of the following:
     - command arguments
-    - globals (top-level block)
+    - top-level bindings (NAME = value)
     - per-command env vars
     - host environment variables
     - auto-bound names (home, cache_dir, etc.)
 
   Fix:
     1. Declare an arg with `arg name type string end` in the command's config
-    2. Set a global: globals NAME = "value" end
+    2. Set a binding: NAME = "value"
     3. Pass via host env: NAME=value perch <cmd>
     4. Allow it with `--env NAME` if it's a host env var
 ```

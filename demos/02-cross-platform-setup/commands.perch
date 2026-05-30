@@ -2,6 +2,14 @@ name    "cross-platform-setup"
 about   "One file installs dev tools on macOS, Linux, and Windows"
 version "0.1.0"
 
+requires
+    bin "where" optional
+    bin "which" optional
+    bin "choco" optional
+    bin "sudo" optional
+    bin "brew" optional
+end
+
 command setup
     description "Install jq + ripgrep + watchexec on whatever this OS is"
     do

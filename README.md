@@ -22,9 +22,7 @@ name    "myapp"
 about   "Build, test and ship myapp"
 version "0.3.0"
 
-globals
-    BUILD_DIR = "./builds"
-end
+BUILD_DIR = "./builds"
 
 requires
     bin "go"                         # required — existence verified at preflight
@@ -327,10 +325,8 @@ The repo's own [`commands.perch`](commands.perch) is what we use to build, clean
 name "perch"
 about "perch — a cross-platform command runner driven by capy"
 
-globals
-    BUILD_DIR = "${script_dir}/.ignore"
-    BUILD_OUT = "${script_dir}/.ignore/perch"
-end
+BUILD_DIR = "${script_dir}/.ignore"
+BUILD_OUT = "${script_dir}/.ignore/perch"
 
 command build
     description "Build the perch binary"

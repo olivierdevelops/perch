@@ -9,11 +9,9 @@ requires
     bin "cat"
 end
 
-globals
-    NAME = "perch-mysql"
-    IMAGE = "mysql:8"
-    ROOT_PASS = "rootpass"
-end
+NAME = "perch-mysql"
+IMAGE = "mysql:8"
+ROOT_PASS = "rootpass"
 
 command up
     arg port

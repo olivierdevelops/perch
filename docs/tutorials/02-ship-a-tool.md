@@ -17,10 +17,8 @@ name    "ops"
 about   "Internal ops CLI for the platform team"
 version "1.0.0"
 
-globals
-    DB_HOST   = "db-primary.internal"
-    BACKUP_S3 = "s3://backups-bucket"
-end
+DB_HOST   = "db-primary.internal"
+BACKUP_S3 = "s3://backups-bucket"
 
 requires
     bin   "pg_dump"

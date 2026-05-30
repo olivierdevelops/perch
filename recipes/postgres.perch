@@ -9,12 +9,10 @@ requires
     bin "cat"
 end
 
-globals
-    NAME = "perch-postgres"
-    IMAGE = "postgres:16-alpine"
-    USER = "postgres"
-    PASS = "postgres"
-end
+NAME = "perch-postgres"
+IMAGE = "postgres:16-alpine"
+USER = "postgres"
+PASS = "postgres"
 
 command up
     description "Start a local Postgres container with a persistent volume"

@@ -2,6 +2,12 @@ name "mkcert-local"
 about "Local HTTPS certificates via mkcert — install CA, mint per-domain certs"
 version "1.0.0"
 
+requires
+    bin "winget" optional
+    bin "brew" optional
+    bin "mkcert" optional
+end
+
 import "./_lib.perch"
 
 command install_mkcert

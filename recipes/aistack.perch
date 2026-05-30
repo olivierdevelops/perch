@@ -8,14 +8,12 @@ requires
     bin "docker"
 end
 
-globals
-    OLL_NAME = "aistack-ollama"
-    CHR_NAME = "aistack-chroma"
-    UI_NAME = "aistack-webui"
-    OLL_IMG = "ollama/ollama:latest"
-    CHR_IMG = "chromadb/chroma:latest"
-    UI_IMG = "ghcr.io/open-webui/open-webui:main"
-end
+OLL_NAME = "aistack-ollama"
+CHR_NAME = "aistack-chroma"
+UI_NAME = "aistack-webui"
+OLL_IMG = "ollama/ollama:latest"
+CHR_IMG = "chromadb/chroma:latest"
+UI_IMG = "ghcr.io/open-webui/open-webui:main"
 
 command up
     description "Bring up Ollama (LLM runtime) + ChromaDB (vector store) + Open WebUI"

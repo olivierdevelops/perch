@@ -2,6 +2,12 @@ name "diff-summary"
 about "Agent-safe PR summarization — structured JSON from a unified diff"
 version "1.0.0"
 
+requires
+    bin "perch" optional
+    bin "go" optional
+    bin "git" optional
+end
+
 command summarize_file
     description "Summarize a diff file bundled under ./diffs"
     arg path

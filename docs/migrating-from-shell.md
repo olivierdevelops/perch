@@ -90,7 +90,7 @@ Reads the `.sh`, produces a best-effort `.perch` scaffold, and prints next steps
 |---|---|
 | `#!/bin/bash` shebang | top-of-file comment |
 | `# comment` | preserved comment in the body |
-| `NAME=value` (top level) | `globals { NAME = "value" }` |
+| `NAME=value` (top level) | `NAME = "value"` (bare, top level) |
 | `function f { … }` or `f() { … }` | `command f ... do ... end end` |
 | `echo "literal"` (no metachars) | `print "literal"` |
 | `cmd &` (background) | `shell_detached "..."` |
@@ -132,10 +132,8 @@ deploy
 ```capy
 name "deploy"
 
-globals
-    APP_DIR = "/var/myapp"
-    LOG_FILE = "${APP_DIR}/log"
-end
+APP_DIR = "/var/myapp"
+LOG_FILE = "${APP_DIR}/log"
 
 command deploy
     description "(imported from .sh — review me)"

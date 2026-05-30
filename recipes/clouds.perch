@@ -2,6 +2,17 @@ name "clouds"
 about "Install cloud CLIs in bulk — aws, gcloud, az, kubectl, helm, terraform"
 version "1.0.0"
 
+requires
+    bin "terraform" optional
+    bin "helm" optional
+    bin "kubectl" optional
+    bin "az" optional
+    bin "aws" optional
+    bin "gcloud" optional
+    bin "winget" optional
+    bin "brew" optional
+end
+
 import "./_lib.perch"
 
 command install_all

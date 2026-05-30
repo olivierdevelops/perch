@@ -2,6 +2,10 @@ name "kube-helpers"
 about "kubectl daily-use helpers — context switch, pod shell, log tail, port-forward, restart"
 version "1.0.0"
 
+requires
+    bin "kubectl" optional
+end
+
 import "./_lib.perch"
 
 command ctx

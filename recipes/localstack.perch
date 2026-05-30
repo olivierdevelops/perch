@@ -9,10 +9,8 @@ requires
     bin "curl"
 end
 
-globals
-    NAME = "perch-localstack"
-    IMAGE = "localstack/localstack:latest"
-end
+NAME = "perch-localstack"
+IMAGE = "localstack/localstack:latest"
 
 command up
     description "Start LocalStack with the most-used AWS services enabled"

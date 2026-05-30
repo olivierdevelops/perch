@@ -2,9 +2,7 @@ name    "hello"
 about   "The 30-second perch tour"
 version "0.1.0"
 
-globals
-    GREETING = "Hello"
-end
+GREETING = "Hello"
 
 command hello
     description "Greet someone"

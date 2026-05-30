@@ -2,6 +2,10 @@ name "wasm-plugin-host"
 about "Zero-trust plugin runtime — runs WASM plugins under capability gates"
 version "1.0.0"
 
+requires
+    bin "go" optional
+end
+
 command run_plugin
     description "Run ONE plugin on the bundled input.json"
     arg name

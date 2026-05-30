@@ -8,10 +8,8 @@ requires
     bin "docker"
 end
 
-globals
-    NAME = "perch-redis"
-    IMAGE = "redis:7-alpine"
-end
+NAME = "perch-redis"
+IMAGE = "redis:7-alpine"
 
 command up
     description "Start a local Redis container (idempotent)"

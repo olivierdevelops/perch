@@ -2,9 +2,13 @@ name    "stt_bin"
 about   "Ship a Python project as one self-installing binary"
 version "0.1.0"
 
-globals
-    INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
-    LAUNCHER     = "${HOME}/.local/bin/stt"
+INSTALL_BASE = "${HOME}/.cache/perch/stt_bin"
+LAUNCHER     = "${HOME}/.local/bin/stt"
+
+requires
+    bin ".venv/bin/pip" optional
+    bin "chmod" optional
+    bin "python3" optional
 end
 
 command install

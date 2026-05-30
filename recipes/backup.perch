@@ -2,11 +2,16 @@ name "backup"
 about "Restic-based encrypted backups — init / snapshot / restore / forget / check"
 version "1.0.0"
 
+requires
+    bin "winget" optional
+    bin "sudo" optional
+    bin "brew" optional
+    bin "restic" optional
+end
+
 import "./_lib.perch"
 
-globals
-    REPO = "${home}/restic-repo"
-end
+REPO = "${home}/restic-repo"
 
 command install
     description "Install restic via the host package manager"

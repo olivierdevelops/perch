@@ -12,10 +12,8 @@ name    "..."           # top-level metadata
 about   "..."
 version "..."
 
-globals                 # bindings shared by every command
-    KEY = VALUE
-    ...
-end
+KEY = VALUE             # bindings shared by every command (bare, top-level)
+...
 
 command NAME            # one or more commands
     ...config...
@@ -39,24 +37,39 @@ end
 | `about "x"`   | Top-level description. Shown in `--help`. |
 | `version "x"` | Program version. Returned by `--version`. |
 
-## `globals … end`
+## Top-level bindings
 
-Bindings shared by every command invocation. Each line is `NAME = LITERAL`. The literal's type — `bool`, `int`, `float`, `string` — is preserved.
+Bindings shared by every command invocation are declared **bare at the top level** — `NAME = value`, no wrapping block. (The old `globals … end` block was removed; a leftover one is a clear load error.) The literal's type — `bool`, `int`, `float`, `string` — is preserved.
 
 ```capy
-globals
-    verbose    = true             # bool
-    PORT       = 8080             # int
-    RATE       = 0.5              # float
-    BUILD_DIR  = "./builds"       # string
-end
+verbose    = true             # bool
+PORT       = 8080             # int
+RATE       = 0.5              # float
+BUILD_DIR  = "./builds"       # string
 ```
 
-Globals are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc. By convention, UPPER_SNAKE_CASE globals are also exported as environment variables to every spawned `shell` call.
+Bindings are visible inside every command body as `${verbose}`, `${BUILD_DIR}`, etc., and can be referenced by name in the `requires` block — `write BUILD_DIR` is sugar for `write "${BUILD_DIR}"`. By convention, UPPER_SNAKE_CASE bindings are also exported as environment variables to every spawned `shell`/`exec` call. A bare `NAME = value` is only legal at file scope; inside a command body use `let NAME = …`.
 
 ## `requires … end` — the file-declared manifest
 
 Declares everything the file needs from the host: bins, env vars, hosts, OS, arch. When present, perch enforces strictly — undeclared shell bins / HTTP hosts / `get_env` reads error (`bin_not_declared`, `host_not_declared`, `env_not_declared`), and preflight verifies bins exist and (optionally) match a pinned SHA-256 hash. There is **no version checking** — that would require executing the binary before the sandbox exists (and a trojaned binary lies about its version); pin the artifact's hash instead.
+
+A `bin` may be a bare command resolved on `PATH` (`go`, `docker`) **or a path
+to an executable** (`./bins/tool.exe`, `${script_dir}/bin/tool`) — path-form
+bins are checked for existence on disk (relative to the `.perch` file) rather
+than a PATH lookup. Add `as NAME` to give a path a clean handle you can invoke
+by name; perch resolves the alias to the real path before spawning:
+
+```perch
+requires
+    bin "./bins/binary.exe" as binary      # path bin + handle
+end
+command run
+    do
+        binary --serve                     # runs ./bins/binary.exe (resolved to the script dir)
+    end
+end
+```
 
 ```perch
 requires
@@ -338,7 +351,7 @@ end
 **Guardrails the validator enforces:**
 
 - No recursion. A template cannot call itself (directly or via another template).
-- Templates may only emit ops, never declarations. No `command`, `import`, or `globals` inside a template.
+- Templates may only emit ops, never declarations. No `command`, `import`, or top-level bindings inside a template.
 - Templates do not appear in `--help`, are not callable from the CLI, and do not show up in MCP.
 - Positional args only. Optional / default values are honored from the arg-block spec.
 
@@ -478,7 +491,7 @@ The one substitution `${name}` *is* processed — that's the only special syntax
 `${NAME}` inside any string-valued op argument is resolved at runtime. Resolution order:
 
 1. Command-local bindings: parsed arg values and `let` captures.
-2. `globals` block.
+2. Top-level `NAME = value` bindings.
 3. Per-command `env` declarations.
 4. Host process environment (so `${HOME}`, `${USER}`, `${PATH}` just work).
 

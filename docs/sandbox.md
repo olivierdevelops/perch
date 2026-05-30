@@ -418,9 +418,7 @@ name        "deploy"
 about       "Roll out a release"
 version     "0.5.0"
 
-globals
-    APP_NAME = "myapp"
-end
+APP_NAME = "myapp"
 
 sandbox
     # Op-level allowlist. If absent → all ops available.

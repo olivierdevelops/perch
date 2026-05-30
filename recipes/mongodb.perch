@@ -8,10 +8,8 @@ requires
     bin "docker"
 end
 
-globals
-    NAME = "perch-mongo"
-    IMAGE = "mongo:7"
-end
+NAME = "perch-mongo"
+IMAGE = "mongo:7"
 
 command up
     description "Start a local MongoDB container with a persistent volume"
