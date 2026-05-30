@@ -2,10 +2,10 @@
 
 > **Status: all resolved upstream.** This doc originally catalogued nine
 > places where perch's surface syntax was shaped by limits in the
-> [capy](https://github.com/luowensheng/capy) grammar engine rather than by
+> [capy](https://github.com/olivierdevelops/capy) grammar engine rather than by
 > design. They were reported upstream; the engine shipped fixes for **all
 > nine** (commits `e1fba0b` + `5102dec`). perch now pins
-> `github.com/luowensheng/capy v0.20.1-0.20260529061856-5102decfe5d0` and has
+> `github.com/olivierdevelops/capy v0.20.1-0.20260529061856-5102decfe5d0` and has
 > adopted the ones that improve the language. This page is kept as the record
 > of what was wrong, how it was fixed, and what perch took up.
 

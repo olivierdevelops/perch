@@ -521,4 +521,4 @@ end
 
 ## Reserved words
 
-The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if`, `let`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/olivierdevelops/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).
+The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if`, `let`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/olivierdevelops/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://olivierdevelops.github.io/capy).

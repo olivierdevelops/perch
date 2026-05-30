@@ -13,7 +13,7 @@
 [![CI](https://github.com/olivierdevelops/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/olivierdevelops/perch/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/olivierdevelops/perch?include_prereleases)](https://github.com/olivierdevelops/perch/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://luowensheng.github.io/capy)
+[![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://olivierdevelops.github.io/capy)
 
 That's the one-sentence answer. The longer one: `perch` collapses what would otherwise be a Makefile *and* a `bin/` of bash scripts *and* the helper CLI you keep meaning to write into **one declarative file** — and the same file *also* serves as a web UI (`--server`), a REPL (`--shell`), an MCP tool surface for AI agents (`perch-mcp`), and a `#!/usr/bin/env perch` script. Those extra frontends are downstream consequences of having a typed-CLI representation in one file, not separate systems. **The primary abstraction is the file; everything else is rendering.**
 
@@ -258,7 +258,7 @@ A `commands.perch` file is the single source of truth for an operational tool. I
 
 ## What perch gives you
 
-1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://luowensheng.github.io/capy), so the grammar is itself data.
+1. **One language at the surface.** No more YAML-for-structure plus templates-for-logic. perch's DSL is defined by [capy](https://olivierdevelops.github.io/capy), so the grammar is itself data.
 2. **Cross-platform built-ins.** `cp`, `mkdir`, `gzip`, `sha256_file`, `http_get`, plus `if os == "linux"` / `if arch == "arm64"` branching — first-class to the runtime, not bash one-liners you re-write per OS.
 3. **Five frontends from one source.** The same `commands.perch` is callable as a CLI, served as a web UI (`--server`), steppable in a REPL (`--shell`), exposed to AI agents via MCP (`perch-mcp`), and runnable as an executable script (`#!/usr/bin/env perch` shebang).
 4. **One `--build` away from shippable.** `perch --build -o myapp` produces a single executable for the *current OS/arch* — typically 10–15 MB. Format: the perch binary itself with your program JSON appended in a fat-binary footer; on startup, perch detects the footer and loads the embedded program instead of reading a `.perch` file. `--include <path>` additionally embeds a gzipped tarball — useful for shipping a Python / Node / monorepo project alongside the CLI.
@@ -388,7 +388,7 @@ If two or three of these are deal-breakers, perch is the wrong tool. If they're 
 
 ## Why "perch"?
 
-Capybaras famously let other animals — birds, monkeys, turtles — sit on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://luowensheng.github.io/capy), which is short for capybara. So the name nods both ways.
+Capybaras famously let other animals — birds, monkeys, turtles — sit on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://olivierdevelops.github.io/capy), which is short for capybara. So the name nods both ways.
 
 ---
 
@@ -442,4 +442,4 @@ Four worked examples live under [demos/](demos) — each a complete `commands.pe
 
 ## Acknowledgments
 
-perch is built on [capy](https://luowensheng.github.io/capy) — the configurable transpiler engine that defines the entire DSL grammar.
+perch is built on [capy](https://olivierdevelops.github.io/capy) — the configurable transpiler engine that defines the entire DSL grammar.

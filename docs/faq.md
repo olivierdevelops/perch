@@ -27,7 +27,7 @@ Capy is a transpiler engine for custom DSLs. We use it to define the perch gramm
 - Users get sensible parse errors with line numbers for free.
 - Future extensions (typed args, custom modifiers, alternate front-ends) are library changes, not parser rewrites.
 
-See [capy](https://luowensheng.github.io/capy) for the engine.
+See [capy](https://olivierdevelops.github.io/capy) for the engine.
 
 ## Can I share commands across projects?
 
@@ -90,7 +90,7 @@ If you want fail-soft behavior, wrap the op in `if exists "..."` / `if A == B` e
 
 ## What's the relationship to capy?
 
-[capy](https://luowensheng.github.io/capy) is the engine that defines perch's grammar. perch is a real-world program built on top of capy.
+[capy](https://olivierdevelops.github.io/capy) is the engine that defines perch's grammar. perch is a real-world program built on top of capy.
 
 The relationship:
 
@@ -117,7 +117,7 @@ A WASM / RPC plugin protocol is on the long-term roadmap. For now: contribute th
 
 ## Why "perch"?
 
-Capybaras famously let other animals — birds, monkeys, turtles — perch on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://luowensheng.github.io/capy), which is short for capybara. So the name nods both ways.
+Capybaras famously let other animals — birds, monkeys, turtles — perch on their back. Your commands perch on perch the same way: declared once, then run wherever they need to (CLI, web, REPL, embedded binary). The DSL is also built on [capy](https://olivierdevelops.github.io/capy), which is short for capybara. So the name nods both ways.
 
 ## Where do I report bugs / request features?
 

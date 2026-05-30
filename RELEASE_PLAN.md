@@ -44,7 +44,7 @@ brew / curl-pipe / go install / binary download — all four lines.
 - single config, three frontends (CLI / web UI / REPL)
 - one --build away from a portable binary you can ship to users
 - built-in cross-platform OS functions — no per-OS bash branches
-- powered by [capy](https://luowensheng.github.io/capy)
+- powered by [capy](https://olivierdevelops.github.io/capy)
 
 ## Three-line tour
 [commands.perch with build/test/serve + matching `perch <cmd>` lines]

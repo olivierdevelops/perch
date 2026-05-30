@@ -1355,7 +1355,7 @@ perch --env HOME,PATH,API_KEY deploy        # ${OTHER_SECRET} now errors
 
 **Can I extend it with my own ops?** Yes — perch is a Go library too. Drop a handler into `infra/ops/` and register it. But the ~70 built-ins cover most needs.
 
-**How is this different from capy?** [capy](https://luowensheng.github.io/capy) is a small transpiler engine. perch *uses* capy to define its grammar (`lib.perch`), so the perch DSL is what capy ingests. capy isn't a language; perch is.
+**How is this different from capy?** [capy](https://olivierdevelops.github.io/capy) is a small transpiler engine. perch *uses* capy to define its grammar (`lib.perch`), so the perch DSL is what capy ingests. capy isn't a language; perch is.
 
 → More: **[faq.md](faq.md)**
 
