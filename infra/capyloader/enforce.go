@@ -151,6 +151,42 @@ func opVocabulary() []string {
 	return opVocab
 }
 
+var (
+	opKindOnce sync.Once
+	opKindMap  map[string]bool
+)
+
+// opSet returns the canonical built-in op-kind membership set, parsed once from
+// the embedded opkinds.txt (generated from ops.BuiltinKinds()).
+// resolveBareDispatch uses it to tell a bare built-in op (`glob`, `sha256`,
+// `file_size`) from a declared subprocess bin when folding implicit-exec
+// captures. Unlike the grammar-derived opVocabulary(), this includes the
+// value-returning ops that have no dedicated grammar keyword.
+func opSet() map[string]bool {
+	opKindOnce.Do(func() {
+		opKindMap = map[string]bool{}
+		for _, line := range strings.Split(opKindsSource, "\n") {
+			if k := strings.TrimSpace(line); k != "" {
+				opKindMap[k] = true
+			}
+		}
+	})
+	return opKindMap
+}
+
+// OpKinds returns the sorted canonical built-in op-kind names the loader knows
+// about (from the embedded opkinds.txt). Exposed so a drift test in infra/ops
+// can assert it stays in sync with the handler registry.
+func OpKinds() []string {
+	set := opSet()
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // closest returns the nearest candidate within Levenshtein distance 2, or ""
 // if none qualifies. Mirrors the fuzzy command-suggestion threshold.
 func closest(s string, candidates []string) string {

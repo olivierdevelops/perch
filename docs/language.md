@@ -249,7 +249,7 @@ shell "docker compose up -d"          # via the host shell (bash/cmd.exe)
 ```
 
 - **Bare `BIN tok…`** runs `BIN` directly (`os/exec`, never a shell). Each token is exactly one argv slot — bare flags/paths work unquoted (`git log --oneline -10`); quote a token only to keep embedded spaces (`git commit -m "fix the bug"`); `${x}` always fills exactly one slot, even if its value has spaces or metacharacters (no injection). Captures stdout *and* streams it. When a `requires` block is present, `BIN` must be a declared `bin`.
-- **`exec BIN tok…`** is the explicit form of the same thing. You need it only when the binary's name **collides with a built-in op** (`exec rm`, `exec mkdir`, `exec chmod` — bare `rm` is the cross-platform op, not the binary) or inside a `let` capture (`let head = exec git rev-parse HEAD`). Otherwise prefer the bare form.
+- **`exec BIN tok…`** is the explicit form of the same thing. You need it only when the binary's name **collides with a built-in op** (`exec rm`, `exec mkdir`, `exec chmod` — bare `rm` is the cross-platform op, not the binary). Captures work bare too — `let head = git rev-parse HEAD` runs the subprocess and captures its stdout; the loader knows `git` is a declared bin, not an op. Otherwise prefer the bare form.
 - **`shell "…"`** hands the string to bash (POSIX) / `cmd.exe` (Windows). Pipes/globs/`&&` work because the shell expands them — at the cost of per-OS quoting differences and an injection surface. Reach for it only for genuine shell needs (a value that must word-split, like `${proxy_args}`).
 - **`pipe … end`** wires `stdout → stdin` between bin stages with in-process pipes — no shell:
 

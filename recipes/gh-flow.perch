@@ -35,7 +35,7 @@ end
 command sync
     description "Pull the latest main and rebase the current branch on top"
     do
-        let branch = exec git rev-parse --abbrev-ref HEAD
+        let branch = git rev-parse --abbrev-ref HEAD
         git fetch origin main:main
         if branch == "main"
             ok "already on main — pulled latest"
@@ -52,7 +52,7 @@ command cleanup
         git fetch -p
         # gone branches: filter `git branch -vv` for ": gone]", take the name
         # (1st field), delete each — no shell, awk, or xargs.
-        let raw = exec git branch -vv
+        let raw = git branch -vv
         let gone = grep ": gone]" "${raw}"
         for_each "${gone}" line
             let name = cut "1" "${line}"
@@ -66,7 +66,7 @@ command wip
     description "Stage everything, commit as 'wip', push — for quick context-switch saves"
     do
         git add -A
-        let staged = exec git diff --cached --stat
+        let staged = git diff --cached --stat
         if not staged
             ok "nothing to commit"
             exit 0

@@ -116,7 +116,7 @@ There are no `\n` / `\t` / `\"` escape sequences. If you need a literal newline 
 ### Process / I/O
 - `print MSG`, `println MSG`, `eprintln MSG`
 - `BIN arg…` (bare) — **the normal way to run a subprocess.** A bare declared bin runs shell-free with structured argv (`git commit -m "fix it"`, `docker ps`). Each token is one argv slot. `BIN` must be a declared `bin`. Chain with `&&`/`||`/`;`; wire stages with `pipe … end`.
-- `exec BIN arg…` — explicit form; needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`) or in a `let` capture (`let h = exec git rev-parse HEAD`).
+- `exec BIN arg…` — explicit form; needed only when the bin name collides with a built-in op (`exec rm`, `exec mkdir`, `exec chmod`). Captures work bare: `let h = git rev-parse HEAD`.
 - `shell CMD` — runs in bash / cmd.exe. Deprecated; keep only for genuine shell needs (pipes, `${proxy_args}` word-splitting, `awk`/`sed` one-liners)
 - `shell_detached CMD` — fire-and-forget
 - `fail MSG` — exits non-zero
@@ -311,7 +311,7 @@ Map the request to perch concepts:
 | "make this command not show up in --help" | `private` modifier |
 | "compute a checksum" | `let h = sha256_file "..."` |
 | "fetch a URL and save it" | `download "url" "dst"` (no `let` needed) |
-| "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get body "a.b.c"` |
+| "fetch JSON, read a field" | `let body = http_get "url"` then `let v = json_get "${body}" "a.b.c"` |
 | "compress this folder" | `tar_create "src" "out.tar.gz"` |
 | "skip a step if a file already exists" | `if exists "PATH" ... end` — or `let e = exists "PATH"; if not e ... end` for the inverse |
 | "wrap / extend an existing tool, forwarding unknown commands" | `catch passthrough ... shell "REAL_TOOL ${proxy_args}"` — see Language Reference for the passthrough pattern |

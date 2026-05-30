@@ -345,7 +345,7 @@ end
 command t
     do
         let h = sha256_file "./bin"
-        let report = json_count "{}" "[?]"
+        let name = json_get "{}" "user.name"
     end
 end
 `
@@ -360,7 +360,7 @@ end
 	if c.Ops[0].Kind != "sha256_file" || c.Ops[0].CaptureInto != "h" {
 		t.Errorf("op[0]: %+v", c.Ops[0])
 	}
-	if c.Ops[1].Kind != "json_count" || c.Ops[1].CaptureInto != "report" {
+	if c.Ops[1].Kind != "json_get" || c.Ops[1].CaptureInto != "name" {
 		t.Errorf("op[1]: %+v", c.Ops[1])
 	}
 }

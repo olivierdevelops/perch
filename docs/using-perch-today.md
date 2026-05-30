@@ -141,7 +141,7 @@ Today you run external tools with the **`shell`** op (a string command):
 
 ```perch
 docker compose up -d
-let out = exec git rev-parse HEAD
+let out = git rev-parse HEAD
 shell_detached "my-server --port 8080"
 ```
 
@@ -149,7 +149,7 @@ For most data work you don't need a shell at all — perch ships ~140 cross-plat
 
 ```perch
 let body = http_get "https://api.github.com/repos/me/app"
-let stars = json_get body ".stargazers_count"
+let stars = json_get "${body}" ".stargazers_count"
 let h = sha256_file "./dist/app"
 mkdir "./out"
 write_file "./out/manifest.json" "${body}"

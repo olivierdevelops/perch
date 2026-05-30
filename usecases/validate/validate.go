@@ -255,9 +255,12 @@ func (c *checker) checkOps(ops []domain.Op, where string, known map[string]bool)
 		if _, ok := c.ops[op.Kind]; !ok {
 			if op.Kind == "_template_call" {
 				name, _ := op.Args["name"].(string)
-				c.addErr(opWhere, fmt.Sprintf("`call %s` — no such template (check imports + spelling)", name))
-			} else {
-				c.addErr(opWhere, fmt.Sprintf("unknown op kind %q", op.Kind))
+				c.addErr(opWhere, fmt.Sprintf("`%s` — no such template (check imports + spelling)", name))
+			} else if !c.prog.Requirements.BinAllowed(op.Kind) {
+				// Unknown op kind → treated as a bare declared-bin invocation
+				// at runtime (`let r = docker ps`). Valid if the bin is declared
+				// in `requires`; otherwise it's an undeclared bin or a typo.
+				c.addErr(opWhere, fmt.Sprintf("`%s` is not a known op and not a declared bin in `requires`", op.Kind))
 			}
 		}
 		// `run TARGET` — validate target exists.

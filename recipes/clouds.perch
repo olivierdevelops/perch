@@ -86,7 +86,7 @@ template check_one
     do
         let h = has_bin "${bin}"
         if h
-            let raw = exec ${bin} --version
+            let raw = ${bin} --version
             let v = head "1" "${raw}"
             print "  ✓ ${bin}   ${v}"
         end

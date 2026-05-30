@@ -486,14 +486,14 @@ Work on captured output as **lines**. Most of this exists today with string/rege
 
 ```perch
 # bash:  git log --oneline | grep fix | head -5
-let log = exec git log --oneline
+let log = git log --oneline
 let fixes =
     pipe_value log                 # proposed: thread a value through line transforms
         | grep "fix"
         | head 5
     end
 # or, with today's ops only:
-let lines = split log "\n"
+let lines = split "${log}" "\n"
 for_each lines l
     if contains l "fix"
         print l
@@ -509,8 +509,8 @@ The most ergonomic move is often to **skip the external tool entirely**. perch s
 
 ```perch
 # bash:  kubectl get pods -o json | jq -r '.items[0].metadata.name'
-let raw  = exec kubectl get pods -o json
-let name = json_get raw ".items[0].metadata.name"     # no jq, no pipe, no second bin to declare
+let raw  = kubectl get pods -o json
+let name = json_get "${raw}" ".items[0].metadata.name"     # no jq, no pipe, no second bin to declare
 ```
 
 When you *do* compose tools, do it with managed pipes (above), `&&`/`||` (§3.3), `with_exec` (§3.4), and `for_each` over captured lists — every step a declared bin, every wire owned by perch.
@@ -520,9 +520,9 @@ When you *do* compose tools, do it with managed pipes (above), `&&`/`||` (§3.3)
 The building blocks shipping today:
 
 ```perch
-let body = exec curl -s https://api.github.com/repos/me/app    # (curl declared)
-let stars = json_get body ".stargazers_count"
-let topics = json_count body ".topics"
+let body = curl -s https://api.github.com/repos/me/app    # (curl declared)
+let stars = json_get "${body}" ".stargazers_count"
+let topics = json_count "${body}" ".topics"
 print "${stars} stars, ${topics} topics"
 
 # text munging without sed/awk:

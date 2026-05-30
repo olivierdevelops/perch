@@ -285,7 +285,25 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 	// handler reads i and recurses with RunOps.
 	h, ok := i.Handlers[op.Kind]
 	if !ok {
-		return fmt.Errorf("unknown op: %q", op.Kind)
+		// Unknown op kind → treat it as a bare declared-bin invocation (exec):
+		// the kind IS the bin. This makes `let r = docker ps` work without the
+		// `exec` keyword for the short-arg capture forms that the grammar would
+		// otherwise resolve to an op-kind. The exec handler applies the same
+		// requires/bin gate, so an undeclared bin still fails bin_not_declared,
+		// and a genuine op typo surfaces as that error too. Block ops never
+		// reach here (their kinds are registered handlers).
+		execH, hasExec := i.Handlers["exec"]
+		if !hasExec || op.Kind == "exec" {
+			return fmt.Errorf("unknown op: %q", op.Kind)
+		}
+		na := make(map[string]any, len(args)+1)
+		for k, v := range args {
+			na[k] = v
+		}
+		na["bin"] = op.Kind
+		args = na
+		op.Kind = "exec"
+		h = execH
 	}
 	// Attach Body for block-op handlers via a sentinel key. Block handlers
 	// look at this; non-block handlers ignore.

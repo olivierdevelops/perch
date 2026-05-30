@@ -59,7 +59,7 @@ func TestUnknownOp(t *testing.T) {
 		},
 	}
 	issues := Check(p, known("print"))
-	if !hasErr(issues, "unknown op kind") {
+	if !hasErr(issues, "not a known op") {
 		t.Errorf("expected unknown-op error; got %v", issues)
 	}
 }

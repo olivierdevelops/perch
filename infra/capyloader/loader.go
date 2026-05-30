@@ -30,6 +30,18 @@ var librarySource string
 // LibrarySource returns the embedded lib.capy grammar source.
 func LibrarySource() string { return librarySource }
 
+// opKindsSource is the canonical list of built-in op kinds (one per line),
+// generated from ops.BuiltinKinds(). The loader needs this to disambiguate a
+// bare capture's leading name — `let s = sha256 "x"` (op) vs `let r = docker
+// ps` (declared bin) — at load time, before any interpreter handler map is
+// available. Most value-returning ops (file_size, get_env, sha256_file, …)
+// have no dedicated grammar keyword: they are reachable only via the generic
+// capture form, so they wouldn't appear in the grammar-derived opVocabulary().
+// A drift test in infra/ops keeps this file in sync with the handler registry.
+//
+//go:embed opkinds.txt
+var opKindsSource string
+
 // Load parses a .perch source file and returns a Program, recursively
 // resolving any `import "PATH"` directives.
 //
@@ -204,20 +216,60 @@ func resolveImports(prog *domain.Program, imports []importDirective, base string
 func resolveBareDispatch(prog *domain.Program) {
 	cmds := prog.Commands
 	tmpls := prog.Templates
+	req := prog.Requirements
+	opKinds := opSet()
 	var walk func(ops []domain.Op)
 	walk = func(ops []domain.Op) {
 		for i := range ops {
 			op := &ops[i]
 			if op.Kind == "exec" && op.Args != nil && truthyArg(op.Args["implicit"]) {
 				bin, _ := op.Args["bin"].(string)
-				if _, ok := cmds[bin]; ok {
+				switch {
+				case opKinds[bin] && !req.BinAllowed(bin):
+					// Bare leading name is a built-in OP, not a declared bin:
+					// rewrite the captured exec back into a native op-capture.
+					// splitExecArgvAll already populated _0.._N from the tail,
+					// so the op handler sees the same positional args it would
+					// from an explicit `op "a" "b"` call. A name that is BOTH an
+					// op and a declared bin stays exec — the explicit `bin "…"`
+					// declaration signals the user meant the subprocess.
+					args := map[string]any{}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: bin, Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+				case cmds[bin] != nil:
 					args := map[string]any{"target": bin}
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
-				} else if _, ok := tmpls[bin]; ok {
+				case tmpls[bin] != nil:
 					args := map[string]any{"name": bin}
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
+				}
+			} else if op.CaptureInto != "" && op.Kind != "exec" && !opKinds[op.Kind] &&
+				cmds[op.Kind] == nil && tmpls[op.Kind] == nil && len(op.Body) == 0 {
+				// A `let x = NAME arg` single-bare-ident capture (let_1arg_ident)
+				// whose leading NAME is not a built-in op. The bare-ident arg was
+				// emitted as `_0_var` (var-ref, the op default); for a bin/command/
+				// template the ident is instead a LITERAL positional token, so
+				// demote `_0_var` → `_0` before folding to exec/run/_template_call.
+				if vn, ok := op.Args["_0_var"].(string); ok {
+					delete(op.Args, "_0_var")
+					op.Args["_0"] = vn
+				}
+				name := op.Kind
+				switch {
+				case cmds[name] != nil:
+					args := map[string]any{"target": name}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
+				case tmpls[name] != nil:
+					args := map[string]any{"name": name}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
+				default:
+					args := map[string]any{"bin": name, "implicit": true}
+					copyArgvSlots(op.Args, args)
+					*op = domain.Op{Kind: "exec", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
 				}
 			}
 			if len(op.Body) > 0 {

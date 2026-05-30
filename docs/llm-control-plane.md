@@ -65,7 +65,7 @@ command get_logs
     arg lines type int default 100 end
 
     do
-        let logs = exec kubectl -n ${ns} logs ${pod} --tail=${lines}
+        let logs = kubectl -n ${ns} logs ${pod} --tail=${lines}
         print "${logs}"
     end
 end

@@ -38,12 +38,12 @@ end
 command start_postgres
     private
     do
-        let r = exec docker ps -q -f name=^${PG_NAME}$
+        let r = docker ps -q -f name=^${PG_NAME}$
         if r
             ok "postgres already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${PG_NAME}$
+            let e = docker ps -aq -f name=^${PG_NAME}$
             if e
                 docker start ${PG_NAME}
             end
@@ -58,12 +58,12 @@ end
 command start_redis
     private
     do
-        let r = exec docker ps -q -f name=^${RD_NAME}$
+        let r = docker ps -q -f name=^${RD_NAME}$
         if r
             ok "redis already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${RD_NAME}$
+            let e = docker ps -aq -f name=^${RD_NAME}$
             if e
                 docker rm ${RD_NAME}
             end
@@ -76,12 +76,12 @@ end
 command start_minio
     private
     do
-        let r = exec docker ps -q -f name=^${M_NAME}$
+        let r = docker ps -q -f name=^${M_NAME}$
         if r
             ok "minio already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${M_NAME}$
+            let e = docker ps -aq -f name=^${M_NAME}$
             if e
                 docker start ${M_NAME}
             end

@@ -827,7 +827,7 @@ command nightly_etl
         download "https://reports.example.com/${stamp}.json.gz" "/tmp/r.json.gz"
         ungzip "/tmp/r.json.gz" "/tmp/r.json"
         let body = read_file "/tmp/r.json"
-        let users = json_get body "users"
+        let users = json_get "${body}" "users"
         let count = length users
         if count == 0
             fail "report has no users"

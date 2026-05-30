@@ -67,7 +67,7 @@ command status
     do
         let h = has_bin "mkcert"
         if h
-            let ver = exec mkcert -version
+            let ver = mkcert -version
             print "  ✓ mkcert ${ver}"
             mkcert -CAROOT
         end

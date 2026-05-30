@@ -387,7 +387,7 @@ The four mechanisms, ranked by how often you'll use them:
 
 ```perch
 # 1. `let X = OP …` — capture an op's return value into a local binding
-let rev = exec git rev-parse HEAD
+let rev = git rev-parse HEAD
 print "deploying ${rev}"
 
 # 2. Globals — read-only after parse, visible everywhere
@@ -427,7 +427,7 @@ end
 ### Working with shell output
 
 ```perch
-let lines = exec find . -name *.go -type f
+let lines = find . -name *.go -type f
 let count = length "${lines}"      # newline-counting
 print "${count} files"
 ```
@@ -576,7 +576,7 @@ Skip the body if a recent identical run cached its `let` bindings:
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = exec ./expensive-script.sh
+    let cost = ./expensive-script.sh
 end
 ```
 
@@ -927,7 +927,7 @@ end
 ```perch
 command deploy
     do
-        let raw = exec kubectl version --client -o json
+        let raw = kubectl version --client -o json
         let v   = version_extract "${raw}"
         let ok  = version_ge "${v}" "1.28.0"
         if not ok
@@ -959,7 +959,7 @@ let v = version_extract "${raw}" `"gitVersion":"v(\d+\.\d+\.\d+)`
 For halt-on-failure version gates, **`assert_version "X" OP "Y"`** reads like the math:
 
 ```perch
-let raw = exec kubectl version --client -o json
+let raw = kubectl version --client -o json
 let v   = version_extract "${raw}"
 
 assert_version "${v}" >= "1.28.0"   # halt with assert_failed if too old
@@ -1614,7 +1614,7 @@ end
 
 ```perch
 cache key="${file_hash}" ttl="24h"
-    let cost = exec ./expensive-analyzer ${file}
+    let cost = ./expensive-analyzer ${file}
 end
 print "${cost}"   # populated whether cache hit or miss
 ```
@@ -1705,10 +1705,10 @@ The `mv` is atomic on the same filesystem — readers never see a partial file.
 
 ```perch
 if has_bin "rg"
-    let matches = exec rg -l ${pattern} ./src
+    let matches = rg -l ${pattern} ./src
 end
 if not has_bin "rg"
-    let matches = exec grep -r -l ${pattern} ./src
+    let matches = grep -r -l ${pattern} ./src
 end
 ```
 
@@ -1761,7 +1761,7 @@ command delete_old_backups
         default true                          # SAFE DEFAULT
     end
     do
-        let old = exec find /backup -mtime +30
+        let old = find /backup -mtime +30
         if "${dry_run}" == "true"
             print "would delete:"
             print "${old}"
@@ -1782,8 +1782,8 @@ end
 ```perch
 command version
     do
-        let rev = exec git rev-parse --short HEAD
-        let dirty = exec git status --porcelain
+        let rev = git rev-parse --short HEAD
+        let dirty = git status --porcelain
         let suffix = ""
         if "${dirty}" != ""
             let suffix = "-dirty"
@@ -2875,7 +2875,7 @@ command pr
         default "${DEFAULT_BASE}"
     end
     do
-        let branch = exec git symbolic-ref --short HEAD
+        let branch = git symbolic-ref --short HEAD
         if "${branch}" == "${base}"
             fail "you're on ${base} — make a feature branch first (`perch branch name:my-feature`)"
         end
@@ -2885,12 +2885,12 @@ command pr
 
         # Title fallback
         if "${title}" == ""
-            let title = exec git log -1 --pretty=%s
+            let title = git log -1 --pretty=%s
         end
 
         # Open the PR via gh
         require_bin "gh"
-        let url = exec gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
+        let url = gh pr create --base ${base} --title ${title} --body "Opened via perch pr."
         print "✓ PR opened: ${url}"
 
         # Try to copy to clipboard
@@ -2908,8 +2908,8 @@ command land
     description "Squash-merge the current PR + delete the branch + sync local"
     do
         require_bin "gh"
-        let branch = exec git symbolic-ref --short HEAD
-        let base = exec gh pr view --json baseRefName -q .baseRefName
+        let branch = git symbolic-ref --short HEAD
+        let base = gh pr view --json baseRefName -q .baseRefName
         gh pr merge --squash --auto --delete-branch
         git switch ${base}
         git pull --ff-only
@@ -2920,7 +2920,7 @@ end
 command sync
     description "Pull the latest base; rebase the current branch"
     do
-        let branch = exec git symbolic-ref --short HEAD
+        let branch = git symbolic-ref --short HEAD
         git fetch origin ${DEFAULT_BASE}
         git rebase origin/${DEFAULT_BASE}
         print "✓ rebased ${branch} on ${DEFAULT_BASE}"

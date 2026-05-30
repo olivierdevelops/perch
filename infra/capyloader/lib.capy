@@ -1360,34 +1360,32 @@ ${body}{"event":"op","kind":"_leave"}
 end
 
 # ────────────────────────────────────────────────────────────────────────────
-# `let NAME = OP_KIND ARG [ARG]` — capture an op's output into a variable.
+# `let NAME = KIND ARG …` — capture a value into a variable.
+#
+# There are NO arity-specific op-capture forms here. Every capture whose RHS
+# is a bare name (no `exec` keyword) routes to the implicit-exec tail forms
+# below — `kind:"exec"`, argv as a single quote-preserving `tail`. The loader
+# (resolveBareDispatch) then decides per-name: if the leading name is a known
+# built-in OP it rewrites the captured exec back into an op-capture (reusing
+# the _0.._N slots that splitExecArgv produced); a command/template name folds
+# to run/_template_call; anything else stays a subprocess exec (a declared
+# bin). This keeps the surface uniform — `let s = sha256 "x"`, `let r = docker
+# ps -q`, `let n = file_size "x"` all parse identically — and sidesteps the
+# old per-arity ladder that emitted malformed JSON for bare/flag tokens
+# (`mktemp -d`, `kubectl config current-context`).
+#
+# ONE exception: a single bare-IDENT argument — `let shout = upper who`,
+# `let n = length users` — keeps its var-ref ergonomics. let_1arg_ident emits
+# the op kind directly with a `_0_var` slot; InterpolateArgs later resolves it
+# to `b.Lookup(<name>)`. If the leading name turns out to be a bin/command/
+# template instead of an op, resolveBareDispatch folds it back (the bare ident
+# becomes a literal argv token / positional). Quoted, `${…}`, flag, multi-arg,
+# and zero-arg captures all take the uniform implicit-exec route above.
 # ────────────────────────────────────────────────────────────────────────────
 
-function let_0args
-    arg literal "let"
-    arg capture name ident
-    arg literal "="
-    arg capture op_kind ident
-    write `{"event":"op","kind":${toJSON op_kind},"args":{},"capture_into":${toJSON name}}
-`
-end
-
-function let_1arg
-    priority 50
-    arg literal "let"
-    arg capture name ident
-    arg literal "="
-    arg capture op_kind ident
-    arg capture a0 any
-    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0}},"capture_into":${toJSON name}}
-`
-end
-
-# Ident form — `let body = http_get url` (bare ident arg, no quotes,
-# no ${...}). Emits `_0_var` instead of `_0`; the universal resolver
-# in InterpolateArgs turns that into `_0 = b.Lookup(<name>)` before
-# the handler runs. Higher priority than let_1arg so capy picks this
-# when a0 is a bare ident.
+# Single bare-ident capture: `let body = http_get url` (one bare ident, no
+# quotes, no ${…}). Emits `_0_var`; the universal resolver in InterpolateArgs
+# turns that into `_0 = b.Lookup(<name>)` before the op handler runs.
 function let_1arg_ident
     priority 75
     arg literal "let"
@@ -1396,18 +1394,6 @@ function let_1arg_ident
     arg capture op_kind ident
     arg capture a0 ident
     write `{"event":"op","kind":${toJSON op_kind},"args":{"_0_var":${toJSON a0}},"capture_into":${toJSON name}}
-`
-end
-
-function let_2args
-    priority 100
-    arg literal "let"
-    arg capture name ident
-    arg literal "="
-    arg capture op_kind ident
-    arg capture a0 any
-    arg capture a1 any
-    write `{"event":"op","kind":${toJSON op_kind},"args":{"_0":${a0},"_1":${a1}},"capture_into":${toJSON name}}
 `
 end
 

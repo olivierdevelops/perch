@@ -26,13 +26,13 @@ command up
     end
     do
         require_docker
-        let running = exec docker ps -q -f name=^${NAME}$
+        let running = docker ps -q -f name=^${NAME}$
         if running
             ok "${NAME} already running"
             print "  inbox: http://localhost:${ui_port}"
         end
         if not running
-            let existing = exec docker ps -aq -f name=^${NAME}$
+            let existing = docker ps -aq -f name=^${NAME}$
             if existing
                 docker rm ${NAME}
             end
@@ -78,7 +78,7 @@ end
 
 command status
     do
-        let info = exec docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
+        let info = docker ps -f name=^${NAME}$ --format "{{.Status}}  {{.Ports}}"
         if info
             ok "${info}"
         end

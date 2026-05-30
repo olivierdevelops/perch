@@ -37,12 +37,12 @@ end
 command start_ollama
     private
     do
-        let r = exec docker ps -q -f name=^${OLL_NAME}$
+        let r = docker ps -q -f name=^${OLL_NAME}$
         if r
             ok "ollama already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${OLL_NAME}$
+            let e = docker ps -aq -f name=^${OLL_NAME}$
             if e
                 docker start ${OLL_NAME}
             end
@@ -57,12 +57,12 @@ end
 command start_chroma
     private
     do
-        let r = exec docker ps -q -f name=^${CHR_NAME}$
+        let r = docker ps -q -f name=^${CHR_NAME}$
         if r
             ok "chromadb already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${CHR_NAME}$
+            let e = docker ps -aq -f name=^${CHR_NAME}$
             if e
                 docker start ${CHR_NAME}
             end
@@ -77,12 +77,12 @@ end
 command start_webui
     private
     do
-        let r = exec docker ps -q -f name=^${UI_NAME}$
+        let r = docker ps -q -f name=^${UI_NAME}$
         if r
             ok "open-webui already running"
         end
         if not r
-            let e = exec docker ps -aq -f name=^${UI_NAME}$
+            let e = docker ps -aq -f name=^${UI_NAME}$
             if e
                 docker start ${UI_NAME}
             end
