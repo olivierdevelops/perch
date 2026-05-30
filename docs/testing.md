@@ -48,7 +48,7 @@ The shorter answer to "should I write tests for a .perch file":
   same guardrails.
 - `--check` catches syntactic bugs — wrong op kind, unknown
   binding, mismatched arg types. It doesn't catch semantic bugs.
-  *"After `run release`, does `bin/darwin/app` exist?"* is a semantic
+  *"After `release` runs, does `bin/darwin/app` exist?"* is a semantic
   question; only execution answers it.
 - LLM agents editing `.perch` files (the whole `perch-mcp` use case)
   need verification. An agent that can write its own tests and then

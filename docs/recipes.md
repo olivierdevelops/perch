@@ -127,7 +127,7 @@ Before running a recipe you didn't write, you have static checks AND runtime gat
 ```
 $ perch --scan -f redis.perch
 ── redis.perch ─────────────────────────────────
-8 commands, 0 catch, 2 globals
+8 command(s), no catch, 2 binding(s)
 
 CAPABILITIES NEEDED
   ✓ shell       (12 calls: docker exec, docker run, docker ps, …)

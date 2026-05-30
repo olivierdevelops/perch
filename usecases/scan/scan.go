@@ -337,7 +337,7 @@ func hasUnvalidatedInterp(s string) bool {
 // PrintReport writes a human-readable scan report to w.
 func PrintReport(w io.Writer, p *domain.Program, path string, r Report) {
 	fmt.Fprintf(w, "\n  ── %s ──────────────────────────────────────────────\n\n", path)
-	fmt.Fprintf(w, "  %d command(s), %s catch, %d global(s)\n",
+	fmt.Fprintf(w, "  %d command(s), %s catch, %d binding(s)\n",
 		len(p.Commands), boolStr(p.Catch != nil), len(p.Globals.Bindings))
 	fmt.Fprintln(w)
 

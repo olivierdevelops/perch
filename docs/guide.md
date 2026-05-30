@@ -294,8 +294,8 @@ perch deploy us-east-1 -bake=15
 # Per-command help (rendered from the arg specs)
 perch build --help
 
-# Cross-command call (inside a body)
-run other_command "-arg1=x"  "-arg2=y"
+# Cross-command call (inside a body — bare command name, no `run` keyword)
+other_command "-arg1=x"  "-arg2=y"
 ```
 
 ---

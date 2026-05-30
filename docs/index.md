@@ -1188,7 +1188,7 @@ The shebang line is just a `#` comment to perch's parser, so it has no effect on
 [
   {"k":"in",  "t":"perch --scan -f deploy.perch"},
   {"k":"dim", "t":"── deploy.perch ─────────────────────────────────"},
-  {"k":"out", "t":"3 commands, 1 catch, 2 globals"},
+  {"k":"out", "t":"3 command(s), 1 catch, 2 binding(s)"},
   {"k":"blank","t":""},
   {"k":"out", "t":"CAPABILITIES NEEDED"},
   {"k":"out", "t":"  ✓ shell       (5 calls: docker, kubectl, rm, sudo)  ⚠ uses sudo"},

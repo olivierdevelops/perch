@@ -276,7 +276,7 @@ Composes AND-wise with the SSRF guard — a host in the allowlist still has to p
 	{
 		Name: "interpolation", Kind: "concept", Group: "Concepts",
 		Synopsis:    "${name} substitution inside string args",
-		Description: "Resolution order: command args → globals → per-command env → host env (host scope respects --env). Auto-bound names (home, cache_dir, exe_path, is_macos, …) are always available. The three string delimiters \"...\", '...', `...` are all raw — no backslash escapes — and all do interpolation. Pick the one that doesn't appear in your content.",
+		Description: "Resolution order: command args → top-level bindings → per-command env → host env (host scope respects --env). Auto-bound names (home, cache_dir, exe_path, is_macos, …) are always available. The three string delimiters \"...\", '...', `...` are all raw — no backslash escapes — and all do interpolation. Pick the one that doesn't appear in your content.",
 		DocURL:      "https://luowensheng.github.io/perch/language/#interpolation",
 	},
 	{
