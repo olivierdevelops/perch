@@ -115,11 +115,12 @@ end
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
+	sep := string(os.PathSeparator) // path_join uses the OS separator (\ on Windows)
 	for _, want := range []string{
-		"a=alpha/beta", // both bare idents resolve to bindings
-		"b=SRC/beta",   // quoted "SRC" is literal, bare DST resolves
-		"d=alpha/lit",  // ${SRC} interpolates, "lit" literal
-		"e=Hello world", // quoted "Hello %s" stays ONE token (spaces preserved)
+		"a=alpha" + sep + "beta", // both bare idents resolve to bindings
+		"b=SRC" + sep + "beta",   // quoted "SRC" is literal, bare DST resolves
+		"d=alpha" + sep + "lit",  // ${SRC} interpolates, "lit" literal
+		"e=Hello world",          // quoted "Hello %s" stays ONE token (spaces preserved)
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in output:\n%s", want, out)
