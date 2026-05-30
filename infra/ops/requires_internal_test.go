@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -106,6 +107,9 @@ func TestLoadHashFile_Missing(t *testing.T) {
 }
 
 func TestPathWithinAny(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixtures use Unix absolute paths (`/abs/...` isn't absolute on Windows); cross-platform FS-scope behavior is covered by TestE2E_FSScopeGating (uses t.TempDir)")
+	}
 	cwd := "/work/project"
 	roots := []string{"./src", "/abs/data"}
 
@@ -130,6 +134,9 @@ func TestPathWithinAny(t *testing.T) {
 }
 
 func TestAbsUnder_DotDotEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix path separators in fixtures; absUnder uses filepath which yields `\\` on Windows")
+	}
 	cwd := "/work/project"
 	// A `..` traversal escaping the cwd must NOT be silently accepted by the
 	// root check: absUnder cleans it to the parent, which then fails

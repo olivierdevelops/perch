@@ -1,6 +1,7 @@
 package ops_test
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -10,6 +11,9 @@ import (
 // pipe wires exec stages stdout->stdin with no shell. echo|tr|rev are real
 // bins on the test host.
 func TestPipe_WiresStagesAndCaptures(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses tr/rev which aren't on Windows PATH; pipe stage-gating is covered by TestPipe_GatesEachStage")
+	}
 	src := `name "x"
 requires
     bin "echo"
