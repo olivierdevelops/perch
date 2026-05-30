@@ -3,7 +3,7 @@
 //
 // Falls back to a clear actionable error if Go isn't on PATH (we don't
 // download pre-built binaries yet — the release workflow produces them
-// at github.com/luowensheng/perch/releases and a future revision will
+// at github.com/olivierdevelops/perch/releases and a future revision will
 // fetch + sha256-verify them).
 package installlsp
 
@@ -23,7 +23,7 @@ type Impl struct{}
 // up (perch-lsp landed after v0.1.0), this should switch back to
 // `@latest`. The release workflow also publishes pre-built perch-lsp
 // binaries on each tag.
-const modulePath = "github.com/luowensheng/perch/cmd/perch-lsp@main"
+const modulePath = "github.com/olivierdevelops/perch/cmd/perch-lsp@main"
 
 func (i *Impl) Execute() error {
 	goBin, err := exec.LookPath("go")
@@ -31,7 +31,7 @@ func (i *Impl) Execute() error {
 		return fmt.Errorf(
 			"`go` not found on PATH. Install Go (https://go.dev/dl/) and retry, " +
 				"or download a perch-lsp binary from " +
-				"https://github.com/luowensheng/perch/releases",
+				"https://github.com/olivierdevelops/perch/releases",
 		)
 	}
 	fmt.Printf("→ go install %s\n", modulePath)

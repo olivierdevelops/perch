@@ -25,10 +25,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/luowensheng/perch/infra/capyloader"
-	"github.com/luowensheng/perch/infra/interpreter"
-	"github.com/luowensheng/perch/infra/ops"
-	"github.com/luowensheng/perch/usecases/validate"
+	"github.com/olivierdevelops/perch/infra/capyloader"
+	"github.com/olivierdevelops/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/ops"
+	"github.com/olivierdevelops/perch/usecases/validate"
 )
 
 // ────────────────────────────────────────────────────────────────────────

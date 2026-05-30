@@ -1,6 +1,6 @@
 # Op catalog
 
-The built-in "standard library" — every op the perch runtime can dispatch. Each op is implemented in [`infra/ops/`](https://github.com/luowensheng/perch/tree/main/infra/ops) and registered in [`infra/capyloader/lib.capy`](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy).
+The built-in "standard library" — every op the perch runtime can dispatch. Each op is implemented in [`infra/ops/`](https://github.com/olivierdevelops/perch/tree/main/infra/ops) and registered in [`infra/capyloader/lib.capy`](https://github.com/olivierdevelops/perch/blob/main/infra/capyloader/lib.capy).
 
 Ops fall into two shapes:
 

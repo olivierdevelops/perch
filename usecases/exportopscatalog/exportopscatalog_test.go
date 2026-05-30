@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luowensheng/perch/infra/ops"
-	"github.com/luowensheng/perch/usecases/exportopscatalog"
+	"github.com/olivierdevelops/perch/infra/ops"
+	"github.com/olivierdevelops/perch/usecases/exportopscatalog"
 )
 
 func TestExecuteStdout(t *testing.T) {

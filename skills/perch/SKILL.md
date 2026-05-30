@@ -1,6 +1,6 @@
 ---
 name: perch
-description: Use this skill when the user wants to create, edit, or scaffold a `commands.perch` file for the perch task runner (https://github.com/luowensheng/perch). Trigger on: any mention of `perch`, `.perch`, "commands.perch", or requests to convert a Makefile / Justfile / shell scripts / bin folder / CI workflow into perch; also when the user asks how to ship a CLI tool as a single binary via `perch --build`. The deliverable is correct perch syntax — do not improvise keywords or ops.
+description: Use this skill when the user wants to create, edit, or scaffold a `commands.perch` file for the perch task runner (https://github.com/olivierdevelops/perch). Trigger on: any mention of `perch`, `.perch`, "commands.perch", or requests to convert a Makefile / Justfile / shell scripts / bin folder / CI workflow into perch; also when the user asks how to ship a CLI tool as a single binary via `perch --build`. The deliverable is correct perch syntax — do not improvise keywords or ops.
 ---
 
 # perch authoring guide
@@ -540,7 +540,7 @@ perch --env --no-shell deploy      # bare --env = no env vars visible at all
 
 Blocked lookups produce: `env var ${X} is not in --env allowlist (declare with --env X)`.
 
-Full design + the upcoming capability sandbox is at [sandbox.md](https://luowensheng.github.io/perch/sandbox/).
+Full design + the upcoming capability sandbox is at [sandbox.md](https://olivierdevelops.github.io/perch/sandbox/).
 
 ## Multi-file composition
 
@@ -584,7 +584,7 @@ When NOT:
 
 ## When in doubt
 
-- The op catalog is the source of truth. If you're unsure whether something is an op, look at [op-reference.md](https://github.com/luowensheng/perch/blob/main/docs/op-reference.md). If it's not there, fall back to `shell "..."`.
-- The language reference is [language.md](https://github.com/luowensheng/perch/blob/main/docs/language.md).
-- The demos folder ([demos/](https://github.com/luowensheng/perch/tree/main/demos)) has canonical patterns for common shapes.
+- The op catalog is the source of truth. If you're unsure whether something is an op, look at [op-reference.md](https://github.com/olivierdevelops/perch/blob/main/docs/op-reference.md). If it's not there, fall back to `shell "..."`.
+- The language reference is [language.md](https://github.com/olivierdevelops/perch/blob/main/docs/language.md).
+- The demos folder ([demos/](https://github.com/olivierdevelops/perch/tree/main/demos)) has canonical patterns for common shapes.
 - Ask the user about their target OS / arch when writing a build pipeline — it changes whether you need `if os == "..."` branches or not.

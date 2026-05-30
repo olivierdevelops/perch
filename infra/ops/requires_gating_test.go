@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/capyloader"
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/capyloader"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 // newGatedInterp builds an interpreter whose program carries the given

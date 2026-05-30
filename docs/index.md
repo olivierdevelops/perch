@@ -7,7 +7,7 @@ hide:
 
 <div style="background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.35);border-radius:10px;padding:12px 16px;margin:14px 0 20px;font-size:13px;line-height:1.5">
 <strong>🚫 perch is NOT accepting external contributions at this time.</strong><br>
-Pull requests will be closed unread. Feature ideas → <a href="https://github.com/luowensheng/perch/discussions">GitHub Discussions</a>. Bug reports for shipped behavior → <a href="https://github.com/luowensheng/perch/issues/new?template=bug.yml">issues</a> (welcome). The code is Apache-2.0 — fork freely. Full policy in <a href="https://github.com/luowensheng/perch/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>. This stance is "for now" and will change once the grammar / op catalog stabilises.
+Pull requests will be closed unread. Feature ideas → <a href="https://github.com/olivierdevelops/perch/discussions">GitHub Discussions</a>. Bug reports for shipped behavior → <a href="https://github.com/olivierdevelops/perch/issues/new?template=bug.yml">issues</a> (welcome). The code is Apache-2.0 — fork freely. Full policy in <a href="https://github.com/olivierdevelops/perch/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>. This stance is "for now" and will change once the grammar / op catalog stabilises.
 </div>
 
 > **One file. Every surface.** Define your commands once in a `.perch` file — run them as a CLI, a **web UI** 🪟, a REPL, an **AI-agent tool** 🤖, or a portable binary. macOS · Linux · Windows.
@@ -52,7 +52,7 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 <div class="perch-cta">
   <a class="perch-cta__primary" href="getting-started/">Get started in 5 minutes →</a>
   <a class="perch-cta__secondary" href="applications/">See 22 real applications</a>
-  <a class="perch-cta__secondary" href="https://github.com/luowensheng/perch">GitHub</a>
+  <a class="perch-cta__secondary" href="https://github.com/olivierdevelops/perch">GitHub</a>
 </div>
 
 ---
@@ -70,7 +70,7 @@ Pull requests will be closed unread. Feature ideas → <a href="https://github.c
 <div class="card">
   <h4>🔒 <code>wasm_run</code> — sandbox by construction</h4>
   <p>Load a WebAssembly module. It sees ONLY the argv, env vars, and mounts you <em>declared</em> — anything else <strong>doesn't exist</strong>. Not policy. Construction.</p>
-  <p style="font-size:11px;color:var(--md-default-fg-color--light);margin:6px 0 0">🎯 <a href="https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host"><strong>Killer demo: zero-trust AI plugin runtime</strong></a> · <a href="wasm/">reference</a> · <a href="wasm-walkthroughs/">5 walkthroughs</a></p>
+  <p style="font-size:11px;color:var(--md-default-fg-color--light);margin:6px 0 0">🎯 <a href="https://github.com/olivierdevelops/perch/tree/main/demos/wasm-plugin-host"><strong>Killer demo: zero-trust AI plugin runtime</strong></a> · <a href="wasm/">reference</a> · <a href="wasm-walkthroughs/">5 walkthroughs</a></p>
 </div>
 
 <div class="card">
@@ -494,8 +494,8 @@ Docker/kubectl wrappers. Download one, audit with `perch --scan`, run it.
 
 ```sh
 # Pick one. Run it.
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/redis.perch -o redis.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/_lib.perch -o _lib.perch
 perch --scan -f redis.perch        # audit before running
 perch -f redis.perch up             # 8 verbs ready: up / down / cli / flush / monitor / logs / backup / status
 ```
@@ -603,7 +603,7 @@ ops/security (mkcert-local, backup, scan-secrets).
 
 ```sh
 # 1) install
-go install github.com/luowensheng/perch@latest
+go install github.com/olivierdevelops/perch@latest
 
 # 2) scaffold
 perch --init
@@ -770,7 +770,7 @@ ssh user@server 'stt_bin install && stt example.wav'
 
 The recipient needs **only** what your install command requires (here: `python3`). No package manager. No registry. No internet at install time.
 
-→ Worked example: **[demos/05-python-installer](https://github.com/luowensheng/perch/tree/main/demos/05-python-installer)**
+→ Worked example: **[demos/05-python-installer](https://github.com/olivierdevelops/perch/tree/main/demos/05-python-installer)**
 
 </div>
 
@@ -936,7 +936,7 @@ The questions enterprise teams ask up-front, answered in one place:
 
 <div class="card">
   <h4>📜 License + dependencies</h4>
-  <p>Apache-2.0. <strong>One Go binary, no SaaS, no telemetry, no phone-home.</strong> Self-host or `go install`. Bundle into your own distribution. No license fees, no per-seat costs, no cloud account required. Source: <a href="https://github.com/luowensheng/perch">github.com/luowensheng/perch</a>.</p>
+  <p>Apache-2.0. <strong>One Go binary, no SaaS, no telemetry, no phone-home.</strong> Self-host or `go install`. Bundle into your own distribution. No license fees, no per-seat costs, no cloud account required. Source: <a href="https://github.com/olivierdevelops/perch">github.com/olivierdevelops/perch</a>.</p>
 </div>
 
 <div class="card">
@@ -956,7 +956,7 @@ The questions enterprise teams ask up-front, answered in one place:
 
 <div class="card">
   <h4>📊 Status &amp; maturity</h4>
-  <p><strong>Pre-1.0 (v0.x).</strong> DSL surface is stable; op catalog continues to grow. SemVer applies once v1.0 is tagged. CI runs the full test suite on every commit. The repo eats its own dog food — <a href="https://github.com/luowensheng/perch/blob/main/commands.perch"><code>commands.perch</code></a> is what builds / tests / cleans perch itself.</p>
+  <p><strong>Pre-1.0 (v0.x).</strong> DSL surface is stable; op catalog continues to grow. SemVer applies once v1.0 is tagged. CI runs the full test suite on every commit. The repo eats its own dog food — <a href="https://github.com/olivierdevelops/perch/blob/main/commands.perch"><code>commands.perch</code></a> is what builds / tests / cleans perch itself.</p>
 </div>
 
 </div>
@@ -1098,13 +1098,13 @@ Every error message includes a `perch help <topic>` hint pointing exactly at the
 Install (macOS / Linux / WSL — picks the right binary for your platform):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 ```
 
 Run a `.perch` file straight from a URL (no save-to-disk step), with restrictions you choose:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/sample.perch \
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/sample.perch \
   | perch --no-shell --no-network -f - hello
 ```
 
@@ -1146,7 +1146,7 @@ The shebang line is just a `#` comment to perch's parser, so it has no effect on
 <script type="application/json" data-pterm="t-pipe">
 [
   {"k":"dim", "t":"# install in one line:"},
-  {"k":"in",  "t":"curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh"},
+  {"k":"in",  "t":"curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh"},
   {"k":"ok",  "t":"✓ perch v0.6.0 installed to /usr/local/bin/perch"},
   {"k":"blank","t":""},
   {"k":"dim", "t":"# run a remote .perch file straight from a URL — never lands on disk:"},
@@ -1459,4 +1459,4 @@ Grouped by what you're trying to do. Each row is one page.
 | [user-experience.md](user-experience.md) | UX roadmap |
 | [ai-assisted-authoring.md](ai-assisted-authoring.md) | Notes on agent-authored `.perch` files |
 
-Source on GitHub: [**luowensheng/perch**](https://github.com/luowensheng/perch). Apache-2.0. One Go binary, no SaaS, no telemetry.
+Source on GitHub: [**olivierdevelops/perch**](https://github.com/olivierdevelops/perch). Apache-2.0. One Go binary, no SaaS, no telemetry.

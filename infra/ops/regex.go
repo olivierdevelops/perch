@@ -3,7 +3,7 @@ package ops
 import (
 	"regexp"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerRegex(m map[string]interpreter.Handler) {

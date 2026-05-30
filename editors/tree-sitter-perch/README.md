@@ -1,6 +1,6 @@
 # tree-sitter-perch
 
-Incremental parser for the [perch](https://github.com/luowensheng/perch) command-file DSL.
+Incremental parser for the [perch](https://github.com/olivierdevelops/perch) command-file DSL.
 
 ## Generate the parser
 
@@ -18,7 +18,7 @@ Until this is upstreamed:
 ```lua
 require'nvim-treesitter.parsers'.get_parser_configs().perch = {
   install_info = {
-    url = "https://github.com/luowensheng/perch",
+    url = "https://github.com/olivierdevelops/perch",
     files = { "editors/tree-sitter-perch/src/parser.c" },
     branch = "main",
   },
@@ -43,7 +43,7 @@ comment-token = "#"
 
 [[grammar]]
 name = "perch"
-source = { git = "https://github.com/luowensheng/perch", subpath = "editors/tree-sitter-perch", rev = "main" }
+source = { git = "https://github.com/olivierdevelops/perch", subpath = "editors/tree-sitter-perch", rev = "main" }
 ```
 
 ## Roadmap

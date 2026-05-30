@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/capyloader"
-	"github.com/luowensheng/perch/infra/interpreter"
-	"github.com/luowensheng/perch/infra/ops"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/capyloader"
+	"github.com/olivierdevelops/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/ops"
 )
 
 // runSource loads a .perch source string through the real loader, builds an

@@ -11,7 +11,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerHash(m map[string]interpreter.Handler) {

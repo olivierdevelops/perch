@@ -63,7 +63,7 @@
 
 ```sh
 # 1. Install
-go install github.com/luowensheng/perch@latest
+go install github.com/olivierdevelops/perch@latest
 
 # 2. Make a file
 cat > commands.perch <<'EOF'
@@ -97,17 +97,17 @@ That's perch. Everything else in this doc is depth on top of these three command
 
 | Platform | Command |
 |---|---|
-| **Go users (any OS)** | `go install github.com/luowensheng/perch@latest` |
-| **macOS / Linux (binary)** | `curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh \| sh` |
-| **Windows (PowerShell)** | `irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1 \| iex` |
+| **Go users (any OS)** | `go install github.com/olivierdevelops/perch@latest` |
+| **macOS / Linux (binary)** | `curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh \| sh` |
+| **Windows (PowerShell)** | `irm https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.ps1 \| iex` |
 | **Homebrew (macOS)** | See repo for tap status |
-| **Manual** | Download from the [releases page](https://github.com/luowensheng/perch/releases) |
+| **Manual** | Download from the [releases page](https://github.com/olivierdevelops/perch/releases) |
 
 **Optional companions (also installed via Go):**
 
 ```sh
-go install github.com/luowensheng/perch/cmd/perch-mcp@latest  # MCP server for AI agents
-go install github.com/luowensheng/perch/cmd/perch-lsp@latest  # LSP for editors
+go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest  # MCP server for AI agents
+go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest  # LSP for editors
 ```
 
 Or use the built-in installers:
@@ -1180,7 +1180,7 @@ ssh ops@host 'myapp run_plugin'      # zero install, zero disk reads
 - CLI `--include PATH` at `--build` time is **additive** (use for CI steps injecting generated files).
 - Recipients of the binary need **only** what your install commands themselves require — no Go, no perch, no python (unless YOU shell out to python).
 
-Worked example: [demos/05-python-installer](https://github.com/luowensheng/perch/tree/main/demos/05-python-installer) — a single binary that drops a Python project into `~/.cache/perch/<hash>/`, sets up a venv, and links into `$PATH`.
+Worked example: [demos/05-python-installer](https://github.com/olivierdevelops/perch/tree/main/demos/05-python-installer) — a single binary that drops a Python project into `~/.cache/perch/<hash>/`, sets up a venv, and links into `$PATH`.
 
 ---
 
@@ -1231,7 +1231,7 @@ WASI Preview 1 has no sockets. perch exposes HTTP via host imports under the mod
 
 ```go
 // fetch.go — compiled with GOOS=wasip1 GOARCH=wasm
-import "github.com/luowensheng/perch/wasm-sdk/perchhttp"
+import "github.com/olivierdevelops/perch/wasm-sdk/perchhttp"
 
 body, status, err := perchhttp.Get("https://api.github.com/zen")
 ```
@@ -1254,7 +1254,7 @@ What's enforced:
 
 **Honest limits:** only `GET` (no POST/PUT/DELETE yet), no custom headers, 32 MB response cap, no streaming. Roadmap: POST + headers next; sockets only if WASI Preview 2 stabilises in wazero.
 
-The killer demo for `wasm_run`: [demos/wasm-plugin-host](https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host) — a plugin runtime that runs 4 legitimate plugins + 1 deliberately malicious plugin trying 5 escape attempts; every escape fails because the runtime doesn't *provide* those operations.
+The killer demo for `wasm_run`: [demos/wasm-plugin-host](https://github.com/olivierdevelops/perch/tree/main/demos/wasm-plugin-host) — a plugin runtime that runs 4 legitimate plugins + 1 deliberately malicious plugin trying 5 escape attempts; every escape fails because the runtime doesn't *provide* those operations.
 
 ---
 
@@ -2014,7 +2014,7 @@ ssh user@host '/tmp/stt install && stt example.wav'
 
 The recipient needs **only** `python3` on PATH. No pip, no virtualenv setup, no internet at install time, no version skew.
 
-→ Full demo: [demos/05-python-installer](https://github.com/luowensheng/perch/tree/main/demos/05-python-installer).
+→ Full demo: [demos/05-python-installer](https://github.com/olivierdevelops/perch/tree/main/demos/05-python-installer).
 
 ---
 
@@ -2185,7 +2185,7 @@ end
 
 Plugins can be written in **any language that targets WASI**: Go, Rust, TinyGo, Zig, C++ via wasi-sdk, AssemblyScript. The contract is "read `/ro/input/X`, write JSON to stdout."
 
-→ Killer demo with malicious plugin: [demos/wasm-plugin-host](https://github.com/luowensheng/perch/tree/main/demos/wasm-plugin-host).
+→ Killer demo with malicious plugin: [demos/wasm-plugin-host](https://github.com/olivierdevelops/perch/tree/main/demos/wasm-plugin-host).
 → Five real-world WASM walkthroughs: [docs/wasm-walkthroughs.md](wasm-walkthroughs.md).
 
 ---
@@ -3356,7 +3356,7 @@ Yes, via `shell "perch -f other.perch other_command"`. For an in-process equival
 
 ```yaml
 - uses: actions/setup-go@v5
-- run: go install github.com/luowensheng/perch@v0.5.0
+- run: go install github.com/olivierdevelops/perch@v0.5.0
 ```
 
 Pin to a tagged release. Major-version bumps may break the DSL surface; minor + patch are non-breaking by policy.
@@ -3393,7 +3393,7 @@ What perch does **not** do (be precise about scope so you can decide):
 | Container registry / image pull | None. Distribute the binary itself (scp / GitHub Release / curl). |
 | Plugins implemented in non-WASM languages | All WASM-targeting languages work (Go, Rust, TinyGo, Zig, C, AssemblyScript). Native plugins via `shell` work but have no isolation. |
 | Cross-compile via `perch --build` (target ≠ host) | Roadmap. Today: `--build` produces a binary for the host's OS/arch; for cross-targeting, build perch itself with `GOOS`/`GOARCH` set. |
-| External contributions to this repo | See [CONTRIBUTING.md](https://github.com/luowensheng/perch/blob/main/CONTRIBUTING.md). Forking is encouraged. |
+| External contributions to this repo | See [CONTRIBUTING.md](https://github.com/olivierdevelops/perch/blob/main/CONTRIBUTING.md). Forking is encouraged. |
 
 ---
 
@@ -3469,4 +3469,4 @@ test [--filter PAT] [-v]         run tests
 - [WASM walkthroughs](wasm-walkthroughs.md) — five real-world workflows
 - [The OS analogy](os-in-a-program.md) — the deeper claim
 
-Bug reports → [open an issue](https://github.com/luowensheng/perch/issues/new?template=bug.yml). Ideas / show-and-tell → [Discussions](https://github.com/luowensheng/perch/discussions).
+Bug reports → [open an issue](https://github.com/olivierdevelops/perch/issues/new?template=bug.yml). Ideas / show-and-tell → [Discussions](https://github.com/olivierdevelops/perch/discussions).

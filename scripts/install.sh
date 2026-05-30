@@ -2,8 +2,8 @@
 # perch installer for macOS and Linux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh -s -- --version v0.1.0
+#   curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh -s -- --version v0.1.0
 #
 # Honors:
 #   PERCH_INSTALL_DIR    — install destination (default: /usr/local/bin or ~/.local/bin)
@@ -11,7 +11,7 @@
 
 set -eu
 
-REPO="luowensheng/perch"
+REPO="olivierdevelops/perch"
 DEFAULT_DIR="/usr/local/bin"
 FALLBACK_DIR="$HOME/.local/bin"
 

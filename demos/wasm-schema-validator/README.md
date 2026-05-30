@@ -119,7 +119,7 @@ Requires Go 1.21+ (the standard `wasip1` target). No TinyGo / Emscripten / wasi-
 ```yaml
 # .github/workflows/validate.yml
 - run: |
-    curl -fsSL https://github.com/luowensheng/perch/releases/latest/download/perch-linux-amd64 -o perch
+    curl -fsSL https://github.com/olivierdevelops/perch/releases/latest/download/perch-linux-amd64 -o perch
     chmod +x perch
     ./perch -f demos/wasm-schema-validator/commands.perch validate_all
 ```

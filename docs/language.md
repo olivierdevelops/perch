@@ -452,7 +452,7 @@ end
 
 User-keyed body cache. First arg = cache key. Second = TTL duration. On miss: runs the body and persists every `let X = …` binding produced. On hit within TTL: skips the body entirely and replays the captured bindings into scope. Stored at `~/.cache/perch/blocks/<sha256(key)>.json`.
 
-**Honest framing:** perch does NOT hash the body's transitive inputs. The user picks the key, and the key is the contract. If a stale input is left out of the key, you get stale cache. This is intentional — perch lacks the hermeticity needed for content-addressed caching (see [ideas/05](https://github.com/luowensheng/perch/blob/main/ideas/05-build-system-direction.md)). The user-keyed model matches how every practical caching layer (GitHub Actions cache, Earthly `--cache-id`, etc.) actually works.
+**Honest framing:** perch does NOT hash the body's transitive inputs. The user picks the key, and the key is the contract. If a stale input is left out of the key, you get stale cache. This is intentional — perch lacks the hermeticity needed for content-addressed caching (see [ideas/05](https://github.com/olivierdevelops/perch/blob/main/ideas/05-build-system-direction.md)). The user-keyed model matches how every practical caching layer (GitHub Actions cache, Earthly `--cache-id`, etc.) actually works.
 
 ### `--report` — see what ran, in what order, for how long
 
@@ -521,4 +521,4 @@ end
 
 ## Reserved words
 
-The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if`, `let`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).
+The DSL has *no reserved words*. `name`, `command`, `do`, `end`, `if`, `let`, etc. are just library-defined functions. You could rebind them by editing perch's [lib.capy](https://github.com/olivierdevelops/perch/blob/main/infra/capyloader/lib.capy) — and yes, that's the point of building on [capy](https://luowensheng.github.io/capy).

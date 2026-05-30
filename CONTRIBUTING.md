@@ -9,8 +9,8 @@ external maintenance fit the workflow. To set expectations honestly:
 | What | Status |
 |---|---|
 | **Pull requests** | Will be closed unread. Please don't open them. |
-| **Feature requests** | Will be redirected to [GitHub Discussions](https://github.com/luowensheng/perch/discussions). The maintainer reads Discussions, but ideas land on the roadmap at the maintainer's pace and are implemented by the maintainer. |
-| **Bug reports for shipped behavior** | Welcome. Open a [bug issue](https://github.com/luowensheng/perch/issues/new?template=bug.yml). Fixes will be authored by the maintainer. |
+| **Feature requests** | Will be redirected to [GitHub Discussions](https://github.com/olivierdevelops/perch/discussions). The maintainer reads Discussions, but ideas land on the roadmap at the maintainer's pace and are implemented by the maintainer. |
+| **Bug reports for shipped behavior** | Welcome. Open a [bug issue](https://github.com/olivierdevelops/perch/issues/new?template=bug.yml). Fixes will be authored by the maintainer. |
 | **Security issues** | Email the maintainer directly. See [SECURITY.md](SECURITY.md) if/when it exists; otherwise the GitHub profile contact. |
 | **Forks** | Encouraged. perch is Apache-2.0 — fork it, ship your own variant, run your own roadmap. |
 
@@ -48,4 +48,4 @@ that happens:
 
 Until then: thanks for understanding, and thanks for using perch.
 
-— [@luowensheng](https://github.com/luowensheng)
+— [@olivierdevelops](https://github.com/olivierdevelops)

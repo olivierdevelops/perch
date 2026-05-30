@@ -6,7 +6,7 @@
   "keywords": ["parsing", "incremental", "perch", "capy"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/luowensheng/perch.git",
+    "url": "https://github.com/olivierdevelops/perch.git",
     "directory": "editors/tree-sitter-perch"
   },
   "license": "Apache-2.0",

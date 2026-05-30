@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerEncoding(m map[string]interpreter.Handler) {

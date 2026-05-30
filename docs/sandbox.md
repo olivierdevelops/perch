@@ -79,7 +79,7 @@ perch --restrictions            # list every restriction with the exact ops each
 **They compose.** `perch --no-shell --no-network --no-write deploy` is the strictest set. No alias, no preset — the flag names are the spec. Each blocked op returns:
 
 ```
-op "shell" is disabled by --no-shell (see https://luowensheng.github.io/perch/sandbox/)
+op "shell" is disabled by --no-shell (see https://olivierdevelops.github.io/perch/sandbox/)
 ```
 
 When any restriction is active, perch prints a one-line banner so reviewers / CI logs see the posture at a glance:
@@ -895,4 +895,4 @@ With all of these:
 - You can ship a `.perch` to colleagues as a binary and the auditable sandbox block tells reviewers what the tool can do.
 - **And perch becomes, defensibly, a cross-platform shell.**
 
-Feedback welcome on the [tracking issue](https://github.com/luowensheng/perch/issues).
+Feedback welcome on the [tracking issue](https://github.com/olivierdevelops/perch/issues).

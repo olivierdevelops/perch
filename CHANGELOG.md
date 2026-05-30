@@ -485,7 +485,7 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
   - **`--no-network`** — disables every network-touching op (`http_*`, `download`, `dns_lookup`, `port_*`, `wait_for_*`, `public_ip`, `local_ip`, `mac_address`, `interfaces`).
   - **`--no-write`** — disables every filesystem-mutation op (`write_file`, `append_*`, `cp`, `mv`, `rm`, `mkdir`, `chmod`, `touch`, archive create/extract, `symlink`, `bundle_extract`, `bundle_dir`, …).
   - **`--env A,B,C`** (or `--env=A,B,C`, or repeated `--env A --env B`) — restricts which host env vars resolve via `${NAME}` fallthrough. Bare `--env` = "no env vars visible." Auto-bound names (`home`, `cache_dir`, `exe_path`, `is_macos`, …) are NOT env vars and are unaffected.
-  - Blocked op call returns `op "X" is disabled by --no-Y (see https://luowensheng.github.io/perch/sandbox/)`. Blocked env lookup returns `env var ${SECRET_KEY} is not in --env allowlist (declare with --env SECRET_KEY)`.
+  - Blocked op call returns `op "X" is disabled by --no-Y (see https://olivierdevelops.github.io/perch/sandbox/)`. Blocked env lookup returns `env var ${SECRET_KEY} is not in --env allowlist (declare with --env SECRET_KEY)`.
   - Whenever any restriction is active, perch prints a one-line `🔒 security: …` banner naming every active flag so the posture is visible in CI logs and code review.
   - **`perch --restrictions`** lists every flag with the exact ops it blocks.
   - **Replaces** the earlier `--mode safe|offline|read-only|pure` knob. The `--mode` flag name conveyed marketing intent rather than mechanism; `--no-shell` says what it does. Strictly more expressive, too: you can take `--no-shell --no-network` without taking `--no-write` along.
@@ -568,5 +568,5 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 - Shell completions for bash/zsh/fish, emittable via `perch --completions SHELL`.
 - `perch-mcp` MCP server at `cmd/perch-mcp/` for AI-agent integration.
 
-[Unreleased]: https://github.com/luowensheng/perch/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/luowensheng/perch/releases/tag/v0.1.0
+[Unreleased]: https://github.com/olivierdevelops/perch/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/olivierdevelops/perch/releases/tag/v0.1.0

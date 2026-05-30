@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luowensheng/perch/domain"
+	"github.com/olivierdevelops/perch/domain"
 )
 
 // TestRequiresBlockParsing verifies the loader hydrates a full `requires`

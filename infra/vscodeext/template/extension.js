@@ -2,7 +2,7 @@
 // server for `.perch` files. Plain JS so no TypeScript build is needed.
 //
 // Users only need:
-//   1. `go install github.com/luowensheng/perch/cmd/perch-lsp@latest`
+//   1. `go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest`
 //   2. install this extension (`scripts/install-vscode.sh` does both
 //       steps + `code --install-extension`).
 
@@ -40,7 +40,7 @@ function activate(context) {
     client.start().catch((err) => {
         window.showWarningMessage(
             "perch: could not start " + serverPath + ". " +
-            "Install with: go install github.com/luowensheng/perch/cmd/perch-lsp@latest. " +
+            "Install with: go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest. " +
             "Error: " + (err && err.message ? err.message : String(err)),
         );
     });

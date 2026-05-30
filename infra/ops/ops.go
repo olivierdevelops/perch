@@ -2,7 +2,7 @@
 // interpreter. Each category contributes its handlers to AllHandlers.
 package ops
 
-import "github.com/luowensheng/perch/infra/interpreter"
+import "github.com/olivierdevelops/perch/infra/interpreter"
 
 // AllHandlers returns a fresh map of every op kind perch knows about.
 // The orchestrator hands this to interpreter.New.

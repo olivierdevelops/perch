@@ -2,7 +2,7 @@
 //
 // Usage from a TinyGo / Go-wasi module:
 //
-//	import "github.com/luowensheng/perch/wasm-sdk/perchhttp"
+//	import "github.com/olivierdevelops/perch/wasm-sdk/perchhttp"
 //
 //	body, status, err := perchhttp.Get("https://api.example.com/health")
 //	if err != nil { /* policy violation, network error, or out of cap */ }

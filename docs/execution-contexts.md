@@ -381,7 +381,7 @@ of the key, you get stale cache.
 This is intentional. perch's `shell` op is a black box the runtime
 can't see through — it can't know which files `go build` reads. A
 real content-addressed cache (Bazel, Nix) requires hermeticity that
-perch deliberately doesn't have (see [ideas/05](https://github.com/luowensheng/perch/blob/main/ideas/05-build-system-direction.md)).
+perch deliberately doesn't have (see [ideas/05](https://github.com/olivierdevelops/perch/blob/main/ideas/05-build-system-direction.md)).
 
 The user-keyed model matches how every practical caching layer
 actually works — GitHub Actions `cache@v3`, Earthly's `--cache-id`,
@@ -652,5 +652,5 @@ What this is in one sentence:
 > language model didn't change; the op catalog grew.
 
 See [language.md](language.md) for the canonical syntax reference and
-[ideas/](https://github.com/luowensheng/perch/blob/main/ideas/) for
+[ideas/](https://github.com/olivierdevelops/perch/blob/main/ideas/) for
 the design rationale.

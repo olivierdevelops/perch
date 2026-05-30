@@ -22,7 +22,7 @@ please **do not** open a public GitHub issue.
 
 Instead, email the maintainer or use GitHub's private security advisory feature:
 
-→ <https://github.com/luowensheng/perch/security/advisories/new>
+→ <https://github.com/olivierdevelops/perch/security/advisories/new>
 
 You can expect:
 

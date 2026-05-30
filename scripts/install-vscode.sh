@@ -15,7 +15,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EXT_DIR="$REPO_ROOT/editors/vscode-perch"
 
 echo "→ Installing perch-lsp via go"
-go install github.com/luowensheng/perch/cmd/perch-lsp@latest
+go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest
 
 cd "$EXT_DIR"
 

@@ -12,13 +12,13 @@ Same code path as `perch <cmd>` from the CLI. The agent sees the same world your
 ## Install
 
 ```sh
-go install github.com/luowensheng/perch/cmd/perch-mcp@latest
+go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
 ```
 
 Or build from source:
 
 ```sh
-git clone https://github.com/luowensheng/perch.git
+git clone https://github.com/olivierdevelops/perch.git
 cd perch
 go build -o perch-mcp ./cmd/perch-mcp
 ```
@@ -184,5 +184,5 @@ Mitigations:
 
 ## See also
 
-- [skills/perch/SKILL.md](https://github.com/luowensheng/perch/blob/main/skills/perch/SKILL.md) — Claude Code skill for *writing* commands.perch files (complements the MCP server, which *runs* them).
+- [skills/perch/SKILL.md](https://github.com/olivierdevelops/perch/blob/main/skills/perch/SKILL.md) — Claude Code skill for *writing* commands.perch files (complements the MCP server, which *runs* them).
 - [docs/op-reference.md](op-reference.md) — what ops are available inside command bodies the agent will be calling.

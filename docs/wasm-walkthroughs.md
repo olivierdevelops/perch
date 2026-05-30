@@ -3,7 +3,7 @@
 > **This page is the "how do I actually use this?" guide.** For the
 > reference (every flag, every capability declaration), see
 > [`wasm.md`](wasm.md). For the design rationale, see
-> [`ideas/12-wasm-execution.md`](https://github.com/luowensheng/perch/blob/main/ideas/12-wasm-execution.md).
+> [`ideas/12-wasm-execution.md`](https://github.com/olivierdevelops/perch/blob/main/ideas/12-wasm-execution.md).
 >
 > Each walkthrough below is a complete, runnable example: the WASM
 > source (Go), the build command, the `.perch` file, sample output,
@@ -715,7 +715,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: go install github.com/luowensheng/perch@latest
+      - run: go install github.com/olivierdevelops/perch@latest
 
       # Restore the perch cache between CI runs.
       - uses: actions/cache@v4
@@ -990,5 +990,5 @@ The full roadmap lives in [`wasm.md`](wasm.md#status-whats-in-the-v1-whats-comin
 - [`docs/execution-contexts.md`](execution-contexts.md) — `parallel` / `retry` / `timeout` / `cache` / `sandbox` block ops that compose with `wasm_run`
 - [`docs/testing.md`](testing.md) — `perch test` for verifying your WASM workflows in CI
 - [`docs/llm-control-plane.md`](llm-control-plane.md) — the agent-safety story in depth
-- [`demos/wasm-hello/`](https://github.com/luowensheng/perch/tree/main/demos/wasm-hello) — minimal end-to-end demo (Go source + pre-built `.wasm` + commands.perch)
-- [`ideas/12-wasm-execution.md`](https://github.com/luowensheng/perch/blob/main/ideas/12-wasm-execution.md) — design rationale + what's intentionally NOT in v1
+- [`demos/wasm-hello/`](https://github.com/olivierdevelops/perch/tree/main/demos/wasm-hello) — minimal end-to-end demo (Go source + pre-built `.wasm` + commands.perch)
+- [`ideas/12-wasm-execution.md`](https://github.com/olivierdevelops/perch/blob/main/ideas/12-wasm-execution.md) — design rationale + what's intentionally NOT in v1

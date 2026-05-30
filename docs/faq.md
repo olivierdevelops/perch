@@ -20,7 +20,7 @@ The closest competitor in spirit is [Just](https://github.com/casey/just). perch
 
 ## Why capy and not YAML/TOML?
 
-Capy is a transpiler engine for custom DSLs. We use it to define the perch grammar in a single declarative file ([`lib.capy`](https://github.com/luowensheng/perch/blob/main/infra/capyloader/lib.capy)). The benefits over hand-rolled parsing:
+Capy is a transpiler engine for custom DSLs. We use it to define the perch grammar in a single declarative file ([`lib.capy`](https://github.com/olivierdevelops/perch/blob/main/infra/capyloader/lib.capy)). The benefits over hand-rolled parsing:
 
 - The grammar is self-documenting. Adding a new keyword is one capy function.
 - The output is structured JSON; no string-munging in the Go runtime.
@@ -121,4 +121,4 @@ Capybaras famously let other animals — birds, monkeys, turtles — perch on th
 
 ## Where do I report bugs / request features?
 
-[github.com/luowensheng/perch/issues](https://github.com/luowensheng/perch/issues). New op requests are especially welcome — they're usually a one-file PR.
+[github.com/olivierdevelops/perch/issues](https://github.com/olivierdevelops/perch/issues). New op requests are especially welcome — they're usually a one-file PR.

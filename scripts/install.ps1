@@ -1,7 +1,7 @@
 # perch installer for Windows.
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.ps1 | iex
 #
 # Environment:
 #   $env:PERCH_VERSION       version tag to install (default: latest)
@@ -9,7 +9,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "luowensheng/perch"
+$Repo = "olivierdevelops/perch"
 
 # ── OS / arch ───────────────────────────────────────────────────────────────
 $Os = "windows"

@@ -107,7 +107,7 @@ func printJSON(w io.Writer, version string, cat []Topic, topic string) error {
 	if topic == "" {
 		return enc.Encode(map[string]any{
 			"perch_version": version,
-			"doc_root":      "https://luowensheng.github.io/perch/",
+			"doc_root":      "https://olivierdevelops.github.io/perch/",
 			"topics":        cat,
 		})
 	}
@@ -144,7 +144,7 @@ func printIndex(w io.Writer, cat []Topic) {
 		fmt.Fprintln(w)
 	}
 	fmt.Fprintln(w, "Op reference (~140 built-in ops):")
-	fmt.Fprintln(w, "  https://luowensheng.github.io/perch/op-reference/")
+	fmt.Fprintln(w, "  https://olivierdevelops.github.io/perch/op-reference/")
 	fmt.Fprintln(w)
 }
 

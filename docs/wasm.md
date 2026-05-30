@@ -179,7 +179,7 @@ end
 
 ```go
 // inside fetch.go — compiled with GOOS=wasip1 GOARCH=wasm
-import "github.com/luowensheng/perch/wasm-sdk/perchhttp"
+import "github.com/olivierdevelops/perch/wasm-sdk/perchhttp"
 
 body, status, err := perchhttp.Get("https://api.github.com/zen")
 ```
@@ -355,7 +355,7 @@ converters, security scanners) are likely to be `wasm_run`-based.
 
 ## See also
 
-- [`demos/wasm-hello/`](https://github.com/luowensheng/perch/tree/main/demos/wasm-hello) — the worked example (Go source + pre-built `.wasm` + `commands.perch`)
+- [`demos/wasm-hello/`](https://github.com/olivierdevelops/perch/tree/main/demos/wasm-hello) — the worked example (Go source + pre-built `.wasm` + `commands.perch`)
 - [`execution-contexts.md`](execution-contexts.md) — the block-op shape that `wasm_run` plugs into
 - [`sandbox.md`](sandbox.md) — the broader capability model
-- [`ideas/07-hermetic-vs-capability.md`](https://github.com/luowensheng/perch/blob/main/ideas/07-hermetic-vs-capability.md) — the design discussion that led to this feature
+- [`ideas/07-hermetic-vs-capability.md`](https://github.com/olivierdevelops/perch/blob/main/ideas/07-hermetic-vs-capability.md) — the design discussion that led to this feature

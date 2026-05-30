@@ -9,8 +9,8 @@
 
 ```sh
 # Download a recipe + its shared library
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/redis.perch -o redis.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/_lib.perch -o _lib.perch
 
 # Audit BEFORE running — risk score + what it touches
 perch --scan -f redis.perch
@@ -211,4 +211,4 @@ just run `./devup up`. No perch install needed.
 they rely on are stable. Open a PR to add a recipe for the thing you wish
 existed.
 
-Source: [github.com/luowensheng/perch/tree/main/recipes](https://github.com/luowensheng/perch/tree/main/recipes).
+Source: [github.com/olivierdevelops/perch/tree/main/recipes](https://github.com/olivierdevelops/perch/tree/main/recipes).

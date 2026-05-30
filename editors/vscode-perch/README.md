@@ -1,6 +1,6 @@
 # perch — VS Code extension
 
-Syntax highlighting for `.perch` files written against the [perch](https://github.com/luowensheng/perch) command-runner DSL.
+Syntax highlighting for `.perch` files written against the [perch](https://github.com/olivierdevelops/perch) command-runner DSL.
 
 ## Features
 
@@ -23,4 +23,4 @@ code --install-extension perch-0.1.0.vsix
 
 ## Install — from the marketplace
 
-Coming soon. The extension will be published to the VS Code Marketplace as `luowensheng.perch`.
+Coming soon. The extension will be published to the VS Code Marketplace as `olivierdevelops.perch`.

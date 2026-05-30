@@ -287,4 +287,4 @@ regress anything tested.
 - [`execution-contexts.md`](execution-contexts.md) — templates,
   contexts, and `--report` in detail
 - [`sandbox.md`](sandbox.md) — the capability model tests sit on top of
-- [`commands.perch` in the perch repo itself](https://github.com/luowensheng/perch/blob/main/commands.perch) — eats its own dog food
+- [`commands.perch` in the perch repo itself](https://github.com/olivierdevelops/perch/blob/main/commands.perch) — eats its own dog food

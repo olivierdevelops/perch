@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerInstall(m map[string]interpreter.Handler) {

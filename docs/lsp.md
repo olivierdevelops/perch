@@ -20,7 +20,7 @@ After installing, ensure `$(go env GOBIN)` (or `$(go env GOPATH)/bin`) is on you
 Or do it yourself:
 
 ```sh
-go install github.com/luowensheng/perch/cmd/perch-lsp@latest
+go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest
 ```
 
 ## VS Code (one command)
@@ -33,7 +33,7 @@ perch --install-vscode
 
 Requirements: `node` + `npm` and VS Code's `code` CLI on `$PATH`. If `code` isn't on `$PATH`: open VS Code → Command Palette → "Shell Command: Install code command in PATH".
 
-If you'd rather drive it from a perch checkout, the same logic is in [`scripts/install-vscode.sh`](https://github.com/luowensheng/perch/blob/main/scripts/install-vscode.sh).
+If you'd rather drive it from a perch checkout, the same logic is in [`scripts/install-vscode.sh`](https://github.com/olivierdevelops/perch/blob/main/scripts/install-vscode.sh).
 
 Configurable via VS Code settings (the only setting):
 

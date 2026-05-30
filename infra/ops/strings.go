@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerStrings(m map[string]interpreter.Handler) {

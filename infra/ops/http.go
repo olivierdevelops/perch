@@ -27,8 +27,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerHTTP(m map[string]interpreter.Handler) {

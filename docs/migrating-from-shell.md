@@ -238,7 +238,7 @@ Future targets for `--import` (not shipped yet):
 - **`perch --import Taskfile.yml`** — same shape.
 - **`perch --import .github/workflows/ci.yml`** — convert each job to a command; the `if` / `with` / `env` maps reasonably well.
 
-If you'd like one of these prioritised, open an issue on [GitHub](https://github.com/luowensheng/perch/issues) describing the file shape you'd want translated.
+If you'd like one of these prioritised, open an issue on [GitHub](https://github.com/olivierdevelops/perch/issues) describing the file shape you'd want translated.
 
 ---
 

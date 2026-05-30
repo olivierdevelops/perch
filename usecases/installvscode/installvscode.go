@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/luowensheng/perch/infra/vscodeext"
+	"github.com/olivierdevelops/perch/infra/vscodeext"
 )
 
 type UseCase interface {

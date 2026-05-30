@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerTextLines(m map[string]interpreter.Handler) {

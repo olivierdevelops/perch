@@ -23,7 +23,7 @@ When stdin is the source, perch treats the program as untrusted by default
 (see --trust-stdin and the --allow-* flags).`,
 		Examples: []string{"perch -f deploy.perch up", "curl URL | perch -f - --allow-shell run"},
 		SeeAlso:  []string{"--trust-stdin", "--allow-shell"},
-		DocURL:   "https://luowensheng.github.io/perch/getting-started/",
+		DocURL:   "https://olivierdevelops.github.io/perch/getting-started/",
 	},
 	{
 		Name: "--help, -h", Kind: "flag", Group: "Execution",
@@ -40,7 +40,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:       "perch --server [--port N]",
 		Description: `Spawns a small HTTP server on 127.0.0.1:10032 (default) that renders one button per declared command with typed argument forms. /api/exec streams stdout/stderr as NDJSON. Use for handing a .perch surface to non-engineers.`,
 		Examples:    []string{"perch --server", "perch --server --port 8080"},
-		DocURL:      "https://luowensheng.github.io/perch/llm-control-plane/",
+		DocURL:      "https://olivierdevelops.github.io/perch/llm-control-plane/",
 	},
 	{
 		Name: "--shell", Kind: "subcommand", Group: "Execution",
@@ -64,7 +64,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:       "perch --check [-f FILE]",
 		Description: `Catches typed-arg mismatches, duplicate args, colliding positional indexes, missing run targets, unknown op kinds, unresolved ${name} placeholders. Wire into pre-commit; runs in <100ms on typical files.`,
 		Examples:    []string{"perch --check", "perch --check -f deploy.perch"},
-		DocURL:      "https://luowensheng.github.io/perch/language/",
+		DocURL:      "https://olivierdevelops.github.io/perch/language/",
 	},
 	{
 		Name: "--export", Kind: "subcommand", Group: "Authoring",
@@ -80,7 +80,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:       "perch --scan [-f FILE]",
 		Description: `Walks the program (no execution), reports the capabilities it needs (shell/network/writes/subprocess), the env vars it touches, risk findings (sudo, catch passthrough, unvalidated interpolation), and the tightest --no-*/--allow-bin/--env invocation that should still let it run.`,
 		Examples:    []string{"perch --scan -f deploy.perch"},
-		DocURL:      "https://luowensheng.github.io/perch/sandbox/",
+		DocURL:      "https://olivierdevelops.github.io/perch/sandbox/",
 	},
 	{
 		Name: "--import", Kind: "subcommand", Group: "Authoring",
@@ -88,7 +88,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:       "perch --import <script.sh> [-o <out.perch>]",
 		Description: "Recognises functions, variable assignments, echo, & (background). Preserves bash semantics by routing unrecognised lines through `shell` ops. The output passes --check immediately and runs identically to the original; you progressively promote shell ops to native ops.",
 		Examples:    []string{"perch --import deploy.sh"},
-		DocURL:      "https://luowensheng.github.io/perch/migrating-from-shell/",
+		DocURL:      "https://olivierdevelops.github.io/perch/migrating-from-shell/",
 	},
 
 	// ─── Preview / debugging ──────────────────────────────────────────
@@ -112,7 +112,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Usage:       "perch --build [-o NAME] [--include PATH]",
 		Description: `Produces a portable binary with the parsed .perch embedded inside, plus an optional file tree (--include). Recipients run the binary directly — no Go, no perch install, no source.`,
 		Examples:    []string{"perch --build -o deploy", "perch --build --include ./src -o stt_bin"},
-		DocURL:      "https://luowensheng.github.io/perch/embedding/",
+		DocURL:      "https://olivierdevelops.github.io/perch/embedding/",
 	},
 
 	// ─── Security: restrictions ───────────────────────────────────────
@@ -120,7 +120,7 @@ When stdin is the source, perch treats the program as untrusted by default
 		Name: "--no-shell", Kind: "flag", Group: "Security",
 		Synopsis:    "disable every shell-spawning op",
 		Description: "Blocks shell, shell_output, shell_detached, shell_in, try_shell. With --no-shell + --no-subprocess on, perch can't spawn any subprocess.",
-		DocURL:      "https://luowensheng.github.io/perch/sandbox/",
+		DocURL:      "https://olivierdevelops.github.io/perch/sandbox/",
 		SeeAlso:     []string{"--no-subprocess", "--allow-bin", "--no-shell-metachars"},
 	},
 	{
@@ -244,13 +244,13 @@ Composes AND-wise with the SSRF guard — a host in the allowlist still has to p
 		Synopsis:    "MCP server — exposes commands as tools for AI agents",
 		Usage:       "perch-mcp -f <file>",
 		Description: "Model Context Protocol server (JSON-RPC over stdio). Tools: perch_list, perch_run. Configure Claude Desktop / Cursor / Zed to launch it.",
-		DocURL:      "https://luowensheng.github.io/perch/mcp/",
+		DocURL:      "https://olivierdevelops.github.io/perch/mcp/",
 		SeeAlso:     []string{"--allow-bin", "--no-shell", "--audit"},
 	},
 	{
 		Name: "perch-lsp", Kind: "subcommand", Group: "Agents",
 		Synopsis: "Language Server Protocol server for .perch authoring",
-		DocURL:   "https://luowensheng.github.io/perch/lsp/",
+		DocURL:   "https://olivierdevelops.github.io/perch/lsp/",
 	},
 	{
 		Name: "--install-lsp", Kind: "subcommand", Group: "Agents",
@@ -277,7 +277,7 @@ Composes AND-wise with the SSRF guard — a host in the allowlist still has to p
 		Name: "interpolation", Kind: "concept", Group: "Concepts",
 		Synopsis:    "${name} substitution inside string args",
 		Description: "Resolution order: command args → top-level bindings → per-command env → host env (host scope respects --env). Auto-bound names (home, cache_dir, exe_path, is_macos, …) are always available. The three string delimiters \"...\", '...', `...` are all raw — no backslash escapes — and all do interpolation. Pick the one that doesn't appear in your content.",
-		DocURL:      "https://luowensheng.github.io/perch/language/#interpolation",
+		DocURL:      "https://olivierdevelops.github.io/perch/language/#interpolation",
 	},
 	{
 		Name: "auto-bindings", Kind: "concept", Group: "Concepts",
@@ -287,6 +287,6 @@ Composes AND-wise with the SSRF guard — a host in the allowlist still has to p
 	{
 		Name: "sandbox", Kind: "concept", Group: "Concepts",
 		Synopsis: "the full capability-restriction model",
-		DocURL:   "https://luowensheng.github.io/perch/sandbox/",
+		DocURL:   "https://olivierdevelops.github.io/perch/sandbox/",
 	},
 }

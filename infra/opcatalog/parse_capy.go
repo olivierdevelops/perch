@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/luowensheng/perch/infra/capyloader"
+	"github.com/olivierdevelops/perch/infra/capyloader"
 )
 
 var (

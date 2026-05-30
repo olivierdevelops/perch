@@ -1,6 +1,6 @@
 # perch
 
-> 🚫 **perch is NOT accepting external contributions at this time.** Pull requests will be closed unread; feature requests should go to [Discussions](https://github.com/luowensheng/perch/discussions); bug reports for shipped behavior are welcome. The code is Apache-2.0 — fork freely. Full policy in [CONTRIBUTING.md](CONTRIBUTING.md). This stance is "for now" and will change once the grammar/op-catalog stabilises.
+> 🚫 **perch is NOT accepting external contributions at this time.** Pull requests will be closed unread; feature requests should go to [Discussions](https://github.com/olivierdevelops/perch/discussions); bug reports for shipped behavior are welcome. The code is Apache-2.0 — fork freely. Full policy in [CONTRIBUTING.md](CONTRIBUTING.md). This stance is "for now" and will change once the grammar/op-catalog stabilises.
 
 ---
 
@@ -10,8 +10,8 @@
 
 📦 **[Browse the recipes →](recipes/)** — 22 ready-to-run `.perch` files for Redis, Postgres, MongoDB, the whole AI / observability / Kafka stacks, cross-platform tool installers, and daily Docker/kubectl wrappers. One `curl` + one `perch` invocation away from a working local environment.
 
-[![CI](https://github.com/luowensheng/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/luowensheng/perch/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/luowensheng/perch?include_prereleases)](https://github.com/luowensheng/perch/releases)
+[![CI](https://github.com/olivierdevelops/perch/actions/workflows/ci.yml/badge.svg)](https://github.com/olivierdevelops/perch/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/olivierdevelops/perch?include_prereleases)](https://github.com/olivierdevelops/perch/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Powered by capy](https://img.shields.io/badge/grammar-capy-orange)](https://luowensheng.github.io/capy)
 
@@ -81,7 +81,7 @@ perch --build -o myapp         # → same file, portable binary
 
 ---
 
-## 📘 New here? → [The complete guide](https://luowensheng.github.io/perch/guide/)
+## 📘 New here? → [The complete guide](https://olivierdevelops.github.io/perch/guide/)
 
 Single document covering everything from "I just installed perch" to "I'm shipping a production application." Install → mental model → every section of the `.perch` file → ~140 ops → block ops → templates → imports → capability model → bundles → WASM → testing → pre-flight → observability → **five end-to-end walkthroughs** (Makefile replacement, self-installing tool, web UI + MCP ops backend, plugin host, CI gate) → distribution → honest limits → quick-reference card.
 
@@ -93,16 +93,16 @@ Read it once and you have the full picture. Bookmark it as your reference.
 
 ```sh
 # Go users — CLI
-go install github.com/luowensheng/perch@latest
+go install github.com/olivierdevelops/perch@latest
 
 # macOS / Linux (binary, no Go required)
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.ps1 | iex
 
 # Or download a binary from the releases page:
-# https://github.com/luowensheng/perch/releases
+# https://github.com/olivierdevelops/perch/releases
 ```
 
 ### 🪟 Web UI — no terminal required
@@ -207,18 +207,18 @@ Every external op is checked, every time (stateless — no allow-cache). Error k
 - `read_not_declared` / `write_not_declared` — a filesystem op's path is outside the declared roots
 - `requirement_unmet` — missing bin / wrong OS / hash mismatch (preflight)
 
-Full per-op coverage table: **[docs/capability-gating.md](https://luowensheng.github.io/perch/capability-gating/)**.
+Full per-op coverage table: **[docs/capability-gating.md](https://olivierdevelops.github.io/perch/capability-gating/)**.
 
-> **Where this is heading — [sandboxed by design](https://luowensheng.github.io/perch/sandboxed-by-design/).** Today `requires` is opt-in. The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external — no shell, filesystem, network, or env — and every external resource MUST be declared or the op fails. Default-deny, no exceptions. The author declares what's needed; the operator can only tighten further.
+> **Where this is heading — [sandboxed by design](https://olivierdevelops.github.io/perch/sandboxed-by-design/).** Today `requires` is opt-in. The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external — no shell, filesystem, network, or env — and every external resource MUST be declared or the op fails. Default-deny, no exceptions. The author declares what's needed; the operator can only tighten further.
 
-All matchable via `try / rescue / match err.kind`. Declarations are **promises about the program**; sandbox flags (`--allow-bin`, etc.) remain the **policy for the invocation**. Details: **[docs/requires.md](https://luowensheng.github.io/perch/requires/)**.
+All matchable via `try / rescue / match err.kind`. Declarations are **promises about the program**; sandbox flags (`--allow-bin`, etc.) remain the **policy for the invocation**. Details: **[docs/requires.md](https://olivierdevelops.github.io/perch/requires/)**.
 
 ### AI-agent integration
 
 `perch-mcp` is a Model Context Protocol server that lets Claude Desktop / Claude Code / Cursor / Zed call your commands as tools:
 
 ```sh
-go install github.com/luowensheng/perch/cmd/perch-mcp@latest
+go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
 ```
 
 See [docs/mcp.md](docs/mcp.md) for client setup. **The "why" lives in [docs/llm-control-plane.md](docs/llm-control-plane.md) — why a `.perch` file + `perch-mcp` + a few `--no-*` flags replaces the FastAPI service you'd otherwise stand up to give an agent typed, restricted actions.** There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
@@ -299,7 +299,7 @@ If you need one of the above, perch is the wrong layer — but it composes with 
 
 ## A 30-second tour
 
-After `go install github.com/luowensheng/perch@latest`:
+After `go install github.com/olivierdevelops/perch@latest`:
 
 ```sh
 mkdir hello-perch && cd hello-perch

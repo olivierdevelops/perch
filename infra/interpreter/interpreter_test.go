@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luowensheng/perch/domain"
+	"github.com/olivierdevelops/perch/domain"
 )
 
 // makeHandlers builds a small handler set for testing without dragging in the

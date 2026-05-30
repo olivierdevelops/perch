@@ -69,7 +69,7 @@ end
 
 **Why perch wins:** Make doesn't work on Windows. `make ci` requires you to call `go vet` with the right quoting in three different OSes. perch's ops are first-class and cross-platform. `--help` is auto-generated and your `commands.perch` is also a CI script — `run: perch ci` in `.github/workflows/ci.yml` is the whole job definition.
 
-→ Worked example: [demos/03-go-project](https://github.com/luowensheng/perch/tree/main/demos/03-go-project) and [tutorials/01-replace-your-makefile](tutorials/01-replace-your-makefile.md).
+→ Worked example: [demos/03-go-project](https://github.com/olivierdevelops/perch/tree/main/demos/03-go-project) and [tutorials/01-replace-your-makefile](tutorials/01-replace-your-makefile.md).
 
 ---
 
@@ -675,7 +675,7 @@ stt example.wav                  # use it like a native binary
 - **Game mods.** The mod's files travel inside a perch binary that knows the host game's directory layout per OS.
 - **Reproducible dev environment.** `--include` your `.tool-versions` + a curated set of tarballs. `mydev install` lays them out at exact versions, no asdf/nix install required.
 
-→ Worked demo: [demos/05-python-installer](https://github.com/luowensheng/perch/tree/main/demos/05-python-installer).
+→ Worked demo: [demos/05-python-installer](https://github.com/olivierdevelops/perch/tree/main/demos/05-python-installer).
 
 ---
 
@@ -713,7 +713,7 @@ curl -fsSL https://internal/team-bootstrap -o bootstrap && chmod +x bootstrap &&
 
 **Why perch wins:** one file covers three OSes with first-class branching. `if not exists` is the conditional you'd otherwise express with `[ -d X ] || ...`. The result ships as a single binary, so the user doesn't need to install Node, Python, or perch first.
 
-→ Worked example: [tutorials/03-cross-platform-installer](tutorials/03-cross-platform-installer.md) and [demos/02-cross-platform-setup](https://github.com/luowensheng/perch/tree/main/demos/02-cross-platform-setup).
+→ Worked example: [tutorials/03-cross-platform-installer](tutorials/03-cross-platform-installer.md) and [demos/02-cross-platform-setup](https://github.com/olivierdevelops/perch/tree/main/demos/02-cross-platform-setup).
 
 ---
 
@@ -1126,9 +1126,9 @@ Less obvious but real: you can import perch's capy loader + interpreter as a Go 
 
 ```go
 import (
-    "github.com/luowensheng/perch/infra/capyloader"
-    "github.com/luowensheng/perch/infra/interpreter"
-    "github.com/luowensheng/perch/infra/ops"
+    "github.com/olivierdevelops/perch/infra/capyloader"
+    "github.com/olivierdevelops/perch/infra/interpreter"
+    "github.com/olivierdevelops/perch/infra/ops"
 )
 
 func main() {
@@ -1229,6 +1229,6 @@ Some things that have shaken out as best-practice from real use:
 - The fat-binary format: [embedding.md](embedding.md)
 - AI integration: [mcp.md](mcp.md)
 - Editor support: [lsp.md](lsp.md)
-- Demos: [github.com/luowensheng/perch/tree/main/demos](https://github.com/luowensheng/perch/tree/main/demos)
+- Demos: [github.com/olivierdevelops/perch/tree/main/demos](https://github.com/olivierdevelops/perch/tree/main/demos)
 
 If your use case fits a category above and you've built something interesting, open a PR adding a `demos/` folder for it. The catalog grows from real examples.

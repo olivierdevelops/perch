@@ -3,8 +3,8 @@ package ops_test
 import (
 	"testing"
 
-	"github.com/luowensheng/perch/infra/capyloader"
-	"github.com/luowensheng/perch/infra/ops"
+	"github.com/olivierdevelops/perch/infra/capyloader"
+	"github.com/olivierdevelops/perch/infra/ops"
 )
 
 // TestOpKindsInSync guards the canonical op-kind list the loader embeds

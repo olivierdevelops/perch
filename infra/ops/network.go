@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerNetwork(m map[string]interpreter.Handler) {

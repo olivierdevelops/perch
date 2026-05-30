@@ -150,7 +150,7 @@ When the agent tries something you didn't declare, there's no defensible-by-defa
 4. **Op outside the allowed catalog** (agent crafts an arg that would trigger a banned op — possible because the file uses `shell`; you've also opted into `--no-network`) →
 
     ```
-    op "http_get" is disabled by --no-network (see https://luowensheng.github.io/perch/sandbox/)
+    op "http_get" is disabled by --no-network (see https://olivierdevelops.github.io/perch/sandbox/)
     ```
 
 5. **Env var not on the allowlist** (script interpolates `${SECRET_AWS_KEY}` you never declared) →
@@ -257,10 +257,10 @@ This is the property that makes perch genuinely cheap to ship: you can give some
 
 ```sh
 # 1. Install the MCP server
-go install github.com/luowensheng/perch/cmd/perch-mcp@latest
+go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
 
 # 2. Write your ops.perch (use the perch skill or the language reference)
-#    https://luowensheng.github.io/perch/language/
+#    https://olivierdevelops.github.io/perch/language/
 
 # 3. Validate it
 perch --check ops.perch

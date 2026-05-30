@@ -38,9 +38,9 @@ end
 
 ## Concepts
 
-- **`requires … end`** — the file-declared manifest. See [docs/requires.md](https://luowensheng.github.io/perch/requires/).
+- **`requires … end`** — the file-declared manifest. See [docs/requires.md](https://olivierdevelops.github.io/perch/requires/).
 - **No version checking** — perch does NOT run a binary to check its version. That would mean executing it before the sandbox exists, and a trojaned binary lies about its version. Pin the artifact instead (below).
-- **Hash pinning** — add `hash "sha256:…"` (or `hash_file "bundle:checksums/git.sha256"`) inside a `bin … end` block to pin the binary's exact bytes. perch reads the file and SHA-256-compares — no execution. Not shown in the runnable file because hashes are host-specific; see [docs/requires.md](https://luowensheng.github.io/perch/requires/).
+- **Hash pinning** — add `hash "sha256:…"` (or `hash_file "bundle:checksums/git.sha256"`) inside a `bin … end` block to pin the binary's exact bytes. perch reads the file and SHA-256-compares — no execution. Not shown in the runnable file because hashes are host-specific; see [docs/requires.md](https://olivierdevelops.github.io/perch/requires/).
 - **Static check** — `perch --check` flags undeclared *literal* usage before you run anything. Interpolated args (`shell "${cmd}"`) are deferred to the runtime guard, so there are no false positives.
 
 ## Try the failure modes
@@ -55,6 +55,6 @@ perch -f commands.perch --check
 
 ## See also
 
-- [docs/requires.md](https://luowensheng.github.io/perch/requires/) — full reference
-- [docs/trust-by-manifest.md](https://luowensheng.github.io/perch/trust-by-manifest/) — the roadmap for declared-capability WASM modules
-- [docs/errors.md](https://luowensheng.github.io/perch/errors/) — the `*_not_declared` / `requirement_unmet` error kinds
+- [docs/requires.md](https://olivierdevelops.github.io/perch/requires/) — full reference
+- [docs/trust-by-manifest.md](https://olivierdevelops.github.io/perch/trust-by-manifest/) — the roadmap for declared-capability WASM modules
+- [docs/errors.md](https://olivierdevelops.github.io/perch/errors/) — the `*_not_declared` / `requirement_unmet` error kinds

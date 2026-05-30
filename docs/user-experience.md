@@ -73,7 +73,7 @@ When perch is launched with no `.perch` file in scope:
    perch --init --interactive       walk you through the choice
    perch tutorial                   guided in-terminal tutorial
    perch --scan ./somefile.perch    audit a script someone gave you
-   open https://luowensheng.github.io/perch/getting-started/
+   open https://olivierdevelops.github.io/perch/getting-started/
 ```
 
 Don't show this if a `commands.perch` exists in cwd (the user is past onboarding). One screen, no longer.
@@ -242,7 +242,7 @@ Effort: medium overall, each fix small. ~500 LOC across the interpreter.
 ```
 $ perch deploy
 op print: env var ${SECRET_KEY} is not in --env allowlist
-  → see https://luowensheng.github.io/perch/sandbox/#env-allowlist
+  → see https://olivierdevelops.github.io/perch/sandbox/#env-allowlist
 ```
 
 Several errors already do this (`--no-shell` links to sandbox.md). Extend uniformly.
@@ -354,7 +354,7 @@ Effort: small (~250 LOC) without a TUI; medium with one.
 Opens the right doc page in a browser:
 
 ```
-perch docs sandbox          → https://luowensheng.github.io/perch/sandbox/
+perch docs sandbox          → https://olivierdevelops.github.io/perch/sandbox/
 perch docs cp               → https://...op-reference/#cp
 perch docs --offline        → open the local copy bundled inside the binary
 ```

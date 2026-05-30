@@ -22,8 +22,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 // DryRunHook returns a BeforeOp that prints every op and returns ActSkip,

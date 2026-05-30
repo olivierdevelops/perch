@@ -1,8 +1,8 @@
 site_name: perch
 site_description: A cross-platform command runner that compiles to a single binary
-site_url: https://luowensheng.github.io/perch/
-repo_url: https://github.com/luowensheng/perch
-repo_name: luowensheng/perch
+site_url: https://olivierdevelops.github.io/perch/
+repo_url: https://github.com/olivierdevelops/perch
+repo_name: olivierdevelops/perch
 edit_uri: edit/main/docs/
 
 theme:

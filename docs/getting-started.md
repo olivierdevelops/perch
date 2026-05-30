@@ -7,18 +7,18 @@ A five-minute tour. By the end you'll have a working `commands.perch`, run it th
 === "Go"
 
     ```sh
-    go install github.com/luowensheng/perch@latest
+    go install github.com/olivierdevelops/perch@latest
     ```
 
 === "macOS / Linux (binary)"
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
     ```
 
 === "Manual"
 
-    Download a release from [github.com/luowensheng/perch/releases](https://github.com/luowensheng/perch/releases) and put it on your `$PATH`.
+    Download a release from [github.com/olivierdevelops/perch/releases](https://github.com/olivierdevelops/perch/releases) and put it on your `$PATH`.
 
 Check the install:
 
@@ -151,7 +151,7 @@ What just happened: `perch --build` copied itself, appended your parsed program 
 `perch -f -` reads the source from stdin, so anything you can `curl` you can run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/scripts/sample.perch \
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/sample.perch \
   | perch -f - hello
 ```
 
@@ -171,4 +171,4 @@ This is the right answer for "run a script you don't fully trust." Pipe it throu
 
 - [Language reference](language.md) — every config modifier, op, and block form.
 - [Op catalog](op-reference.md) — the full list of built-in ops you can call.
-- Browse the [demos folder](https://github.com/luowensheng/perch/tree/main/demos) for runnable examples.
+- Browse the [demos folder](https://github.com/olivierdevelops/perch/tree/main/demos) for runnable examples.

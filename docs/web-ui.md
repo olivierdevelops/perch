@@ -154,7 +154,7 @@ All endpoints return JSON (except `/api/exec` which streams NDJSON for live outp
 
 ## What's NOT in the UI (yet)
 
-Honest list — see [the parity TODO](https://github.com/luowensheng/perch/issues) for status:
+Honest list — see [the parity TODO](https://github.com/olivierdevelops/perch/issues) for status:
 
 - **Per-request `--no-shell` / `--no-network` / `--no-subprocess` / `--no-write` toggles** — today these have to be set when you launch `perch --server`; per-request overrides will land in a follow-up.
 - **Live span-tree view** of running ops (the `--report` shape rendered in real time). Today the Run panel streams the same NDJSON your CLI would print.

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/luowensheng/perch/domain"
+	"github.com/olivierdevelops/perch/domain"
 )
 
 // checkNameRegistry enforces the unique-name rule that makes bare-name dispatch

@@ -198,5 +198,5 @@ The shape stays clean as the project grows.
 ## Where to go next
 
 - Browse the [op catalog](../op-reference.md) for the full vocabulary.
-- The [demos folder](https://github.com/luowensheng/perch/tree/main/demos) has variations of these patterns.
+- The [demos folder](https://github.com/olivierdevelops/perch/tree/main/demos) has variations of these patterns.
 - File new op requests as issues — most ops are a single Go function and a `lib.capy` entry.

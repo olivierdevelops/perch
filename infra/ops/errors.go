@@ -16,8 +16,8 @@
 package ops
 
 import (
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerErrorOps(m map[string]interpreter.Handler) {

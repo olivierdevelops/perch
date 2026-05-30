@@ -5,10 +5,10 @@
   This PR will be closed unread. The stance is documented in CONTRIBUTING.md.
 
   If you want to share an idea or workaround, please open a Discussion
-  instead: https://github.com/luowensheng/perch/discussions
+  instead: https://github.com/olivierdevelops/perch/discussions
 
   If you found a bug in shipped behavior, please open an issue with
-  reproduction steps: https://github.com/luowensheng/perch/issues/new?template=bug.yml
+  reproduction steps: https://github.com/olivierdevelops/perch/issues/new?template=bug.yml
 
   Thanks for understanding. The stance is "for now" — it will change once
   the core grammar/op-catalog stabilises.

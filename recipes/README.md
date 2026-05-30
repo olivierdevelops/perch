@@ -14,8 +14,8 @@ and replaces the bash one-liners you'd otherwise reach for.
 
 ```sh
 # 1. Download (a single file — nothing else needed)
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/redis.perch -o redis.perch
-curl -fsSL https://raw.githubusercontent.com/luowensheng/perch/main/recipes/_lib.perch -o _lib.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/redis.perch -o redis.perch
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/recipes/_lib.perch -o _lib.perch
 
 # 2. Audit BEFORE running — risk score + what it touches
 perch --scan -f redis.perch
@@ -54,7 +54,7 @@ means a recipe can't silently shell out to a tool you didn't expect. Run
 feasible on your machine or tells you exactly which bin / host / env var
 is missing or undeclared. Add a SHA-256 pin (`bin "docker" / hash "sha256:…" / end`)
 when you want preflight to verify the exact build — a read-only check, no execution.
-Full reference: [docs/requires.md](https://luowensheng.github.io/perch/requires/).
+Full reference: [docs/requires.md](https://olivierdevelops.github.io/perch/requires/).
 
 ## The catalog
 

@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 func registerCompression(m map[string]interpreter.Handler) {

@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luowensheng/perch/domain"
-	"github.com/luowensheng/perch/infra/interpreter"
+	"github.com/olivierdevelops/perch/domain"
+	"github.com/olivierdevelops/perch/infra/interpreter"
 )
 
 // Sink is the destination for audit events. Construct via Open() and
