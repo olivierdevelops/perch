@@ -72,6 +72,38 @@ end
 	}
 }
 
+// Unique-name registry: a command shadowing a built-in op, two things sharing
+// a name, and a command/bin name clash all error at load.
+func TestNameRegistry(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{"shadow op", `name "x"
+requires
+end
+command print
+    do
+        fail "x"
+    end
+end
+`, "collides"},
+		{"command vs bin", `name "x"
+requires
+    bin "tool"
+end
+command tool
+    do
+        fail "x"
+    end
+end
+`, "unique"},
+	}
+	for _, c := range cases {
+		_, err := LoadFromString(c.src)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: want error containing %q, got %v", c.name, c.want, err)
+		}
+	}
+}
+
 // `bin "PATH" as NAME` parses into a BinReq carrying both the path and the
 // alias handle (+ the optional variant).
 func TestBinPathAlias(t *testing.T) {

@@ -51,7 +51,7 @@ command down
     end
 end
 
-command open
+command browse
     description "Open the web inbox in your browser"
     arg port
         type string

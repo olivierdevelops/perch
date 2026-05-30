@@ -55,7 +55,7 @@ command destroy
     end
 end
 
-command shell
+command console
     do
         exec docker exec -it ${NAME} mongosh
     end

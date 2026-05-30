@@ -52,7 +52,7 @@ command pods
     end
 end
 
-command shell
+command console
     description "Open a shell inside a pod"
     arg pod
         type string

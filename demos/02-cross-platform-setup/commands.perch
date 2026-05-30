@@ -30,7 +30,7 @@ command setup
     end
 end
 
-command which
+command paths
     description "Show the path of the tools installed by `setup`"
     do
         if os == "darwin"

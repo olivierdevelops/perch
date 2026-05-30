@@ -48,6 +48,9 @@ func Load(path string) (*domain.Program, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkNameRegistry(prog); err != nil {
+		return nil, err
+	}
 	if err := enforceZeroAmbient(prog); err != nil {
 		return nil, err
 	}
@@ -65,6 +68,9 @@ func LoadFromString(scriptSrc string) (*domain.Program, error) {
 	}
 	merged, err := resolveImports(prog, imports, "", map[string]bool{})
 	if err != nil {
+		return nil, err
+	}
+	if err := checkNameRegistry(merged); err != nil {
 		return nil, err
 	}
 	if err := enforceZeroAmbient(merged); err != nil {

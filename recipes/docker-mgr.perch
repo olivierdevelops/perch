@@ -94,7 +94,7 @@ command logs
     end
 end
 
-command shell
+command console
     description "Open a shell inside a running container"
     arg name
         type string

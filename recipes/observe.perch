@@ -97,7 +97,7 @@ command start_loki
     end
 end
 
-command open
+command browse
     description "Open Grafana in the default browser"
     do
         if os == "darwin"

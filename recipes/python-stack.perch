@@ -104,7 +104,7 @@ command remove
     end
 end
 
-command run
+command launch
     description "Run any command inside the project's venv"
     arg cmd
         type string

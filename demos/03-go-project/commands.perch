@@ -49,7 +49,7 @@ command release
     end
 end
 
-command test
+command gotest
     description "Run the test suite"
     do
         exec go test ./...
@@ -78,7 +78,7 @@ command ci
     description "What CI runs: lint + test + release"
     do
         run lint
-        run test
+        run gotest
         run release
     end
 end
