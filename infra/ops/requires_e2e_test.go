@@ -3,6 +3,7 @@ package ops_test
 import (
 	"bytes"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -84,6 +85,72 @@ end
 	}
 	if _, statErr := os.Stat(dir + "/sub"); statErr != nil {
 		t.Errorf("ensure_dir did not create the binding-named dir: %v", statErr)
+	}
+}
+
+// Args behave like CLI tokens across positions: a bare identifier resolves to
+// a binding of that name (else stays literal), a quoted token is literal even
+// with embedded spaces, and `${x}` interpolates — in every argv position, not
+// just the first.
+func TestE2E_ArgsLikeCLI(t *testing.T) {
+	src := `name "x"
+SRC = "alpha"
+DST = "beta"
+requires
+end
+command c
+    do
+        let a = path_join SRC DST
+        print "a=${a}"
+        let b = path_join "SRC" DST
+        print "b=${b}"
+        let d = path_join "${SRC}" "lit"
+        print "d=${d}"
+        let e = format "Hello %s" "world"
+        print "e=${e}"
+    end
+end
+`
+	out, err := runSource(t, src, "c")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	for _, want := range []string{
+		"a=alpha/beta", // both bare idents resolve to bindings
+		"b=SRC/beta",   // quoted "SRC" is literal, bare DST resolves
+		"d=alpha/lit",  // ${SRC} interpolates, "lit" literal
+		"e=Hello world", // quoted "Hello %s" stays ONE token (spaces preserved)
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+}
+
+// A declared bin keeps LITERAL argv — a bare token that happens to match a
+// binding name is NOT resolved (that's the subprocess's own literal argument),
+// unlike a built-in op. `echo SRC` prints "SRC", never the binding's value.
+func TestE2E_BinArgsStayLiteral(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses echo as a PATH bin; arg-literalness is the same cross-platform")
+	}
+	src := `name "x"
+SRC = "alpha"
+requires
+    bin "echo"
+end
+command c
+    do
+        echo SRC
+    end
+end
+`
+	out, err := runSource(t, src, "c")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !strings.Contains(out, "SRC") || strings.Contains(out, "alpha") {
+		t.Errorf("bin arg should be literal SRC, not the binding value; out=%q", out)
 	}
 }
 

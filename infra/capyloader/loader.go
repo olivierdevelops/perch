@@ -228,22 +228,30 @@ func resolveBareDispatch(prog *domain.Program) {
 				case opKinds[bin] && !req.BinAllowed(bin):
 					// Bare leading name is a built-in OP, not a declared bin:
 					// rewrite the captured exec back into a native op-capture.
-					// splitExecArgvAll already populated _0.._N from the tail,
-					// so the op handler sees the same positional args it would
-					// from an explicit `op "a" "b"` call. A name that is BOTH an
-					// op and a declared bin stays exec — the explicit `bin "…"`
-					// declaration signals the user meant the subprocess.
+					// splitExecArgvAll already populated _0.._N (+ `_N_var` for
+					// bare-ident args) from the tail, so the op handler sees the
+					// same positional args it would from an explicit `op a "b"`
+					// call — and a bare-ident arg still resolves against bindings.
+					// A name that is BOTH an op and a declared bin stays exec —
+					// the explicit `bin "…"` declaration signals the subprocess.
 					args := map[string]any{}
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: bin, Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
 				case cmds[bin] != nil:
+					demoteVars(op.Args)
 					args := map[string]any{"target": bin}
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: "run", Args: args, CaptureInto: op.CaptureInto, Line: op.Line}
 				case tmpls[bin] != nil:
+					demoteVars(op.Args)
 					args := map[string]any{"name": bin}
 					copyArgvSlots(op.Args, args)
 					*op = domain.Op{Kind: "_template_call", Args: args, Line: op.Line}
+				default:
+					// Stays a subprocess exec (a declared bin): argv tokens are
+					// literal, so a bare-ident token is its own text, never a
+					// binding lookup (`docker ps` → literal `ps`).
+					demoteVars(op.Args)
 				}
 			} else if op.Kind != "exec" && len(op.Body) == 0 && op.Args != nil &&
 				(op.CaptureInto != "" || truthyArg(op.Args["implicit_ident"])) &&
@@ -303,16 +311,45 @@ func resolveBareDispatch(prog *domain.Program) {
 	}
 }
 
-// copyArgvSlots copies the positional _0.._N argv slots from an exec op's args
-// into a destination map (used when converting exec → run / _template_call).
+// copyArgvSlots copies the positional argv slots from an exec op's args into a
+// destination map. Both literal `_N` and var-ref `_N_var` slots are preserved,
+// so converting an implicit-exec into a native op-capture keeps a bare-ident
+// argument resolving against the bindings (`join SRC DST`).
 func copyArgvSlots(src, dst map[string]any) {
 	for n := 0; ; n++ {
-		k := fmt.Sprintf("_%d", n)
-		v, ok := src[k]
-		if !ok {
+		lit := fmt.Sprintf("_%d", n)
+		varK := lit + "_var"
+		lv, hasLit := src[lit]
+		vv, hasVar := src[varK]
+		if !hasLit && !hasVar {
 			break
 		}
-		dst[k] = v
+		if hasLit {
+			dst[lit] = lv
+		}
+		if hasVar {
+			dst[varK] = vv
+		}
+	}
+}
+
+// demoteVars rewrites every `_N_var` slot to a literal `_N` slot in place — the
+// bare-identifier token becomes its own literal text. Used when an implicit-exec
+// resolves to a subprocess bin / command / template, where a positional arg is
+// a literal token (`docker ps`, not the binding `ps`), never a var-ref.
+func demoteVars(args map[string]any) {
+	for n := 0; ; n++ {
+		lit := fmt.Sprintf("_%d", n)
+		varK := lit + "_var"
+		_, hasLit := args[lit]
+		vv, hasVar := args[varK]
+		if !hasLit && !hasVar {
+			break
+		}
+		if hasVar {
+			args[lit] = vv
+			delete(args, varK)
+		}
 	}
 }
 
@@ -1066,7 +1103,11 @@ func splitExecArgv(ops []domain.Op) {
 		if op.Kind == "exec" && op.Args != nil {
 			if raw, ok := op.Args["argv_raw"].(string); ok {
 				delete(op.Args, "argv_raw")
-				tokens := shellSplitArgs(raw)
+				classified := shellSplitArgsClassified(raw)
+				tokens := make([]string, len(classified))
+				for i, t := range classified {
+					tokens[i] = t.text
+				}
 				bin, _ := op.Args["bin"].(string)
 				// Full token stream for this exec line: bin + argv.
 				full := append([]string{bin}, tokens...)
@@ -1086,8 +1127,20 @@ func splitExecArgv(ops []domain.Op) {
 						op.Body = append(op.Body, makeExecOp(clause))
 					}
 				} else {
-					for n, tok := range tokens {
-						op.Args[fmt.Sprintf("_%d", n)] = tok
+					// Only IMPLICIT execs (a bare leading name, possibly an op) get
+					// per-token classification: a bare-identifier token becomes a
+					// `_N_var` var-ref (resolves to a binding of that name, else the
+					// literal token), a quoted / `${…}` / flag token a literal `_N`.
+					// resolveBareDispatch then keeps `_N_var` for a built-in op and
+					// demotes it to literal for a subprocess bin. An EXPLICIT `exec`
+					// is always a subprocess: its argv is literal, so no var-refs.
+					implicit := truthyArg(op.Args["implicit"])
+					for n, t := range classified {
+						if implicit && t.bare {
+							op.Args[fmt.Sprintf("_%d_var", n)] = t.text
+						} else {
+							op.Args[fmt.Sprintf("_%d", n)] = t.text
+						}
 					}
 				}
 			}
@@ -1146,15 +1199,45 @@ func toAnySlice(ss []string) []any {
 	return out
 }
 
+// argToken is one split argv token plus a classification: `bare` is true when
+// the token in the LITERAL source was an unquoted bare identifier (no quotes,
+// no `${…}`, matches `[A-Za-z_][A-Za-z0-9_]*`). A bare token is treated like a
+// CLI variable reference — it resolves to a binding of that name if one exists,
+// otherwise it stays the literal token text (see InterpolateArgs). Quoted
+// tokens (`"foo"`), `${x}` placeholders, flags (`-q`), and `k=v` pairs are NOT
+// bare and pass through as literal/interpolated positional slots.
+type argToken struct {
+	text string
+	bare bool
+}
+
 // shellSplitArgs splits a tail-captured argv string into tokens, honoring
 // double quotes (a quoted run is one token, with the surrounding quotes
 // stripped) and backslash escapes. Runs on the LITERAL source, so `${x}`
 // placeholders pass through as single tokens and are interpolated later.
 func shellSplitArgs(s string) []string {
-	var out []string
+	cls := shellSplitArgsClassified(s)
+	out := make([]string, len(cls))
+	for i, t := range cls {
+		out[i] = t.text
+	}
+	return out
+}
+
+// shellSplitArgsClassified is shellSplitArgs that also records, per token,
+// whether it was an unquoted bare identifier (see argToken).
+func shellSplitArgsClassified(s string) []argToken {
+	var out []argToken
 	var cur []byte
 	inQuote := false
 	started := false
+	sawQuoteOrDollar := false
+	flush := func() {
+		out = append(out, argToken{text: string(cur), bare: !sawQuoteOrDollar && isBareIdent(cur)})
+		cur = cur[:0]
+		started = false
+		sawQuoteOrDollar = false
+	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch {
@@ -1162,24 +1245,43 @@ func shellSplitArgs(s string) []string {
 			cur = append(cur, s[i+1])
 			i++
 			started = true
+			sawQuoteOrDollar = true
 		case c == '"':
 			inQuote = !inQuote
 			started = true
+			sawQuoteOrDollar = true
 		case (c == ' ' || c == '\t') && !inQuote:
 			if started {
-				out = append(out, string(cur))
-				cur = cur[:0]
-				started = false
+				flush()
 			}
 		default:
+			if c == '$' {
+				sawQuoteOrDollar = true
+			}
 			cur = append(cur, c)
 			started = true
 		}
 	}
 	if started {
-		out = append(out, string(cur))
+		flush()
 	}
 	return out
+}
+
+// isBareIdent reports whether b is a non-empty `[A-Za-z_][A-Za-z0-9_]*`.
+func isBareIdent(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+	for i, c := range b {
+		switch {
+		case c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'):
+		case i > 0 && c >= '0' && c <= '9':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // expandTemplateOps walks `ops`, replacing every `_template_call` op with

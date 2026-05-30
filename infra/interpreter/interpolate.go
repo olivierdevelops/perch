@@ -97,9 +97,11 @@ func InterpolateArgs(args map[string]any, b *Bindings) (map[string]any, error) {
 		if got, ok := b.Lookup(name); ok {
 			out[canonical] = got
 		} else {
-			// Binding doesn't exist — surface a clear error rather than
-			// silently falling through to an empty value.
-			return nil, fmt.Errorf("undefined binding %q used as bare ident", name)
+			// Not a binding — fall back to the literal token text, like a CLI:
+			// `git rev-parse HEAD` / `replace text foo bar` pass HEAD / foo / bar
+			// through verbatim. A defined binding of the same name resolves
+			// (above); an undefined bare word is just its own value.
+			out[canonical] = name
 		}
 	}
 	return out, nil

@@ -684,7 +684,7 @@ function exec_args
     arg literal "exec"
     arg capture bin word
     arg capture argv tail
-    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv}}}
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${toJSON argv}}}
 `
 end
 
@@ -701,7 +701,7 @@ function implicit_exec_args
     bare
     arg capture bin word
     arg capture argv tail
-    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv},"implicit":true}}
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${toJSON argv},"implicit":true}}
 `
 end
 function implicit_exec_bare
@@ -1433,7 +1433,7 @@ function let_exec_args
     arg literal "exec"
     arg capture bin word
     arg capture argv tail
-    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv}},"capture_into":${toJSON name}}
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${toJSON argv}},"capture_into":${toJSON name}}
 `
 end
 
@@ -1449,7 +1449,7 @@ function let_implicit_exec_args
     arg literal "="
     arg capture bin word
     arg capture argv tail
-    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${asString argv},"implicit":true},"capture_into":${toJSON name}}
+    write `{"event":"op","kind":"exec","args":{"bin":${asString bin},"argv_raw":${toJSON argv},"implicit":true},"capture_into":${toJSON name}}
 `
 end
 function let_implicit_exec
