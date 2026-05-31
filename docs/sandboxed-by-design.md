@@ -47,6 +47,15 @@ Computation over values already in memory. No I/O, no clock, no entropy, no envi
 
 The principle: **if the op's behavior depends on, or changes, the world outside this program's own memory and stdout, it needs a grant.**
 
+### The subprocess trust boundary (honest scope)
+
+perch gates **which** binaries run (the declared-`bin` check) and **what environment** they start with — but it cannot police what a binary does *internally*, because it can't parse an arbitrary tool's arguments. Be precise about what is and isn't enforced on a spawned `docker` / `git`:
+
+- **Environment — enforced (scrubbed).** A subprocess does **not** inherit the host environment. It starts with only: a default operational set (`PATH`, `HOME`, `TMPDIR`, `LANG`, … — the OS plumbing tools need, provided for you so you needn't redeclare it), the vars the file declared via `requires env "NAME"`, names the operator allowed via `--env`, and the program's own bindings + per-command `env`. An undeclared secret (`AWS_SECRET_KEY`, `GITHUB_TOKEN`) is dropped — the tool literally cannot read it. (Scrubbing is on whenever a `requires` block is present; a missing block is an empty manifest, so it's on by default.)
+- **Filesystem & network — NOT yet enforced for subprocesses.** `requires read / write / host` bound perch's *own* ops (`read_file`, `write_file`, `http_get`). They do **not** confine a spawned binary: once `git clone` runs it can reach any host and write anywhere the OS user can. Closing this requires **OS-level confinement** — `sandbox-exec` (macOS), Landlock / bubblewrap (Linux) — which is on the roadmap. Per-*host* network filtering for arbitrary binaries is fundamentally hard and may stay best-effort.
+
+For hard isolation today, run perch itself inside a container/VM with the FS and network already limited; perch's manifest then describes intent and scrubs the env, and the container enforces the rest.
+
 ---
 
 ## 3. The target grammar

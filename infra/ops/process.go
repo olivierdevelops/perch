@@ -66,7 +66,7 @@ func opTryShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[st
 	}
 	c := buildShell(cmd)
 	c.Dir = b.Cwd
-	applyEnv(c, b)
+	applyEnv(i, c, b)
 	return c.Run() == nil, nil
 }
 
@@ -85,7 +85,7 @@ func opShellIn(i *interpreter.Interpreter, b *interpreter.Bindings, args map[str
 	} else {
 		c.Dir = dir
 	}
-	applyEnv(c, b)
+	applyEnv(i, c, b)
 	c.Stdout = i.Stdout
 	c.Stderr = i.Stderr
 	c.Stdin = i.Stdin
@@ -215,7 +215,7 @@ func opShell(i *interpreter.Interpreter, b *interpreter.Bindings, args map[strin
 		return nil, err
 	}
 	cmd := buildShell(raw)
-	applyEnv(cmd, b)
+	applyEnv(i, cmd, b)
 	cmd.Dir = b.Cwd
 	cmd.Stdin = i.Stdin
 	cmd.Stdout = i.Stdout
@@ -252,7 +252,7 @@ func opShellOutput(i *interpreter.Interpreter, b *interpreter.Bindings, args map
 		return "", err
 	}
 	cmd := buildShell(raw)
-	applyEnv(cmd, b)
+	applyEnv(i, cmd, b)
 	cmd.Dir = b.Cwd
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -296,7 +296,7 @@ func opExec(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 		argv = append(argv, interpreter.ToStringValue(v))
 	}
 	cmd := exec.Command(resolveExecPath(i, bin), argv...)
-	applyEnv(cmd, b)
+	applyEnv(i, cmd, b)
 	cmd.Dir = b.Cwd
 	// Capture stdout into a buffer (so `let x = exec …` works), then tee
 	// the captured bytes to the program's stdout so a bare `exec …` streams.
@@ -431,7 +431,7 @@ func opPipe(i *interpreter.Interpreter, b *interpreter.Bindings, args map[string
 			argv = append(argv, interpreter.ToStringValue(v))
 		}
 		c := exec.Command(resolveExecPath(i, bin), argv...)
-		applyEnv(c, b)
+		applyEnv(i, c, b)
 		c.Dir = b.Cwd
 		c.Stderr = sharedErr
 		stages = append(stages, c)
@@ -479,7 +479,7 @@ func opShellDetached(i *interpreter.Interpreter, b *interpreter.Bindings, args m
 		return nil, err
 	}
 	cmd := buildShell(raw)
-	applyEnv(cmd, b)
+	applyEnv(i, cmd, b)
 	cmd.Dir = b.Cwd
 	return nil, cmd.Start()
 }
@@ -589,24 +589,46 @@ func buildShell(s string) *exec.Cmd {
 	return exec.Command("bash", "-c", s)
 }
 
-// applyEnv copies the bindings' env into the cmd's environment.
+// applyEnv builds the subprocess environment from the manifest — NOT the full
+// host environment.
 //
-// SECURITY: if the bindings carry an EnvAllowlist (set by `perch --env`),
-// the subprocess inherits ONLY the named host env vars — not the full
-// host environment. That closes the most obvious subprocess escape:
-// without scrubbing, `shell "echo $AWS_SECRET_KEY"` would happily print
-// a secret even when the user `--env`-excluded it from perch's own
-// interpolation. With scrubbing, the subprocess literally cannot see
-// what the allowlist didn't permit.
+// SECURITY (the subprocess `vars` escape): perch can't parse a declared bin's
+// arguments, so it can't tell what env a subprocess reads. The defense is to
+// scrub: a subprocess sees ONLY
 //
-// nil allowlist preserves legacy "everything inherits" behavior so files
-// that don't opt into restrictions work unchanged.
-func applyEnv(cmd *exec.Cmd, b *interpreter.Bindings) {
-	if b.EnvAllowlist == nil {
+//   - the default operational set (PATH, HOME, TMPDIR, LANG, … — see
+//     defaultBinEnv) so tools can actually find binaries and their own config;
+//   - host env vars the file DECLARED via `requires env "NAME"`;
+//   - names the operator explicitly allowed via `perch --env A,B`;
+//   - the program's own bindings (uppercase globals) and per-command `env`.
+//
+// Everything else — `AWS_SECRET_KEY`, `GITHUB_TOKEN`, `DATABASE_URL` — is
+// dropped: a spawned `docker`/`git` literally cannot read a secret the file
+// didn't declare. The default operational set is the "declare once" baseline so
+// every file needn't repeat PATH/HOME.
+//
+// A file with no `requires` block normalizes to an empty (Declared) manifest,
+// so scrubbing is on by default. Legacy inherit-all only remains for a Program
+// with Requirements.Declared==false AND no --env (i.e. a hand-built test prog).
+func applyEnv(i *interpreter.Interpreter, cmd *exec.Cmd, b *interpreter.Bindings) {
+	declared := i != nil && i.Program != nil && i.Program.Requirements.Declared
+
+	if !declared && b.EnvAllowlist == nil {
 		cmd.Env = append(cmd.Env, os.Environ()...)
 	} else {
-		// Pass through only the explicitly-allowed host env vars.
+		allowed := map[string]bool{}
+		for _, name := range defaultBinEnv() {
+			allowed[name] = true
+		}
+		if i != nil && i.Program != nil {
+			for _, e := range i.Program.Requirements.Envs {
+				allowed[e.Name] = true
+			}
+		}
 		for name := range b.EnvAllowlist {
+			allowed[name] = true
+		}
+		for name := range allowed {
 			if v, ok := os.LookupEnv(name); ok {
 				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", name, v))
 			}
@@ -627,5 +649,26 @@ func applyEnv(cmd *exec.Cmd, b *interpreter.Bindings) {
 	}
 	for k, v := range b.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+}
+
+// defaultBinEnv is the baseline operational env passed to every declared
+// subprocess without needing a `requires env` line — the OS plumbing tools
+// need to run (find executables, locate their own config, pick a locale) but
+// which carries no application secrets. App-specific or sensitive vars
+// (DOCKER_HOST, AWS_*, *_TOKEN, *_KEY) are NOT here: declare them with
+// `requires env "NAME"` to pass them through.
+func defaultBinEnv() []string {
+	if runtime.GOOS == "windows" {
+		return []string{
+			"PATH", "PATHEXT", "SystemRoot", "SystemDrive", "windir", "COMSPEC",
+			"TEMP", "TMP", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA",
+			"LOCALAPPDATA", "ProgramData", "ProgramFiles", "ProgramFiles(x86)",
+			"NUMBER_OF_PROCESSORS", "OS", "USERNAME", "COMPUTERNAME",
+		}
+	}
+	return []string{
+		"PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SHELL", "USER", "LOGNAME",
+		"LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
 	}
 }
