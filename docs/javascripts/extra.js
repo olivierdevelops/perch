@@ -95,8 +95,8 @@ redis    <span class="info">100%</span>   12MB`,
 • redis_list  — list every callable command
 • redis_run   — invoke run / stop / logs with typed args
 
-<span class="info">→ The grammar IS the security boundary.</span>
-<span class="info">  Only what you declared is reachable.</span>`,
+<span class="info">→ Only declared verbs run; the env is scrubbed to the manifest.</span>
+<span class="info">  (A spawned tool's FS/net still needs an OS sandbox — honest scope in the docs.)</span>`,
             type: "type",
             speed: 18,
         },

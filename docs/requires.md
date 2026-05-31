@@ -145,6 +145,13 @@ If both inline `hash` and `hash_file` are set, perch compares them and errors if
 | `os "linux" / os "darwin"`        | Host OS allowlist. One value per line; multiple entries OR-combine. Special value `"unix"` matches any unix. Shares the bare `os` keyword with the `os "..." ... end` conditional block — disambiguated by indent lookahead. |
 | `arch "amd64" / arch "arm64"`     | Host arch allowlist. One value per line; multiple entries OR-combine. |
 
+### Environment — declared **and** scrubbed for subprocesses
+
+`env "NAME"` does two things. (1) It lets perch's own `get_env "NAME"` read the var (undeclared reads error with `env_not_declared`). (2) It puts `NAME` on the **allowlist passed to spawned subprocesses**: when a `requires` block is present, a declared bin does **not** inherit your full environment — it sees only the declared `env` vars plus a default operational set (`PATH`, `HOME`, `TMPDIR`, `LANG`, … — provided automatically so you don't redeclare the basics) plus the program's own bindings. An undeclared secret (`AWS_SECRET_KEY`, `GITHUB_TOKEN`) is **dropped** — a spawned `git`/`docker` literally cannot read it.
+
+!!! note "What `read` / `write` / `host` do and don't bound for subprocesses"
+    `read` / `write` / `host` constrain perch's **own** ops (`read_file`, `write_file`, `http_get`). They do **not** constrain a spawned binary's filesystem or network — perch can't parse `git`/`docker`'s arguments, so once it runs it can reach anything the OS user can. Closing that needs OS-level confinement (`sandbox-exec`, Landlock, `firejail`). See [the subprocess trust boundary](sandboxed-by-design.md#the-subprocess-trust-boundary-honest-scope).
+
 ### Filesystem scopes — `read` / `write`
 
 The filesystem is an external resource like bins and hosts, so it's declared the same way. When the block is present, every filesystem op's path is checked against the declared roots — both statically by `perch --check` (for literal paths) and at runtime (after `${…}` interpolation):

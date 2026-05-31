@@ -131,8 +131,8 @@ perch's bet is that this is one program, not five — and that you should descri
     <p>You declare typed verbs in one <code>.perch</code> file. Being a CLI, a web form, a REPL command, an MCP tool, and a binary entry point is the <em>tool's</em> job — not yours. No schema written five times, nothing to keep in sync.</p>
   </div>
   <div class="p">
-    <h4>② The grammar is the security boundary</h4>
-    <p>Capabilities are <strong>declared and gated</strong>, not bolted on after. A file states what it touches (<code>requires</code>); the operator narrows what's allowed (<code>--no-*</code>); neither side can exceed the other. You can know what a file does <em>before</em> you run it.</p>
+    <h4>② The manifest is the contract</h4>
+    <p>Capabilities are <strong>declared and gated</strong>, not bolted on after. A file states what it touches (<code>requires</code>); the operator narrows it (<code>--no-*</code>); neither side can exceed the other. You can know what a file <em>intends</em> before you run it. <strong>Honest scope:</strong> perch enforces its own ops and <strong>scrubs the subprocess env</strong> to the manifest — a declared bin's filesystem/network still needs an OS sandbox underneath. <a href="sandboxed-by-design/#the-subprocess-trust-boundary-honest-scope">What we can and can't enforce →</a></p>
   </div>
   <div class="p">
     <h4>③ Cross-platform is the runtime's problem</h4>
@@ -155,6 +155,19 @@ perch's bet is that this is one program, not five — and that you should descri
 The throughline: the operational layer should be something you **write once, read easily, hand to a teammate — or an AI agent, or CI — with confidence, and run anywhere.** Everything else perch ships is in service of that one goal.
 
 > Want the longer argument? [sandboxed-by-design](sandboxed-by-design/) and [trust-by-manifest](trust-by-manifest/) lay out the security worldview; [os-in-a-program](os-in-a-program/) covers the cross-platform stance.
+
+!!! warning "What perch enforces today — and what it doesn't (be skeptical of the word 'sandbox')"
+    perch is **controlled scripting, not a kernel sandbox.** Here is the honest line between what the manifest actually enforces and what it can't:
+
+    | Concern | Status today |
+    |---|---|
+    | **perch's own ops** (`http_get`, `read_file`, `write_file`, `exec` bin check) | ✅ **Enforced** — undeclared access errors, every time |
+    | **Which binaries run** | ✅ **Enforced** — only declared `bin`s spawn (`bin_not_declared`) |
+    | **Subprocess environment** | ✅ **Scrubbed** — a spawned tool sees only declared `env` + a default operational set (PATH/HOME/…); undeclared secrets are dropped |
+    | **A subprocess's *own* filesystem & network** | ⚠️ **Not enforced** — once `git`/`docker` runs, perch can't parse its args; `requires read/write/host` bound perch's ops, **not** the tool's. Needs OS confinement (`sandbox-exec`, Landlock, `firejail`) — on the roadmap |
+    | **Genuinely adversarial `.perch` files** | ⚠️ Run perch itself inside a container/VM; the manifest describes intent, the OS enforces isolation |
+
+    With `--no-shell --no-subprocess` the boundary is airtight (perch spawns nothing). With subprocesses allowed, treat the manifest as an **honest declaration of intent + an env scrub**, not a jail. Full discussion: [sandboxed-by-design § the subprocess trust boundary](sandboxed-by-design/#the-subprocess-trust-boundary-honest-scope).
 
 ---
 
@@ -527,7 +540,7 @@ ops/security (mkcert-local, backup, scan-secrets).
 
 <div class="card">
   <h4>🛡️ Safe by composition</h4>
-  <p>Restriction flags compose — <code>--no-shell --no-network --env HOME,PATH</code>. Default-on SSRF and redirect guards. <code>--scan</code> audits a file before you run it. The grammar is the security boundary.</p>
+  <p>Restriction flags compose — <code>--no-shell --no-network --env HOME,PATH</code>. Default-on SSRF and redirect guards. <code>--scan</code> audits a file before you run it. perch gates its own ops and scrubs the subprocess env — <strong>controlled scripting, not a kernel sandbox</strong> (<a href="sandboxed-by-design/#the-subprocess-trust-boundary-honest-scope">honest scope</a>).</p>
 </div>
 
 <div class="card">

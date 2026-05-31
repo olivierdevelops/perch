@@ -4,6 +4,9 @@
 >
 > This page is the authoritative map of which ops are gated, by what, and where the check fires.
 
+!!! warning "Scope: gating covers perch's *own* ops — not a spawned tool's internals"
+    "Every op that touches the outside world is checked" means perch's **built-in** ops (`http_get`, `read_file`, `write_file`, the `exec` bin check). A **declared subprocess** is a different boundary: perch verifies *which* bin runs and **scrubs its environment** to the manifest (declared `env` + a default operational set; undeclared secrets are dropped), but once `git`/`docker` is running, perch can't parse its arguments — so `requires read/write/host` do **not** constrain what that tool reads/writes/connects to. For that you need OS-level confinement underneath (`sandbox-exec`, Landlock, `firejail`). See [the subprocess trust boundary](sandboxed-by-design.md#the-subprocess-trust-boundary-honest-scope).
+
 ---
 
 ## 1. Two kinds of op

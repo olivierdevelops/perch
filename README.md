@@ -209,7 +209,9 @@ Every external op is checked, every time (stateless — no allow-cache). Error k
 
 Full per-op coverage table: **[docs/capability-gating.md](https://olivierdevelops.github.io/perch/capability-gating/)**.
 
-> **Where this is heading — [sandboxed by design](https://olivierdevelops.github.io/perch/sandboxed-by-design/).** Today `requires` is opt-in. The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external — no shell, filesystem, network, or env — and every external resource MUST be declared or the op fails. Default-deny, no exceptions. The author declares what's needed; the operator can only tighten further.
+> **Honest scope (what's enforced today).** A `requires` block gates perch's **own** ops (`http_get`, `read_file`, `write_file`, the `exec` bin check) *and* **scrubs the subprocess environment** — a declared bin sees only the declared `env` vars + a default operational set (`PATH`/`HOME`/…), never your undeclared secrets. What it does **not** do: confine a spawned tool's *filesystem or network* — perch can't parse `git`/`docker`'s args, so `requires read/write/host` bound perch's ops, not the tool's. For that, layer an OS sandbox (`sandbox-exec`, Landlock, `firejail`) — kernel-level confinement is on the roadmap. This is **controlled scripting, not a sandbox.**
+>
+> **Where this is heading — [sandboxed by design](https://olivierdevelops.github.io/perch/sandboxed-by-design/).** The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external and every external resource MUST be declared or the op fails — default-deny, with OS-level confinement extending the manifest to subprocesses too.
 
 All matchable via `try / rescue / match err.kind`. Declarations are **promises about the program**; sandbox flags (`--allow-bin`, etc.) remain the **policy for the invocation**. Details: **[docs/requires.md](https://olivierdevelops.github.io/perch/requires/)**.
 
