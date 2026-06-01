@@ -152,20 +152,70 @@ real reach into subprocess calls *without running them*:
   gates);
 - a bin with a typed interface is never invoked with raw argv.
 
-## 6. Honest limitations (unchanged framing)
+## 6. The two bypasses — and the only real defense
 
-- **Honesty-dependent.** If the author types a path argument as `string`, perch
-  won't scope-check it. The feature rewards honest declarations; it does not force
-  them.
-- **The binary's *internals* are still unconstrained.** `docker.run` can only be
-  *called* through the typed surface, but `docker` itself may read/write/connect
-  anywhere the OS user can once it's running. Closing that still needs OS-level
-  confinement (`sandbox-exec`, Landlock, `firejail`). Typed interfaces and an OS
-  sandbox are complementary: the interface narrows *intent*, the kernel enforces
-  *isolation*.
+Two honest objections, and what actually answers each. **Read this before
+trusting the feature as a security control.**
+
+### Bypass 1 — "I'll type a path as `string`, so it skips the scope check."
+
+True, and **not fixable at perch's level.** perch can't know an arbitrary tool's
+flag semantics, so it cannot *force* a path argument to be typed `read`/`write`.
+That means **argument typing is a static-analysis + intent layer, not an
+enforcement boundary.** The most perch can add on its own:
+
+- **A `--check` path-shape lint** — warn when a `string` argument's *literal* value
+  looks like a filesystem path (absolute, `./`, `~`, `..`, a known file extension)
+  or a URL: *"this looks like a path — type it `read` to scope-check it."* This
+  catches an honest author's mistake. It does **nothing** against a hostile author,
+  and it can't see a path that arrives via `${var}` or a config file the tool reads.
+
+### Bypass 2 — "The binary CRUDs dirs I never passed as arguments."
+
+Also true, and worse: arguments don't even enter into it. Once `docker`/`git` is
+running it can `open()` / `write()` / `unlink()` anywhere the OS user can, on its
+own initiative — perch never sees those syscalls. **No amount of argument typing
+touches this.**
+
+### The one defense that answers both: OS-level confinement
+
+The same `requires read / write / host` roots become an **OS sandbox profile**, and
+the subprocess runs inside it:
+
+- **macOS** — `sandbox-exec` with a generated seatbelt profile: deny `file*` by
+  default, allow `file-read*` / `file-write*` only on the declared roots; deny
+  `network*` unless a `host` is declared.
+- **Linux** — **Landlock** (in-kernel, per-process filesystem allowlist, no helper
+  binary) or **bubblewrap** (bind-mount only the declared roots) + a network
+  namespace for the on/off bit.
+- **Windows** — AppContainer / restricted token (best-effort).
+
+Under that, the **kernel** enforces the scope on the *whole process* — every
+syscall, every path, regardless of how an argument was typed or whether the binary
+invented the path itself. A `string`-typed `/etc/passwd` is refused by the OS, and
+so is the binary's own `open("/etc/shadow")`. **This is the enforcement boundary;
+everything above it is intent.**
+
+### So the layers compose — and only some enforce
+
+| Layer | What it gives | Actually enforces? |
+|---|---|---|
+| `bin "…"` declaration | which binary may spawn | ✅ at spawn (`bin_not_declared`) |
+| env scrub | no undeclared secrets in the subprocess env | ✅ |
+| **typed interface** (this doc) | static-checkable call shape; scoped *intent*; a narrow, legible surface | ⚠️ honesty-dependent — **not** a boundary |
+| **OS confinement** (roadmap) | the binary physically cannot touch undeclared paths/network | ✅ kernel-enforced |
+
+Typed interfaces make a file's intent **legible and statically checkable**; OS
+confinement makes it **true** even against a dishonest author or a binary acting on
+its own. Ship them together. **Neither alone is a sandbox — and the typed interface
+is the weaker, advisory half.** Anywhere this doc says "checked before spawn," read
+it as "checked for the *declared* arguments"; the *process* is only truly bounded
+once OS confinement lands.
+
 - **Not every tool fits a small interface.** A bin you genuinely need to call many
   ways can stay a raw `bin "…"` (no commands) — you keep flexibility, you lose the
-  arg-level checks. That trade is the author's to make, per bin.
+  arg-level *intent* checks. Under OS confinement that trade costs you nothing on
+  the enforcement side: the kernel bounds the raw-args bin just the same.
 
 ## 7. Implementation sketch (when greenlit)
 
