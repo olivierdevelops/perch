@@ -184,13 +184,33 @@ the subprocess runs inside it:
 
 - **macOS** — `sandbox-exec` with a generated seatbelt profile: deny `file*` by
   default, allow `file-read*` / `file-write*` only on the declared roots; deny
-  `network*` unless a `host` is declared.
+  `network*` unless a `host` is declared. **Clean** — the roots compile straight
+  into a profile.
 - **Linux** — **Landlock** (in-kernel, per-process filesystem allowlist, no helper
-  binary) or **bubblewrap** (bind-mount only the declared roots) + a network
-  namespace for the on/off bit.
-- **Windows** — AppContainer / restricted token (best-effort).
+  binary; kernel ≥ 5.13) or **bubblewrap** (bind-mount only the declared roots) +
+  a network namespace for the on/off bit. **Clean.**
+- **Windows** — **possible but coarser, not "no".** An **AppContainer** runs the
+  child with no filesystem access by default; you grant the declared roots by
+  adding the container's package SID to each folder's **ACL** (per-directory, not a
+  single profile), and network is on/off via the `internetClient` capability
+  (per-*host* filtering needs WFP — heavy). Fallbacks — a **restricted token**,
+  **Low integrity level** (limits *writes* broadly but not reads), or a **Job
+  object** — are blunter still. So Windows confinement is real but fiddlier, weaker
+  on network, and some CLI tools misbehave inside an AppContainer.
 
-Under that, the **kernel** enforces the scope on the *whole process* — every
+So it is **not** "Unix yes, Windows no" — it's *Unix has a clean knob; Windows has
+a workable-but-awkward one*. The honest split is by **enforcement quality**, not a
+hard on/off.
+
+> **Fail closed — never fake it.** Wherever this lands, the rule is: if perch can't
+> establish the confinement the run asked for (no Landlock on an old kernel, no
+> usable AppContainer, the operator passed `--confine`), it must **refuse**, or run
+> with a loud `unconfined` warning in the audit log — it must never silently spawn
+> an unconfined process while implying the subprocess is sandboxed. Confinement
+> status belongs in `--scan` / `--report` so you can see, per host, whether a run
+> was actually bounded.
+
+Under confinement, the **kernel** enforces the scope on the *whole process* — every
 syscall, every path, regardless of how an argument was typed or whether the binary
 invented the path itself. A `string`-typed `/etc/passwd` is refused by the OS, and
 so is the binary's own `open("/etc/shadow")`. **This is the enforcement boundary;
