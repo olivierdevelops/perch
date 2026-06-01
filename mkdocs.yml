@@ -94,5 +94,6 @@ nav:
   - FAQ: faq.md
   # ─── deeper claims / design notes (after the reference docs) ───
   - The OS analogy: os-in-a-program.md
+  - "🔌 Typed bin interfaces (design)": typed-bins.md
   - UX roadmap (design): user-experience.md
   - AI-assisted authoring (design): ai-assisted-authoring.md
