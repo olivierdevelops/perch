@@ -76,6 +76,7 @@ nav:
   - "🛟 Error handling (`try/rescue/finally` + `match`)": errors.md
   - "📜 `requires` — file-declared manifest": requires.md
   - "🛡️ Capability gating — every external op checked": capability-gating.md
+  - "🪝 Hooks (`before`/`after`/`on_error`)": hooks.md
   - "🔒 Sandboxed by design — zero ambient authority (roadmap)": sandboxed-by-design.md
   - "🔭 Trust by manifest (roadmap)": trust-by-manifest.md
   - "🧩 capy grammar limitations": capy-limitations.md

@@ -197,6 +197,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request, p *domain.Pr
 
 	i := interpreter.New(s.Handlers, p)
 	i.PreflightHook = ops.Preflight
+	i.HookCategory = ops.HookCategoryOf
 	i.Stdout = stdout
 	i.Stderr = stderr
 	if len(req.AllowBin) > 0 {

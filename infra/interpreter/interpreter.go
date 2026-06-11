@@ -96,6 +96,11 @@ type Interpreter struct {
 	// orchestrator/main.go to avoid an infra/ops → infra/interpreter
 	// → infra/ops circular import.
 	PreflightHook func(*Interpreter, *domain.Program) error
+	// HookCategory maps an op kind to the capability categories it belongs to
+	// (e.g. "write_file" → ["write"]). Wired from ops.HookCategoryOf in the
+	// orchestrator (interpreter can't import ops). Lets a `hooks before write …`
+	// line match every write op. nil → hooks match by exact op kind only.
+	HookCategory func(string) []string
 }
 
 // HTTPPolicy gates which URLs perch's HTTP ops will dial and which
@@ -329,6 +334,16 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 			args = argsWithCap
 		}
 	}
+	// before-hooks fire just ahead of the side effect. A handler that errors
+	// VETOES the op (the error propagates, the op never runs). Skipped while
+	// already inside a hook (re-entrancy guard) and on the fast path with no
+	// hooks declared.
+	hooksActive := len(i.Program.Hooks) > 0 && !b.InHook
+	if hooksActive {
+		if herr := i.fireHooks("before", op, args, b, nil); herr != nil {
+			return herr
+		}
+	}
 	if i.Tracer != nil {
 		i.Tracer.Before(op, args)
 	}
@@ -341,6 +356,18 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 	if i.Tracer != nil {
 		i.Tracer.After(op, val, err, dur)
 	}
+	if hooksActive {
+		if err != nil {
+			// on_error handlers observe the failure; their own error (if any)
+			// doesn't mask the op's.
+			_ = i.fireHooks("on_error", op, args, b, err)
+		}
+		// after handlers always run; an after-handler error surfaces only when
+		// the op itself succeeded (don't override the op's own error).
+		if herr := i.fireHooks("after", op, args, b, err); herr != nil && err == nil {
+			err = herr
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -348,6 +375,77 @@ func (i *Interpreter) RunOp(op domain.Op, b *Bindings) error {
 		b.Set(op.CaptureInto, val)
 	}
 	return nil
+}
+
+// fireHooks runs every declared hook of the given timing whose Target matches
+// op.Kind — either an exact op-kind match, a capability-category match (via
+// i.HookCategory), or "any". Each handler runs as its named command under a
+// re-entrancy-guarded child binding seeded with ${hook.*} context. A `before`
+// handler's error is returned (vetoing the op); other timings' errors are
+// returned for the caller to decide.
+func (i *Interpreter) fireHooks(timing string, op domain.Op, args map[string]any, b *Bindings, opErr error) error {
+	var cats []string
+	for _, h := range i.Program.Hooks {
+		if h.Timing != timing {
+			continue
+		}
+		if !i.hookMatches(h.Target, op.Kind, &cats) {
+			continue
+		}
+		cmd, ok := i.Program.Commands[h.Handler]
+		if !ok {
+			return fmt.Errorf("hook %s %s: no such handler command %q", h.Timing, h.Target, h.Handler)
+		}
+		hb := b.ChildForHook()
+		hb.Set("hook.op", op.Kind)
+		hb.Set("hook.timing", timing)
+		hb.Set("hook.target", hookTarget(op.Kind, args))
+		if opErr != nil {
+			hb.Set("hook.error", opErr.Error())
+		} else {
+			hb.Set("hook.error", "")
+		}
+		if err := i.RunOps(cmd.Ops, hb); err != nil {
+			return fmt.Errorf("%s hook %q: %w", timing, h.Handler, err)
+		}
+	}
+	return nil
+}
+
+// hookMatches reports whether a hook target matches an op kind. `cats` caches
+// the op's categories across the hooks loop (computed at most once).
+func (i *Interpreter) hookMatches(target, kind string, cats *[]string) bool {
+	if target == kind || target == "any" {
+		return true
+	}
+	if i.HookCategory == nil {
+		return false
+	}
+	if *cats == nil {
+		*cats = i.HookCategory(kind)
+		if *cats == nil {
+			*cats = []string{} // mark computed-but-empty
+		}
+	}
+	for _, c := range *cats {
+		if c == target {
+			return true
+		}
+	}
+	return false
+}
+
+// hookTarget extracts the resource a hook handler most likely cares about — the
+// path / url / bin / first positional — for the ${hook.target} binding.
+func hookTarget(kind string, args map[string]any) string {
+	for _, k := range []string{"path", "url", "host", "bin", "dst", "src", "name", "_0"} {
+		if v, ok := args[k]; ok {
+			if s := ToStringValue(v); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 func (i *Interpreter) seedGlobalsAndEnv(b *Bindings) {

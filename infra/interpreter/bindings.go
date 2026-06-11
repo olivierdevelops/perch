@@ -29,6 +29,30 @@ type Bindings struct {
 	// The intersection rule is enforced on push: an inner block may
 	// disable capabilities, never re-enable them.
 	CapMask *CapMask
+	// InHook is true while a `hooks` handler command is running. The op
+	// dispatcher checks it to prevent re-entrancy — a `before write` hook that
+	// itself writes must not recursively fire the write hook. Set on the child
+	// bindings the hook handler runs under; the parent keeps it false.
+	InHook bool
+}
+
+// ChildForHook returns a shallow child binding for running a hook handler: it
+// shares cwd / env / capability state and the same variable scope (so the
+// handler can read current vars and the injected hook.* context) but is flagged
+// InHook so the dispatcher won't recursively fire hooks.
+func (b *Bindings) ChildForHook() *Bindings {
+	vars := make(map[string]any, len(b.Vars)+4)
+	for k, v := range b.Vars {
+		vars[k] = v
+	}
+	return &Bindings{
+		Cwd:          b.Cwd,
+		Env:          b.Env,
+		Vars:         vars,
+		EnvAllowlist: b.EnvAllowlist,
+		CapMask:      b.CapMask,
+		InHook:       true,
+	}
 }
 
 // CapMask is one layer of in-language capability restriction. A nil mask

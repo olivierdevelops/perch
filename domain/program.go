@@ -43,6 +43,32 @@ type Program struct {
 	// spec — `perch --build` alone (no extra args) produces the right
 	// artifact. CLI `--include` is additive on top of this.
 	Bundle Bundle `json:"bundle,omitempty"`
+
+	// Hooks are file-scope interceptors declared in a `hooks ... end` block.
+	// Each fires a handler command around every built-in op whose kind (or
+	// capability category) matches Target. A `before` handler that errors
+	// vetoes the op. See Hook.
+	Hooks []Hook `json:"hooks,omitempty"`
+}
+
+// Hook is one `TIMING TARGET HANDLER` line in a `hooks ... end` block — an
+// author-declared interceptor on built-in ops. It is policy + observability at
+// perch's own dispatch layer (the interpreter funnels every op through one
+// point), NOT an OS sandbox: a `before exec` hook sees and can veto the command
+// line, but not the spawned binary's internal syscalls.
+type Hook struct {
+	// Timing is "before" (runs ahead of the op; an error vetoes it),
+	// "after" (runs once the op returns, success or failure), or "on_error"
+	// (runs only when the op errored).
+	Timing string `json:"timing"`
+	// Target is a capability CATEGORY ("read"/"write"/"net"/"exec"/"env") that
+	// matches any op in that class, or a specific op KIND ("write_file",
+	// "http_get") that matches exactly. "any" matches every op.
+	Target string `json:"target"`
+	// Handler is the name of a command run when the hook fires. It receives
+	// context as bindings: ${hook.op}, ${hook.target}, ${hook.timing}, and on
+	// `after`/`on_error` also ${hook.error}.
+	Handler string `json:"handler"`
 }
 
 // Bundle declares the file tree to embed into the fat binary at

@@ -628,6 +628,10 @@ type event struct {
 	Alias       string         `json:"alias,omitempty"` // `import` event
 	// `requires_bin` events
 	Optional bool `json:"optional,omitempty"`
+	// `hook` events
+	Timing  string `json:"timing,omitempty"`
+	Target  string `json:"target,omitempty"`
+	Handler string `json:"handler,omitempty"`
 }
 
 // importDirective is one `import "PATH" [as ALIAS]` statement from a
@@ -653,6 +657,7 @@ const (
 	stTemplateDo
 	stBundle
 	stRequires
+	stHooks
 )
 
 func parseEventStream(stream string) (*domain.Program, []importDirective, error) {
@@ -718,6 +723,22 @@ func parseEventStream(stream string) (*domain.Program, []importDirective, error)
 			state = stBundle
 		case "bundle_end":
 			state = stTop
+		case "hooks_begin":
+			if state != stTop {
+				return nil, nil, fmt.Errorf("line %d: hooks block must be at top level", lineNum)
+			}
+			state = stHooks
+		case "hooks_end":
+			state = stTop
+		case "hook":
+			if state != stHooks {
+				return nil, nil, fmt.Errorf("line %d: hook line outside a `hooks ... end` block", lineNum)
+			}
+			prog.Hooks = append(prog.Hooks, domain.Hook{
+				Timing:  ev.Timing,
+				Target:  ev.Target,
+				Handler: ev.Handler,
+			})
 		case "bundle_include":
 			if state != stBundle {
 				return nil, nil, fmt.Errorf("line %d: 'include' event outside bundle block", lineNum)

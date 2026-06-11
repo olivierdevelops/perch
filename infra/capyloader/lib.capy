@@ -97,6 +97,43 @@ ${body}{"event":"bundle_end"}
 `
 end
 
+# ────────────────────────────────────────────────────────────────────────────
+# hooks ... end — author-declared interceptors on built-in ops. Each line is
+# `TIMING TARGET HANDLER`: run command HANDLER before/after/on_error of every op
+# whose kind or capability category matches TARGET. A `before` handler that
+# fails vetoes the op. Policy + observability at perch's dispatch layer.
+# ────────────────────────────────────────────────────────────────────────────
+
+function hooks
+    arg literal "hooks"
+    block_closer end
+    write `{"event":"hooks_begin"}
+${body}{"event":"hooks_end"}
+`
+end
+
+function hook_before
+    arg literal "before"
+    arg capture target ident
+    arg capture handler ident
+    write `{"event":"hook","timing":"before","target":${toJSON target},"handler":${toJSON handler}}
+`
+end
+function hook_after
+    arg literal "after"
+    arg capture target ident
+    arg capture handler ident
+    write `{"event":"hook","timing":"after","target":${toJSON target},"handler":${toJSON handler}}
+`
+end
+function hook_on_error
+    arg literal "on_error"
+    arg capture target ident
+    arg capture handler ident
+    write `{"event":"hook","timing":"on_error","target":${toJSON target},"handler":${toJSON handler}}
+`
+end
+
 # One path inside a bundle block:
 #
 #   include "PATH"            — embed; address at runtime by path

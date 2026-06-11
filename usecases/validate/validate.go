@@ -145,6 +145,35 @@ func (c *checker) run() {
 	if c.prog.Catch != nil {
 		c.checkCatch(c.prog.Catch)
 	}
+	c.checkHooks()
+}
+
+// validHookTargets is the set of capability categories a `hooks` line may
+// target (besides a specific op kind or "any"). Mirrors ops.HookCategories.
+var validHookTargets = map[string]bool{
+	"exec": true, "net": true, "write": true, "read": true, "env": true, "any": true,
+}
+
+func (c *checker) checkHooks() {
+	for _, h := range c.prog.Hooks {
+		where := fmt.Sprintf("hook %q", h.Timing+" "+h.Target)
+		switch h.Timing {
+		case "before", "after", "on_error":
+		default:
+			c.addErr(where, fmt.Sprintf("unknown hook timing %q (use before/after/on_error)", h.Timing))
+		}
+		if _, ok := c.prog.Commands[h.Handler]; !ok {
+			c.addErr(where, fmt.Sprintf("handler `%s` is not a command", h.Handler))
+		}
+		// Target is a category, a known op kind, or "any". Warn (don't error)
+		// on an unrecognized target — it may be a valid op kind this checker's
+		// op set doesn't know — but a clearly-wrong one is worth flagging.
+		if !validHookTargets[h.Target] {
+			if _, isOp := c.ops[h.Target]; !isOp {
+				c.addWarn(where, fmt.Sprintf("target `%s` is neither a capability category (exec/net/write/read/env) nor a known op kind — the hook may never fire", h.Target))
+			}
+		}
+	}
 }
 
 func (c *checker) checkCommand(cmd *domain.Command) {
