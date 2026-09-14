@@ -3,7 +3,7 @@ module github.com/olivierdevelops/perch
 go 1.24.1
 
 require (
-	github.com/luowensheng/capy v0.20.1-0.20260529070419-ac128fb805b7
+	github.com/olivierdevelops/capy/rust/gobind v0.12.1
 	github.com/tetratelabs/wazero v1.11.0
 )
 

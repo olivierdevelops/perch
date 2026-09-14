@@ -1,7 +1,8 @@
 // Package capyloader compiles a perch .perch source file into a
 // domain.Program. The pipeline:
 //
-//  1. Run the source through the embedded lib.capy via the capy engine.
+//  1. Run the source through the embedded lib.capy via the capy engine
+//     (the Rust engine, embedded as wasm and run on wazero).
 //     Output is an NDJSON event stream.
 //  2. Stream-parse events into a Program: each line corresponds to one
 //     of the lib's `write` calls (name, command_begin, config, op, …).
@@ -10,6 +11,7 @@ package capyloader
 
 import (
 	"bufio"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -19,10 +21,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/olivierdevelops/perch/domain"
 
-	"github.com/luowensheng/capy"
+	rustbind "github.com/olivierdevelops/capy/rust/gobind"
 )
 
 //go:embed lib.capy
@@ -146,15 +149,62 @@ func loadRecursive(path string, visited map[string]bool) (*domain.Program, error
 // parseOnce runs one file through capy and returns the program plus
 // the list of import directives encountered. Pure (no IO).
 func parseOnce(scriptSrc string) (*domain.Program, []importDirective, error) {
-	lib, err := capy.NewLibrary(librarySource)
+	lib, err := sharedLibrary()
 	if err != nil {
 		return nil, nil, fmt.Errorf("compile perch library: %w", err)
 	}
-	stream, err := lib.Run(scriptSrc)
+	stream, err := lib.Run(context.Background(), scriptSrc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse script: %w", err)
 	}
 	return parseEventStream(stream)
+}
+
+// The capy engine is the Rust implementation, embedded as a wasm module and run
+// on wazero — the same pure-Go runtime perch already uses for `wasm` ops. No
+// cgo, no C toolchain, and cross-compilation is unaffected.
+//
+// Compiling the module is by far the expensive step (~500ms cold, which is why
+// engineCacheDir exists) and the library source is a compile-time constant, so
+// both are built once and shared. A loader run parses one file per import, and
+// `Run` is safe for concurrent use.
+var (
+	engineOnce sync.Once
+	engineLib  *rustbind.Library
+	engineErr  error
+)
+
+// sharedLibrary compiles the embedded engine and grammar on first use.
+func sharedLibrary() (*rustbind.Library, error) {
+	engineOnce.Do(func() {
+		ctx := context.Background()
+		rt, err := rustbind.NewRuntimeWithCache(ctx, engineCacheDir())
+		if err != nil {
+			engineErr = fmt.Errorf("start capy engine: %w", err)
+			return
+		}
+		engineLib, engineErr = rt.NewLibrary(ctx, librarySource)
+		if engineErr != nil {
+			rt.Close(ctx)
+		}
+	})
+	return engineLib, engineErr
+}
+
+// engineCacheDir is where wazero caches the engine's compiled machine code.
+//
+// This matters more than it looks: compiling the engine costs ~500ms, and perch
+// is a CLI, so without the cache every single invocation would pay it. With it,
+// only the first run after an upgrade does.
+//
+// Returning "" is fine — the binding falls back to an uncached runtime, so a
+// read-only or unset HOME costs startup time rather than breaking the run.
+func engineCacheDir() string {
+	d, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(d, "perch", "capy-engine")
 }
 
 // resolveImports loads each import target and merges its commands +
