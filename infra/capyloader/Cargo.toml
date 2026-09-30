@@ -6,5 +6,10 @@ license.workspace = true
 
 [dependencies]
 perch-domain = { path = "../../domain" }
+capy-core = { git = "https://github.com/olivierdevelops/capy", rev = "4cc6d32306a553fb714e6b4f88d6bbf82e8bacad" }
+regex = "1"
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
