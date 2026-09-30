@@ -30,14 +30,9 @@ pub fn register(m: &mut HashMap<String, Handler>) {
 }
 
 fn op_hostname(_i: &Interpreter, _b: &mut Bindings, _a: &Args<'_>) -> Result<Value> {
-    let mut buf = vec![0u8; 256];
-    // SAFETY: the buffer is valid for its full length.
-    let rc = unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
-    if rc != 0 {
-        return Err(err(format!("hostname: {}", go_io_msg(&std::io::Error::last_os_error()))));
-    }
-    let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-    Ok(Value::String(String::from_utf8_lossy(&buf[..end]).into_owned()))
+    super::fsx::hostname()
+        .map(Value::String)
+        .map_err(|e| err(format!("hostname: {}", go_io_msg(&e))))
 }
 
 fn op_dns_lookup(i: &Interpreter, _b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
@@ -73,7 +68,7 @@ fn op_port_check(i: &Interpreter, _b: &mut Bindings, a: &Args<'_>) -> Result<Val
 fn listen(port: u16) -> std::io::Result<TcpListener> {
     match TcpListener::bind(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED), port)) {
         Ok(l) => Ok(l),
-        Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable || e.raw_os_error() == Some(libc::EAFNOSUPPORT) => {
+        Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable || super::fsx::is_af_unsupported(&e) => {
             TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port))
         }
         Err(e) => Err(e),
@@ -158,6 +153,12 @@ struct Iface {
     loopback: bool,
     mac: Vec<u8>,
     ipv4: Vec<Ipv4Addr>,
+}
+
+#[cfg(not(unix))]
+fn list_ifaces() -> std::io::Result<Vec<Iface>> {
+    // No getifaddrs on Windows; interface ops report no interfaces.
+    Ok(Vec::new())
 }
 
 #[cfg(unix)]
@@ -253,6 +254,7 @@ fn link_addr(sa: *const libc::sockaddr, family: i32) -> Option<Vec<u8>> {
     target_os = "linux",
     target_os = "android"
 )))]
+#[allow(dead_code)]
 fn link_addr(_sa: *const libc::sockaddr, _family: i32) -> Option<Vec<u8>> {
     None
 }

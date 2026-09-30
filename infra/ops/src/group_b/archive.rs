@@ -8,7 +8,6 @@ use perch_interpreter::{err, handler, Bindings, Error, Handler, Interpreter, Res
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Read;
-use std::os::unix::fs::MetadataExt;
 
 type Args<'a> = perch_interpreter::Args<'a>;
 
@@ -43,7 +42,7 @@ fn op_tar_create(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Val
         }
         let mut hdr = tar::Header::new_gnu();
         hdr.set_metadata(md);
-        hdr.set_mode(md.mode() & 0o7777);
+        hdr.set_mode(super::fsx::mode_of(md) & 0o7777);
         if md.is_dir() {
             hdr.set_entry_type(tar::EntryType::Directory);
             hdr.set_size(0);
@@ -108,7 +107,7 @@ pub fn extract_tar_gz<R: Read>(inp: R, dst: &str, symlinks: bool, gz_prefix: boo
             }
         } else if symlinks && et.is_symlink() {
             if let Ok(Some(l)) = ent.link_name() {
-                let _ = std::os::unix::fs::symlink(l.as_ref(), &out);
+                let _ = super::fsx::symlink(&l.to_string_lossy(), &out);
             }
         }
     }

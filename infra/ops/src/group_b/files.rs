@@ -5,7 +5,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 
 type Args<'a> = perch_interpreter::Args<'a>;
 
@@ -67,7 +66,7 @@ fn op_mv(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
 fn op_rm(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
     let p = resolve(&arg_string(a, &["path", "_0"]), b);
     match fs::symlink_metadata(&p) {
-        Err(e) if is_not_exist(&e) || e.raw_os_error() == Some(libc::ENOTDIR) => Ok(Value::Null),
+        Err(e) if is_not_exist(&e) || super::fsx::is_not_dir(&e) => Ok(Value::Null),
         Err(e) => Err(path_err("lstat", &p, &e)),
         Ok(md) => {
             let r = if md.is_dir() { fs::remove_dir_all(&p) } else { fs::remove_file(&p) };
@@ -93,19 +92,15 @@ fn op_chmod(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
         return Err(err(format!("chmod: invalid mode {}", perch_interpreter::go_quote(&mode))));
     };
     let p = resolve(&arg_string(a, &["path"]), b);
-    fs::set_permissions(&p, fs::Permissions::from_mode(n & 0o777)).map_err(|e| path_err("chmod", &p, &e))?;
+    super::fsx::set_mode(&p, n & 0o777).map_err(|e| path_err("chmod", &p, &e))?;
     Ok(Value::Null)
 }
 
 fn op_touch(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
-    use std::os::unix::fs::OpenOptionsExt;
     let p = resolve(&arg_string(a, &["path", "_0"]), b);
-    fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .mode(0o644)
+    let mut o = fs::OpenOptions::new();
+    o.read(true).write(true).create(true).truncate(false);
+    super::fsx::open_mode(&mut o, 0o644)
         .open(&p)
         .map_err(|e| path_err("open", &p, &e))?;
     Ok(Value::Null)
@@ -155,7 +150,7 @@ fn op_file_size(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Valu
 fn op_make_executable(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
     let p = resolve(&arg_string(a, &["path", "_0"]), b);
     let md = fs::metadata(&p).map_err(|e| path_err("stat", &p, &e))?;
-    fs::set_permissions(&p, fs::Permissions::from_mode((md.permissions().mode() & 0o7777) | 0o111))
+    super::fsx::set_mode(&p, (super::fsx::mode_of(&md) & 0o7777) | 0o111)
         .map_err(|e| path_err("chmod", &p, &e))?;
     Ok(Value::Null)
 }
@@ -167,7 +162,6 @@ fn op_ensure_dir(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Val
 }
 
 fn op_copy_dir(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
-    use std::os::unix::fs::DirBuilderExt;
     let src = resolve(&arg_string(a, &["src", "_0"]), b);
     let dst = resolve(&arg_string(a, &["dst", "_1"]), b);
     walk(&src, &mut |path, md| {
@@ -179,9 +173,9 @@ fn op_copy_dir(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value
                     return Ok(());
                 }
             }
-            return fs::DirBuilder::new()
-                .recursive(true)
-                .mode(md.permissions().mode() & 0o777)
+            let mut db = fs::DirBuilder::new();
+            db.recursive(true);
+            return super::fsx::dir_mode(&mut db, super::fsx::mode_of(md) & 0o777)
                 .create(&out)
                 .map_err(|e| path_err("mkdir", &out, &e));
         }
@@ -191,8 +185,9 @@ fn op_copy_dir(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value
 }
 
 fn open_append(p: &str) -> Result<fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-    fs::OpenOptions::new().append(true).create(true).mode(0o644).open(p).map_err(|e| path_err("open", p, &e))
+    let mut o = fs::OpenOptions::new();
+    o.append(true).create(true);
+    super::fsx::open_mode(&mut o, 0o644).open(p).map_err(|e| path_err("open", p, &e))
 }
 
 fn op_append_file(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value> {
@@ -531,7 +526,7 @@ fn op_symlink(_i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value>
     let target = arg_string(a, &["target", "_0"]);
     let link = resolve(&arg_string(a, &["link", "_1"]), b);
     let _ = fs::remove_file(&link);
-    std::os::unix::fs::symlink(&target, &link).map_err(|e| link_err("symlink", &target, &link, &e))?;
+    super::fsx::symlink(&target, &link).map_err(|e| link_err("symlink", &target, &link, &e))?;
     Ok(Value::Null)
 }
 

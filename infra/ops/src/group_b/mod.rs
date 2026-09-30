@@ -8,6 +8,7 @@ pub mod bundle;
 mod compression;
 mod encoding;
 mod files;
+mod fsx;
 mod gate;
 mod gofmt;
 mod hash;
@@ -124,6 +125,30 @@ mod tests {
         std::fs::remove_dir_all(&d).unwrap();
     }
 
+    /// Reads one full HTTP request (headers plus any Content-Length body) so the
+    /// server never closes a socket with unread data, which would RST the client.
+    fn read_request(s: &mut std::net::TcpStream) {
+        let mut data = Vec::new();
+        let mut buf = [0u8; 4096];
+        loop {
+            let n = s.read(&mut buf).unwrap_or(0);
+            if n == 0 {
+                return;
+            }
+            data.extend_from_slice(&buf[..n]);
+            if let Some(end) = data.windows(4).position(|w| w == b"\r\n\r\n") {
+                let head = String::from_utf8_lossy(&data[..end]).to_lowercase();
+                let want = head
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:").and_then(|v| v.trim().parse::<usize>().ok()))
+                    .unwrap_or(0);
+                if data.len() >= end + 4 + want {
+                    return;
+                }
+            }
+        }
+    }
+
     /// Serves `count` canned responses on a local port.
     fn serve(responses: Vec<String>) -> (u16, std::thread::JoinHandle<()>) {
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -131,8 +156,7 @@ mod tests {
         let h = std::thread::spawn(move || {
             for r in responses {
                 let (mut s, _) = l.accept().unwrap();
-                let mut buf = [0u8; 4096];
-                let _ = s.read(&mut buf);
+                read_request(&mut s);
                 s.write_all(r.as_bytes()).unwrap();
             }
         });
@@ -167,8 +191,7 @@ mod tests {
         let h = std::thread::spawn(move || {
             for n in 0..2 {
                 let (mut s, _) = l.accept().unwrap();
-                let mut buf = [0u8; 4096];
-                let _ = s.read(&mut buf);
+                read_request(&mut s);
                 let r = if n == 0 {
                     format!("HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{port}/final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                 } else {

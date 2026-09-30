@@ -220,7 +220,6 @@ pub fn is_not_exist(e: &io::Error) -> bool {
 
 /// `os.MkdirAll(path, mode)`.
 pub fn mkdir_all(path: &str, mode: u32) -> Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
     if path.is_empty() {
         return Err(err("mkdir : no such file or directory"));
     }
@@ -230,7 +229,8 @@ pub fn mkdir_all(path: &str, mode: u32) -> Result<()> {
         Err(_) => {}
     }
     let mut b = fs::DirBuilder::new();
-    b.recursive(true).mode(mode);
+    b.recursive(true);
+    super::fsx::dir_mode(&mut b, mode);
     match b.create(path) {
         Ok(()) => Ok(()),
         Err(e) => {
@@ -257,14 +257,9 @@ pub fn open_file(path: &str) -> Result<fs::File> {
 
 /// `os.OpenFile(path, O_CREATE|O_WRONLY|O_TRUNC, mode)`.
 pub fn create_with_mode(path: &str, mode: u32) -> Result<fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-    fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .mode(mode)
-        .open(path)
-        .map_err(|e| path_err("open", path, &e))
+    let mut o = fs::OpenOptions::new();
+    o.create(true).write(true).truncate(true);
+    super::fsx::open_mode(&mut o, mode).open(path).map_err(|e| path_err("open", path, &e))
 }
 
 /// `io.Copy(dst, src)` with Go-ish error text for a failed read.
@@ -338,7 +333,6 @@ fn next_rand() -> u32 {
 /// `os.MkdirTemp("", pattern)` (dir = true) / `os.CreateTemp("", pattern)`
 /// (dir = false; the file is created and closed). Returns the path.
 pub fn mktemp(pattern: &str, dir: bool) -> Result<String> {
-    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
     if pattern.contains('/') {
         return Err(err("pattern contains path separator"));
     }
@@ -351,9 +345,11 @@ pub fn mktemp(pattern: &str, dir: bool) -> Result<String> {
     for _ in 0..10000 {
         let path = format!("{base}{prefix}{}{suffix}", next_rand());
         let r = if dir {
-            fs::DirBuilder::new().mode(0o700).create(&path).map(|_| ())
+            super::fsx::dir_mode(&mut fs::DirBuilder::new(), 0o700).create(&path).map(|_| ())
         } else {
-            fs::OpenOptions::new().read(true).write(true).create_new(true).mode(0o600).open(&path).map(|_| ())
+            let mut o = fs::OpenOptions::new();
+            o.read(true).write(true).create_new(true);
+            super::fsx::open_mode(&mut o, 0o600).open(&path).map(|_| ())
         };
         match r {
             Ok(()) => return Ok(path),
