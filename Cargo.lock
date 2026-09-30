@@ -1110,9 +1110,9 @@ dependencies = [
 name = "perch-exportopscatalog"
 version = "0.1.0"
 dependencies = [
- "perch-domain",
- "serde",
- "serde_json",
+ "perch-opcatalog",
+ "perch-ops",
+ "tempfile",
 ]
 
 [[package]]
@@ -1128,7 +1128,14 @@ dependencies = [
 name = "perch-httpserver"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "perch-capyloader",
  "perch-domain",
+ "perch-interpreter",
+ "perch-ops",
+ "perch-scan",
+ "perch-simulate",
+ "perch-validate",
  "serde",
  "serde_json",
 ]

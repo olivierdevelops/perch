@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>demo&lt;&amp;&gt; — perch</title>
+<style>
+  :root {
+    --bg:#fff; --fg:#1c1f26; --muted:#666; --border:#e4e4e7; --card:#fafafa;
+    --accent:#4f46e5; --accent-fg:#fff; --ok:#16a34a; --err:#dc2626; --warn:#d97706;
+    --code-bg:#0d1117; --code-fg:#c9d1d9;
+  }
+  html.dark {
+    --bg:#0d1117; --fg:#c9d1d9; --muted:#8b949e; --border:#21262d; --card:#161b22;
+    --accent:#7c83f8; --accent-fg:#0d1117; --ok:#3fb950; --err:#f85149; --warn:#d29922;
+    --code-bg:#010409; --code-fg:#c9d1d9;
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, ui-sans-serif, system-ui, sans-serif; margin: 0; color: var(--fg); background: var(--bg); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 18px 80px; }
+  header { display:flex; align-items:center; gap:14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .meta code { background: var(--card); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  header .right { margin-left: auto; display:flex; gap:8px; align-items:center; }
+  .theme-toggle { background: var(--card); border: 1px solid var(--border); color: var(--fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size:13px; }
+  .tabs { display:flex; gap:2px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap:wrap; }
+  .tab { padding: 8px 14px; cursor: pointer; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 13px; color: var(--muted); }
+  .tab:hover { color: var(--fg); background: var(--card); }
+  .tab.active { color: var(--fg); background: var(--card); border-color: var(--border); margin-bottom:-1px; padding-bottom: 9px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+   
+  .search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 8px; font: inherit; margin-bottom: 14px; }
+  .cmd { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 10px 0; background: var(--card); }
+  .cmd-head { display:flex; align-items:center; gap:8px; }
+  .cmd-head h2 { margin: 0; font-size: 16px; font-family: ui-monospace, monospace; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+  .badge.test { color: var(--warn); border-color: var(--warn); }
+  .badge.detached, .badge.proxy { color: var(--accent); border-color: var(--accent); }
+  .desc { color: var(--muted); margin: 4px 0 10px; font-size: 13px; }
+  .args { display: grid; grid-template-columns: max-content 1fr max-content; gap: 6px 12px; margin: 8px 0; align-items: center; }
+  .args label { font-family: ui-monospace, monospace; font-size: 12px; }
+  .args .argtype { color: var(--muted); font-size: 10px; }
+  .args .opt { color: var(--muted); font-size: 10px; }
+  .args input[type=text], .args input[type=number], .args textarea { padding: 5px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 5px; font: inherit; width: 100%; }
+  .args input[type=checkbox] { width: auto; }
+  .args textarea { min-height: 32px; resize: vertical; font: 12px/1.4 ui-monospace, monospace; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 12px; }
+  button.run { padding: 6px 16px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); border-radius: 6px; cursor: pointer; font: inherit; font-weight: 500; }
+  button.run:hover { filter: brightness(1.1); }
+  button.run:disabled { opacity: 0.6; cursor:not-allowed; }
+  button.ghost { padding: 5px 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; font: inherit; font-size:12px; }
+  button.ghost:hover { color: var(--fg); border-color: var(--fg); }
+  .out { background: var(--code-bg); color: var(--code-fg); padding: 10px 12px; border-radius: 6px; font: 12px/1.55 ui-monospace, monospace; white-space: pre-wrap; max-height: 320px; overflow: auto; margin-top: 10px; display: none; }
+  .out.show { display: block; }
+  .out .err { color: #ff8080; }
+  .out .ok { color: #6cf; }
+  .out .status { color: #888; font-style: italic; }
+
+   
+  .panel-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+  .panel-head h2 { margin:0; font-size: 17px; }
+  .panel-head .sub { color: var(--muted); font-size: 13px; }
+  .form-grid { display: grid; grid-template-columns: max-content 1fr; gap: 10px 14px; align-items:center; max-width: 720px; margin-bottom: 14px; }
+  .form-grid label { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .form-grid input[type=text], .form-grid select, .form-grid textarea { padding: 6px 10px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 5px; font: inherit; width: 100%; }
+  .form-grid textarea { font: 12px/1.4 ui-monospace, monospace; min-height: 110px; }
+  .form-toggles { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 16px; }
+  .form-toggles label { font-size: 12px; cursor:pointer; user-select:none; }
+  .report { background: var(--code-bg); color: var(--code-fg); padding: 14px; border-radius: 8px; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; min-height: 120px; }
+  .pill { display:inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-family: ui-monospace, monospace; }
+  .pill.ok { background: rgba(22,163,74,.15); color: var(--ok); }
+  .pill.err { background: rgba(220,38,38,.15); color: var(--err); }
+  .pill.warn { background: rgba(217,119,6,.15); color: var(--warn); }
+  details.globals { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; font-size: 13px; }
+  details.globals summary { cursor: pointer; color: var(--muted); }
+  details.globals table { width: 100%; margin-top: 8px; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 12px; }
+  details.globals td, details.globals th { padding: 4px 8px; text-align: left; border-top: 1px solid var(--border); }
+  .copy-cmd { background: var(--code-bg); color: var(--code-fg); padding: 8px 10px; border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; margin-top: 8px; word-break:break-all; user-select:all; cursor: copy; }
+  .about-card { background: var(--card); border: 1px solid var(--border); padding: 16px; border-radius: 10px; margin: 10px 0; }
+  .about-card h3 { margin: 0 0 6px; font-size: 14px; }
+  .about-card .v { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .about-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🪶 demo&lt;&amp;&gt;</h1>
+  <div class="meta">
+    A &#34;desc&#34; it&#39;s · 
+    v1.2
+     · <code>/tmp/a&#34;b&lt;c&gt;&amp;d/e.perch</code>
+    · 2 commands
+  </div>
+  <div class="right">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  </div>
+</header>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="run">▶ Run</div>
+  <div class="tab" data-tab="simulate">🧪 Simulate</div>
+  <div class="tab" data-tab="scan">🔍 Scan</div>
+  <div class="tab" data-tab="check">✓ Check</div>
+  <div class="tab" data-tab="about">ℹ About</div>
+</div>
+
+
+<div class="panel active" data-panel="run">
+
+  
+  <details class="globals">
+    <summary>Globals — 4 bindings</summary>
+    <table>
+      <tr><th>name</th><th>type</th><th>value</th></tr>
+      
+      <tr><td>g</td><td>string</td><td>x&lt;y</td></tr>
+      
+      <tr><td>n</td><td>float</td><td>3.5</td></tr>
+      
+      <tr><td>b</td><td>bool</td><td>true</td></tr>
+      
+      <tr><td>i</td><td>int</td><td>1e&#43;06</td></tr>
+      
+    </table>
+  </details>
+  
+
+  <input class="search" id="search" placeholder="🔎 Filter commands by name or description…" oninput="filterCommands(this.value)" />
+
+  
+  <div class="cmd" data-name="build" data-haystack="build Build &#39;it&#39;">
+    <div class="cmd-head">
+      <h2>build</h2>
+      <span class="badge test">test</span>
+      <span class="badge detached">detached</span>
+      <span class="badge proxy">proxy_args</span>
+    </div>
+    <div class="desc">Build &#39;it&#39;</div>
+    
+    <div class="args">
+      
+      <label for="
