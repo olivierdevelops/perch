@@ -252,10 +252,21 @@ fn template_matches_go_html_template() {
 }
 
 #[test]
-fn template_args_error_truncates_like_go() {
-    // `{{$.Name}}` is not a field of the root data, so Go's Execute fails at the
-    // first argument and the response keeps the partial output.
+fn template_renders_complete_page_for_arg_commands() {
+    // F07 / T-43: the label/input ids use the arg's own name (`{{.Name}}`);
+    // the Go original used `{{$.Name}}` (root data, no such field), which made
+    // Execute fail and truncated the page right after `<label for="`.
     let path = "/tmp/a\"b<c>&d/e.perch";
     let got = render_golden(include_str!("../testdata/program_args.json"), path);
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        let p = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/program_args.golden.html");
+        std::fs::write(p, &got).unwrap();
+    }
+    assert!(got.trim_end().ends_with("</html>"), "page truncated: ...{}", &got[got.len().saturating_sub(120)..]);
+    for arg in ["n", "f", "v", "rest", "s"] {
+        assert!(got.contains(&format!("<label for=\"{arg}\">-{arg}</label>")), "missing label for {arg}");
+        assert!(got.contains(&format!("id=\"{arg}\"")), "missing input id {arg}");
+    }
+    assert!(!got.contains("{{"), "unrendered template action");
     assert_eq!(got, include_str!("../testdata/program_args.golden.html"));
 }

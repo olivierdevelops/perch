@@ -245,6 +245,88 @@ fn timeout_errors_and_restores_deadline() {
     assert!(i.deadline().is_none());
 }
 
+fn marker(kind: &str) -> Op {
+    op(kind, json!({}))
+}
+
+fn try_op(body: Vec<Op>, fin: Vec<Op>) -> Op {
+    let mut b = body;
+    b.push(marker("_catch"));
+    b.push(marker("_finally"));
+    b.extend(fin);
+    block("try", json!({}), b)
+}
+
+// T-10: a `timeout` block that trips still runs the enclosing finally (D1), under
+// a fresh grace deadline; the original timeout error is reported and the previous
+// (absent) deadline is restored.
+#[test]
+fn t10_finally_runs_when_timeout_block_fires() {
+    let (i, buf) = interp(Program::default());
+    let mut b = Bindings::new(".");
+    let ops = [block(
+        "timeout",
+        json!({"duration": "1ms"}),
+        vec![try_op(vec![op("sleep", json!({"seconds": 0.05})), print("late")], vec![print("cleanup-ran")])],
+    )];
+    let e = i.run_ops(&ops, &mut b).unwrap_err();
+    assert!(perch_interpreter::is_timeout(&e), "original timeout error must be kept: {e}");
+    let out = buf.contents();
+    assert!(out.contains("cleanup-ran") && !out.contains("late"), "out={out:?}");
+    assert!(i.deadline().is_none());
+}
+
+// T-10 (--max-runtime form): the interpreter-wide deadline expires while the
+// body runs; the next body op is refused, finally still runs under the grace
+// deadline, and the expired deadline is restored afterwards.
+#[test]
+fn t10_finally_runs_after_max_runtime_deadline() {
+    let (i, buf) = interp(Program::default());
+    let mut b = Bindings::new(".");
+    let dl = std::time::Instant::now() + std::time::Duration::from_millis(5);
+    i.set_deadline(Some(dl));
+    let body = vec![op("sleep", json!({"seconds": 0.05})), print("body")];
+    let e = i.run_ops(&[try_op(body, vec![print("cleanup-ran")])], &mut b).unwrap_err();
+    assert!(perch_interpreter::is_timeout(&e), "{e}");
+    assert_eq!(buf.contents(), "cleanup-ran\n");
+    assert_eq!(i.deadline(), Some(dl));
+}
+
+// A failing cleanup after a timeout keeps the timeout error and notes the failure.
+#[test]
+fn t10_timeout_error_kept_when_cleanup_fails() {
+    let (i, buf) = interp(Program::default());
+    let mut b = Bindings::new(".");
+    i.set_deadline(Some(std::time::Instant::now() + std::time::Duration::from_millis(5)));
+    let body = vec![op("sleep", json!({"seconds": 0.05})), print("body")];
+    let e = i.run_ops(&[try_op(body, vec![op("fail", json!({"msg": "cleanup boom"}))])], &mut b).unwrap_err();
+    assert!(perch_interpreter::is_timeout(&e), "{e}");
+    assert!(buf.contents().contains("finally failed: user_fail: cleanup boom"), "{}", buf.contents());
+}
+
+// A timeout is not a catchable failure: rescue is skipped, finally still runs.
+#[test]
+fn timeout_skips_rescue_but_runs_finally() {
+    let (i, buf) = interp(Program::default());
+    let mut b = Bindings::new(".");
+    i.set_deadline(Some(std::time::Instant::now() + std::time::Duration::from_millis(5)));
+    let t = block(
+        "try",
+        json!({}),
+        vec![
+            op("sleep", json!({"seconds": 0.05})),
+            print("body"),
+            marker("_catch"),
+            print("rescued"),
+            marker("_finally"),
+            print("fin"),
+        ],
+    );
+    let e = i.run_ops(&[t], &mut b).unwrap_err();
+    assert!(perch_interpreter::is_timeout(&e), "{e}");
+    assert_eq!(buf.contents(), "fin\n");
+}
+
 #[test]
 fn retry_exhausts_with_wrapped_error() {
     let (i, buf) = interp(Program::default());

@@ -675,3 +675,131 @@ fn op_kinds_sorted_and_nonempty() {
     s.sort();
     assert_eq!(k, s);
 }
+
+// ── R02a / R05 (PLAN-2026-0001) ──────────────────────────────────────────────
+
+fn cmd_ops<'a>(p: &'a Program, name: &str) -> &'a Vec<perch_domain::Op> {
+    &p.commands[name].ops
+}
+
+fn kinds(ops: &[perch_domain::Op]) -> Vec<&str> {
+    ops.iter().map(|o| o.kind.as_str()).collect()
+}
+
+// T-05: a command-level `finally` lowers to a whole-body `try … finally` marker
+// stream (one try op: body, `_catch` with no rescue arm, `_finally`, cleanup).
+#[test]
+fn t05_command_level_finally_lowers_to_try() {
+    let src = "name \"x\"\nrequires\nend\ncommand t\n    do\n        print \"a\"\n        print \"b\"\n    finally\n        print \"c\"\n    end\nend\n";
+    let p = load_from_string(src).unwrap();
+    let ops = cmd_ops(&p, "t");
+    assert_eq!(kinds(ops), ["try"]);
+    assert_eq!(kinds(&ops[0].body), ["print", "print", "_catch", "_finally", "print"]);
+    assert_eq!(arg_str(&ops[0].body[2].args, "bind"), "err");
+    assert_eq!(arg_str(&ops[0].body[4].args, "msg"), "c");
+}
+
+// `do` without `finally`, and an empty `finally`, lower exactly as before.
+#[test]
+fn t05_no_finally_is_unchanged() {
+    let src = "name \"x\"\nrequires\nend\ncommand t\n    do\n        print \"a\"\n    end\nend\ncommand u\n    do\n        print \"a\"\n    finally\n    end\nend\n";
+    let p = load_from_string(src).unwrap();
+    assert_eq!(kinds(cmd_ops(&p, "t")), ["print"]);
+    assert_eq!(kinds(cmd_ops(&p, "u")), ["print"]);
+}
+
+// A nested `try … finally` inside a `do … finally` keeps its own sections.
+#[test]
+fn t05_nested_try_finally_inside_command_finally() {
+    let src = "name \"x\"\nrequires\nend\ncommand t\n    do\n        try\n            print \"a\"\n        finally\n            print \"inner\"\n        end\n    finally\n        print \"outer\"\n    end\nend\n";
+    let p = load_from_string(src).unwrap();
+    let outer = &cmd_ops(&p, "t")[0];
+    assert_eq!(kinds(&outer.body), ["try", "_catch", "_finally", "print"]);
+    assert_eq!(kinds(&outer.body[0].body), ["print", "_catch", "_finally", "print"]);
+}
+
+const PREFIX_REQ: &str = "name \"x\"\nrequires\n    bin \"tool\"\nend\n";
+
+fn prefix_of(op: &perch_domain::Op) -> Vec<(String, String)> {
+    op.args
+        .get("env_prefix")
+        .and_then(|v| v.as_object())
+        .map(|m| m.iter().map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string())).collect())
+        .unwrap_or_default()
+}
+
+// T-25: leading NAME=VALUE tokens become `env_prefix` (order kept; bare, quoted,
+// `$NAME`, `${NAME}`); name=value args AFTER the binary are untouched.
+#[test]
+fn t25_env_prefix_parses() {
+    let src = format!(
+        "{PREFIX_REQ}command t\n    do\n        K=bare Q=\"a b\" D=$HOME B=${{X}} tool run name=value\n    end\nend\n"
+    );
+    let p = load_from_string(&src).unwrap();
+    let op = &cmd_ops(&p, "t")[0];
+    assert_eq!(op.kind, "exec");
+    assert_eq!(arg_str(&op.args, "bin"), "tool");
+    assert_eq!(
+        prefix_of(op),
+        [("K", "bare"), ("Q", "a b"), ("D", "${HOME}"), ("B", "${X}")]
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .to_vec()
+    );
+    assert_eq!(arg_str(&op.args, "_0"), "run");
+    assert_eq!(arg_str(&op.args, "_1"), "name=value");
+    assert!(!op.args.contains_key("_2"));
+}
+
+#[test]
+fn t25_env_prefix_on_exec_capture_and_chain() {
+    let src = format!(
+        "{PREFIX_REQ}command t\n    do\n        exec K=v tool a\n        out = J=2 tool b\n        K=1 tool a && L=2 tool b\n        plain = tool c k=v\n    end\nend\n"
+    );
+    let p = load_from_string(&src).unwrap();
+    let ops = cmd_ops(&p, "t");
+    assert_eq!(prefix_of(&ops[0]), [("K".to_string(), "v".to_string())]);
+    assert_eq!(arg_str(&ops[0].args, "bin"), "tool");
+    assert_eq!(ops[1].capture_into, "out");
+    assert_eq!(prefix_of(&ops[1]), [("J".to_string(), "2".to_string())]);
+    assert_eq!(ops[2].kind, "exec_chain");
+    assert_eq!(prefix_of(&ops[2].body[0]), [("K".to_string(), "1".to_string())]);
+    assert_eq!(prefix_of(&ops[2].body[1]), [("L".to_string(), "2".to_string())]);
+    // A capture with name=value AFTER the binary has no prefix.
+    assert!(ops[3].args.get("env_prefix").is_none());
+    assert_eq!(arg_str(&ops[3].args, "_1"), "k=v");
+}
+
+// D2 (T-31, loader half): a prefix on a built-in op / command is rejected.
+#[test]
+fn t31_env_prefix_on_builtin_op_rejected() {
+    let src = format!("{PREFIX_REQ}command t\n    do\n        K=1 print hi\n    end\nend\n");
+    let e = err_string(load_from_string(&src));
+    assert!(e.contains("only valid on a declared-bin call or `exec`") && e.contains("built-in op"), "{e}");
+    let src = format!("{PREFIX_REQ}command other\n    do\n        print hi\n    end\nend\ncommand t\n    do\n        K=1 other\n    end\nend\n");
+    let e = err_string(load_from_string(&src));
+    assert!(e.contains("is a command"), "{e}");
+}
+
+// T-32 (loader half): malformed `NAME=` and a prefix with no command.
+#[test]
+fn t32_malformed_env_assignment_rejected() {
+    for bad in ["1K=2 tool a", "K-V=2 tool a", "=x tool a", "exec K=v tool && 9X=1 tool"] {
+        let src = format!("{PREFIX_REQ}command t\n    do\n        {bad}\n    end\nend\n");
+        let e = err_string(load_from_string(&src));
+        assert!(e.contains("malformed env assignment"), "{bad}: {e}");
+    }
+    let src = format!("{PREFIX_REQ}command t\n    do\n        exec K=v\n    end\nend\n");
+    let e = err_string(load_from_string(&src));
+    assert!(e.contains("no command to apply to"), "{e}");
+}
+
+// A statement that only LOOKS assignment-shaped inside a string or a comment is
+// never rewritten.
+#[test]
+fn env_prefix_prepass_ignores_strings_and_comments() {
+    let src = format!(
+        "{PREFIX_REQ}command t\n    do\n        # K=v tool a\n        print \"K=v tool a\"\n        write_file \"f\" `\n  K=v tool a\n`\n    end\nend\n"
+    );
+    let p = load_from_string(&src).unwrap();
+    assert_eq!(kinds(cmd_ops(&p, "t")), ["print", "write_file"]);
+}

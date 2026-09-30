@@ -260,6 +260,22 @@ pub struct Catch {
 }
 
 /// One statement inside a command body (or a block op's body).
+///
+/// Arg conventions worth knowing (no struct fields: they ride in `args`):
+///
+/// * `env_prefix` (R05, inline env prefix) - on an `exec` op only: a JSON object
+///   of `NAME` to template string, in source order, lowered by the loader from
+///   `NAME=VALUE ... binary verb --args` (also `exec NAME=VALUE ...` and the
+///   capture form `out = NAME=VALUE tool ...`). Values are NOT interpolated by
+///   the interpreter's generic arg pass; the exec handler resolves each `${REF}`
+///   itself (bindings first, then host env under the `requires env` / `--env`
+///   gates, `env_not_declared` when refused) and layers the result on top of
+///   the scrubbed child env for that one process. It never enters bindings or
+///   later ops. A built-in op carrying it is rejected at load and at run time.
+/// * Command-level `finally` (R02) has no representation of its own: `do ...
+///   finally ... end` lowers to a single `try` op whose body is the command body
+///   followed by the `_catch` (no rescue arm) and `_finally` marker ops and the
+///   cleanup ops, exactly like a hand-written `try ... finally ... end`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Op {

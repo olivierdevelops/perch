@@ -14,6 +14,7 @@
 //! shipping it) something you do in ~30 seconds instead of ~30 minutes.
 use perch_domain::{Op, Program};
 use regex::Regex;
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -27,11 +28,19 @@ pub struct Impl {
 }
 
 impl Impl {
-    /// Loads, analyzes and prints the report to `out` (Go: stdout).
-    pub fn execute(&self, path: &str, out: &mut dyn Write) -> Result<(), Error> {
+    /// Loads, analyzes and prints the report to `out`. `format` is `"text"`
+    /// (or empty) for the human report, `"json"` for the structured one.
+    pub fn execute(&self, path: &str, format: &str, out: &mut dyn Write) -> Result<(), Error> {
+        if !matches!(format, "" | "text" | "json") {
+            return Err(format!("unknown scan format {format:?} (want text or json)").into());
+        }
         let p = (self.load)(path)?;
         let r = analyze(&p);
-        print_report(out, &p, path, &r)?;
+        if format == "json" {
+            out.write_all(json_report(&p, path, &r).as_bytes())?;
+        } else {
+            print_report(out, &p, path, &r)?;
+        }
         Ok(())
     }
 }
@@ -54,6 +63,13 @@ pub struct Report {
     pub hosts: BTreeMap<String, usize>,
     pub needs_write: bool,
     pub write_roots: BTreeMap<String, usize>,
+    pub needs_read: bool,
+    pub read_roots: BTreeMap<String, usize>,
+    /// The file's `requires` block declares a write scope / hosts / read
+    /// scope. A capability covered by a declared scope is not advised away.
+    pub declared_write: bool,
+    pub declared_network: bool,
+    pub declared_read: bool,
     pub env_vars: BTreeMap<String, usize>,
     pub has_proxy_args: bool,
     pub has_catch: bool,
@@ -73,7 +89,12 @@ pub struct Finding {
 
 /// Walks the program and produces a [`Report`]. Pure — no IO.
 pub fn analyze(p: &Program) -> Report {
-    let mut r = Report::default();
+    let mut r = Report {
+        declared_write: !p.requirements.write_roots.is_empty(),
+        declared_network: !p.requirements.hosts.is_empty(),
+        declared_read: !p.requirements.read_roots.is_empty() || !p.requirements.write_roots.is_empty(),
+        ..Default::default()
+    };
 
     if let Some(catch) = &p.catch {
         r.has_catch = true;
@@ -135,6 +156,13 @@ fn walk_ops(ops: &[Op], where_: &str, r: &mut Report, in_catch: bool) {
             | "bundle_extract" | "bundle_dir" => {
                 r.needs_write = true;
                 record_write(op, r);
+            }
+            "read_file" | "read_link" | "list_dir" | "glob" | "sha256_file" => {
+                r.needs_read = true;
+                let p = first_string_arg(op, &["path", "pattern", "_0", "_1"]);
+                if !p.is_empty() {
+                    *r.read_roots.entry(path_root(p)).or_default() += 1;
+                }
             }
             _ => {}
         }
@@ -423,10 +451,10 @@ pub fn recommended_invocation(path: &str, r: &Report) -> Vec<String> {
     if !r.needs_subprocess {
         add("--no-subprocess");
     }
-    if !r.needs_network {
+    if !r.needs_network && !r.declared_network {
         add("--no-network");
     }
-    if !r.needs_write {
+    if !r.needs_write && !r.declared_write {
         add("--no-write");
     }
 
@@ -464,10 +492,10 @@ fn delta_summary(r: &Report) -> Vec<String> {
             out.push("- no pipes / redirects / `$()` allowed in shell args".into());
         }
     }
-    if !r.needs_network {
+    if !r.needs_network && !r.declared_network {
         out.push("- network access entirely disabled".into());
     }
-    if !r.needs_write {
+    if !r.needs_write && !r.declared_write {
         out.push("- filesystem mutation entirely disabled".into());
     }
     if !r.needs_subprocess {
@@ -515,6 +543,9 @@ fn summarise_subprocess(r: &Report) -> String {
 
 fn summarise_net(r: &Report) -> String {
     if !r.needs_network {
+        if r.declared_network {
+            return "— none seen in ops; declared `host` scope covers any use by spawned binaries".into();
+        }
         return "— add `--no-network` for free".into();
     }
     if r.hosts.is_empty() {
@@ -525,6 +556,9 @@ fn summarise_net(r: &Report) -> String {
 
 fn summarise_writes(r: &Report) -> String {
     if !r.needs_write {
+        if r.declared_write {
+            return "— none seen in ops; declared `write` scope covers any use by spawned binaries".into();
+        }
         return "— add `--no-write` for free".into();
     }
     if r.write_roots.is_empty() {
@@ -673,6 +707,153 @@ pub fn risk_badge(s: RiskScore) -> &'static str {
     }
 }
 
+// ─── structured (JSON) report ────────────────────────────────────────
+//
+// Field order in every struct below is alphabetical on purpose: serde emits
+// fields in declaration order, so the output is stable and key-sorted.
+
+/// Schema version of the JSON report. Bump on any breaking change.
+pub const JSON_SCHEMA: u32 = 1;
+
+#[derive(Debug, Serialize)]
+pub struct JsonReport {
+    pub declared: JsonDeclared,
+    pub file: String,
+    pub inferred: JsonInferred,
+    pub risk: String,
+    pub risk_reasons: Vec<String>,
+    pub schema: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonDeclared {
+    pub arch: Vec<String>,
+    pub bin: Vec<JsonBin>,
+    /// Whether the file has a `requires` block at all.
+    pub declared: bool,
+    pub env: Vec<JsonNamed>,
+    pub host: Vec<JsonNamed>,
+    pub os: Vec<String>,
+    pub read: Vec<String>,
+    pub write: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonBin {
+    pub alias: String,
+    pub hash: String,
+    pub hash_file: String,
+    pub name: String,
+    pub optional: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonNamed {
+    pub name: String,
+    pub optional: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonInferred {
+    pub catch_forwards: bool,
+    pub env: Vec<String>,
+    pub hosts: Vec<String>,
+    pub network: bool,
+    pub read: bool,
+    pub read_roots: Vec<String>,
+    pub shell: JsonShell,
+    pub subprocess: bool,
+    pub subprocess_ops: Vec<String>,
+    pub write: bool,
+    pub write_roots: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonShell {
+    pub bins: Vec<String>,
+    pub calls: usize,
+    pub metachars: bool,
+    pub sudo: bool,
+}
+
+fn owned_keys(m: &BTreeMap<String, usize>) -> Vec<String> {
+    m.keys().cloned().collect()
+}
+
+fn sorted(v: &[String]) -> Vec<String> {
+    let mut o = v.to_vec();
+    o.sort();
+    o
+}
+
+/// Risk label for the JSON report: `safe` | `low` | `med` | `high`, the same
+/// classification as the text badge.
+pub fn risk_label(s: RiskScore) -> &'static str {
+    match s {
+        RiskScore::Safe => "safe",
+        RiskScore::Low => "low",
+        RiskScore::Med => "med",
+        RiskScore::High => "high",
+    }
+}
+
+/// Builds the structured report (pure).
+pub fn build_json_report(p: &Program, path: &str, r: &Report) -> JsonReport {
+    let q = &p.requirements;
+    let (score, reasons) = score_report(r);
+    JsonReport {
+        declared: JsonDeclared {
+            arch: sorted(&q.arch),
+            bin: q
+                .bins
+                .iter()
+                .map(|b| JsonBin {
+                    alias: b.alias.clone(),
+                    hash: b.hash.clone(),
+                    hash_file: b.hash_file.clone(),
+                    name: b.name.clone(),
+                    optional: b.optional,
+                })
+                .collect(),
+            declared: q.declared,
+            env: q.envs.iter().map(|e| JsonNamed { name: e.name.clone(), optional: e.optional }).collect(),
+            host: q.hosts.iter().map(|h| JsonNamed { name: h.name.clone(), optional: h.optional }).collect(),
+            os: sorted(&q.os),
+            read: q.read_roots.clone(),
+            write: q.write_roots.clone(),
+        },
+        file: path.to_string(),
+        inferred: JsonInferred {
+            catch_forwards: r.catch_forwards,
+            env: owned_keys(&r.env_vars),
+            hosts: owned_keys(&r.hosts),
+            network: r.needs_network,
+            read: r.needs_read,
+            read_roots: owned_keys(&r.read_roots),
+            shell: JsonShell {
+                bins: owned_keys(&r.shell_bins),
+                calls: r.shell_bins.values().sum(),
+                metachars: r.has_shell_pipe,
+                sudo: r.has_shell_sudo,
+            },
+            subprocess: r.needs_subprocess,
+            subprocess_ops: owned_keys(&r.subprocess_ops),
+            write: r.needs_write,
+            write_roots: owned_keys(&r.write_roots),
+        },
+        risk: risk_label(score).to_string(),
+        risk_reasons: reasons,
+        schema: JSON_SCHEMA,
+    }
+}
+
+/// Pretty-printed (2-space) JSON with a trailing newline.
+pub fn json_report(p: &Program, path: &str, r: &Report) -> String {
+    let mut s = serde_json::to_string_pretty(&build_json_report(p, path, r)).expect("report serializes");
+    s.push('\n');
+    s
+}
+
 fn plural(n: usize) -> &'static str {
     if n == 1 {
         ""
@@ -752,5 +933,120 @@ mod tests {
         assert_eq!(extract_host("ftp://h.io/p"), Some("h.io"));
         assert_eq!(extract_host("nope"), None);
         assert!(has_unvalidated_interp("echo ${x}") && !has_unvalidated_interp("echo ${X}"));
+    }
+
+    // ── R01 (T-01..T-04) ──────────────────────────────────────────────
+
+    /// The request.md example: declares `bin "sh"` and `write "./allowed"`,
+    /// its shell call writes.
+    fn request_example() -> Program {
+        let mut p = prog(vec![op("shell", json!({"cmd": "sh -c 'echo hi > allowed/x'"}))]);
+        p.requirements.declared = true;
+        p.requirements.bins.push(perch_domain::BinReq { name: "sh".into(), ..Default::default() });
+        p.requirements.write_roots.push("./allowed".into());
+        p
+    }
+
+    fn run_scan(p: Program, format: &str) -> Result<String, Error> {
+        let imp = Impl { load: Box::new(move |_| Ok(p.clone())) };
+        let mut out = Vec::new();
+        imp.execute("t.perch", format, &mut out)?;
+        Ok(String::from_utf8(out).unwrap())
+    }
+
+    #[test]
+    fn t01_json_golden() {
+        let got = run_scan(request_example(), "json").unwrap();
+        let want = r#"{
+  "declared": {
+    "arch": [],
+    "bin": [
+      {
+        "alias": "",
+        "hash": "",
+        "hash_file": "",
+        "name": "sh",
+        "optional": false
+      }
+    ],
+    "declared": true,
+    "env": [],
+    "host": [],
+    "os": [],
+    "read": [],
+    "write": [
+      "./allowed"
+    ]
+  },
+  "file": "t.perch",
+  "inferred": {
+    "catch_forwards": false,
+    "env": [],
+    "hosts": [],
+    "network": false,
+    "read": false,
+    "read_roots": [],
+    "shell": {
+      "bins": [
+        "sh"
+      ],
+      "calls": 1,
+      "metachars": true,
+      "sudo": false
+    },
+    "subprocess": false,
+    "subprocess_ops": [],
+    "write": false,
+    "write_roots": []
+  },
+  "risk": "med",
+  "risk_reasons": [
+    "executes shell",
+    "uses shell metacharacters (pipe / && / ; / $())"
+  ],
+  "schema": 1
+}
+"#;
+        assert_eq!(got, want);
+        // deterministic
+        assert_eq!(got, run_scan(request_example(), "json").unwrap());
+    }
+
+    #[test]
+    fn t02_json_risk_matches_badge_and_undeclared_file() {
+        let p = prog(vec![op("print", json!({"msg": "hi"}))]);
+        let v: Value = serde_json::from_str(&run_scan(p, "json").unwrap()).unwrap();
+        assert_eq!(v["risk"], "safe");
+        assert_eq!(v["declared"]["declared"], false);
+        assert_eq!(v["declared"]["bin"], json!([]));
+        assert_eq!(v["schema"], 1);
+        let v: Value = serde_json::from_str(&run_scan(request_example(), "json").unwrap()).unwrap();
+        assert_eq!(v["risk"], "med");
+    }
+
+    #[test]
+    fn t03_unknown_format_is_an_error_and_text_default_unchanged() {
+        let e = run_scan(request_example(), "yaml").unwrap_err().to_string();
+        assert!(e.contains("unknown scan format") && e.contains("yaml"), "{e}");
+        assert_eq!(run_scan(request_example(), "").unwrap(), run_scan(request_example(), "text").unwrap());
+        assert!(run_scan(request_example(), "text").unwrap().contains("CAPABILITIES NEEDED"));
+    }
+
+    #[test]
+    fn t04_declared_scope_suppresses_free_advice() {
+        let text = run_scan(request_example(), "text").unwrap();
+        assert!(!text.contains("--no-write` for free"), "{text}");
+        assert!(!text.contains("      --no-write \\\n"), "{text}");
+        assert!(text.contains("declared `write` scope"));
+        // other undeclared capabilities keep the advice
+        assert!(text.contains("add `--no-network` for free"));
+        // network scope likewise
+        let mut p = request_example();
+        p.requirements.hosts.push(perch_domain::HostReq { name: "a.io".into(), optional: false });
+        let text = run_scan(p, "text").unwrap();
+        assert!(!text.contains("--no-network` for free"));
+        // with no declaration the advice stays
+        let text = run_scan(prog(vec![op("print", json!({}))]), "text").unwrap();
+        assert!(text.contains("add `--no-write` for free"));
     }
 }

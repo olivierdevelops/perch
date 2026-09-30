@@ -22,7 +22,10 @@ crc32fast = "1"
 url = "2"
 percent-encoding = "2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = { version = "2", default-features = false, features = ["tls", "native-certs"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-native-certs = "0.7"
+webpki-roots = "0.26"
 libc = "0.2"
 wasmtime = { version = "40", default-features = false, features = ["cranelift", "runtime", "std"] }
 wasmtime-wasi = { version = "40", default-features = false, features = ["p1"] }
@@ -30,3 +33,6 @@ wasmtime-wasi-io = { version = "40", default-features = false }
 tokio = { version = "1", default-features = false }
 async-trait = "0.1"
 bytes = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = "0.4"

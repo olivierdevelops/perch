@@ -432,6 +432,18 @@ impl<W: Write> Server<W> {
                 }
                 items.push(item("end", 14, "close do block", ""));
                 items.push(item(
+                    "finally",
+                    14,
+                    "finally — cleanup that always runs (`do … finally … end` or inside `try`)",
+                    "",
+                ));
+                items.push(item(
+                    "NAME=value",
+                    14,
+                    "inline env prefix: NAME=value binary verb --args (bins / exec only)",
+                    "",
+                ));
+                items.push(item(
                     "if",
                     14,
                     "if EXPR ... end — comparison / predicate / truthy / falsy",
@@ -673,6 +685,7 @@ mod tests {
         assert_eq!(w, "print");
         assert!(hover_doc("print").starts_with("**op** `print`"));
         assert!(hover_doc("command").starts_with("**keyword**"));
+        assert!(hover_doc("finally").contains("always runs"));
         assert_eq!(hover_doc("zzz"), "");
     }
 

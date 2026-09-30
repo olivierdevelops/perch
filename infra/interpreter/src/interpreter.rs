@@ -69,6 +69,51 @@ impl fmt::Display for ErrTimeout {
 }
 impl std::error::Error for ErrTimeout {}
 
+/// Grace period a `finally` section gets to finish after a `timeout` block or
+/// `--max-runtime` deadline fired (decision D1 of PLAN-2026-0001). The deadline
+/// is replaced by `now + FINALLY_GRACE` for the cleanup ops only.
+pub const FINALLY_GRACE: Duration = Duration::from_secs(5);
+
+/// A body error carrying a non-[`perch_domain::OpError`] cause plus a failed
+/// cleanup note; `source()` keeps the original reachable for [`find_op_error`].
+#[derive(Debug)]
+struct Merged {
+    body: Error,
+    note: String,
+}
+
+impl fmt::Display for Merged {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.body, self.note)
+    }
+}
+impl std::error::Error for Merged {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&*self.body)
+    }
+}
+
+/// R02b: a `finally` section failed while `body` (the try body / rescue error)
+/// was still pending. The BODY error wins: same kind, op and code (so an
+/// enclosing `rescue` sees the original `${err.kind}`), with the cleanup failure
+/// appended to the message as `; additionally, finally failed: <cleanup>`.
+/// [`ErrTimeout`] / [`ErrQuit`] are returned untouched (their identity drives
+/// the exit path); the caller reports the cleanup failure separately.
+pub fn merge_cleanup_error(body: Error, cleanup: &Error) -> Error {
+    if is_timeout(&body) || is_quit(&body) {
+        return body;
+    }
+    let note = format!("; additionally, finally failed: {cleanup}");
+    match body.downcast_ref::<perch_domain::OpError>() {
+        Some(oe) => {
+            let mut oe = oe.clone();
+            oe.message.push_str(&note);
+            Box::new(oe)
+        }
+        None => Box::new(Merged { body, note }),
+    }
+}
+
 /// `err == interpreter.ErrQuit` (exact, not through wrappers).
 pub fn is_quit(e: &Error) -> bool {
     e.downcast_ref::<ErrQuit>().is_some()
@@ -353,6 +398,22 @@ impl Interpreter {
         res
     }
 
+    /// Runs a `finally` section (R02). `pending` is the error the guarded body
+    /// ended with, if any. When that error is the wall-clock timeout the
+    /// deadline has already expired, so every cleanup op would be refused;
+    /// instead the cleanup runs under a fresh [`FINALLY_GRACE`] deadline (D1),
+    /// restored afterwards. Otherwise it is a plain `run_ops`.
+    pub fn run_finally(&self, ops: &[Op], b: &mut Bindings, pending: Option<&Error>) -> Result<()> {
+        if !pending.is_some_and(is_timeout) {
+            return self.run_ops(ops, b);
+        }
+        let prev = self.deadline();
+        self.set_deadline(Some(Instant::now() + FINALLY_GRACE));
+        let res = self.run_ops(ops, b);
+        self.set_deadline(prev);
+        res
+    }
+
     /// Walks a slice of ops in order.
     pub fn run_ops(&self, ops: &[Op], b: &mut Bindings) -> Result<()> {
         for op in ops {
@@ -415,6 +476,19 @@ impl Interpreter {
             }
         };
         let op: &Op = exec_op.as_ref().unwrap_or(op);
+        // R05 (D2): an inline env prefix is only meaningful on a declared-bin
+        // call / `exec`. The loader rejects it on built-in ops; this guards
+        // hand-built programs and any path that reaches a non-exec handler.
+        if args.contains_key("env_prefix") && op.kind != "exec" {
+            return Err(Box::new(perch_domain::OpError::new(
+                &op.kind,
+                perch_domain::ErrorKind::Unclassified,
+                &format!(
+                    "env prefix (NAME=value before the call) is only valid on a declared-bin call or `exec`, not on the built-in op {}",
+                    go_quote(&op.kind)
+                ),
+            )));
+        }
         // Signal capture intent so output-producing ops (exec, pipe) can stay
         // quiet when their result is bound (`let x = exec …`) but stream when
         // used as a bare statement — matching the old shell vs shell_output split.
@@ -922,6 +996,30 @@ mod tests {
 
     fn args(v: Value) -> Map<String, Value> {
         v.as_object().unwrap().clone()
+    }
+
+    // R02b: the body error wins (kind kept), the cleanup failure is appended;
+    // timeout / quit identity is preserved untouched.
+    #[test]
+    fn merge_cleanup_error_keeps_body_kind() {
+        use perch_domain::{ErrorKind, OpError};
+        let body: Error = Box::new(OpError::new("fail", ErrorKind::UserFail, "body boom"));
+        let cleanup: Error = Box::new(OpError::new("fail", ErrorKind::UserFail, "cleanup boom"));
+        let merged = merge_cleanup_error(body, &cleanup);
+        let oe = merged.downcast_ref::<OpError>().unwrap();
+        assert_eq!(oe.kind, ErrorKind::UserFail);
+        assert_eq!(oe.message, "body boom; additionally, finally failed: user_fail: cleanup boom");
+
+        // A wrapped (non-OpError) body error still exposes the original via the chain.
+        let wrapped = wrap("op x", Box::new(OpError::new("x", ErrorKind::FileNotFound, "nope")));
+        let merged = merge_cleanup_error(wrapped, &cleanup);
+        assert!(merged.to_string().ends_with("; additionally, finally failed: user_fail: cleanup boom"));
+        assert_eq!(find_op_error(&*merged).unwrap().kind, ErrorKind::FileNotFound);
+
+        let t: Error = Box::new(ErrTimeout);
+        assert!(is_timeout(&merge_cleanup_error(t, &cleanup)));
+        let q: Error = Box::new(ErrQuit);
+        assert!(is_quit(&merge_cleanup_error(q, &cleanup)));
     }
 
     /// A small handler set for testing without dragging in the full ops crate.

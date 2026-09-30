@@ -9,10 +9,13 @@
 //!
 //! Module sources: a string path (host file) or a bare bundle alias
 //! (`_alias: true`, resolved through `bundle ... include "x" as alias`).
-//! Compiled modules are cached in-process (keyed by content sha256 or by
+//! Compiled modules are also cached on disk (see `wasm_cache.rs`, F02) and
+//! cached in-process (keyed by content sha256 or by
 //! `bundle:<hash>:<entry>`) so a `parallel` block reuses them.
 //!
 //! Mounts: read-only dirs at `/ro/<basename>`, read-write at `/rw/<basename>`.
+#[path = "wasm_cache.rs"]
+mod wasm_cache;
 #[path = "wasm_http.rs"]
 mod wasm_http;
 #[path = "wasm_io.rs"]
@@ -20,8 +23,11 @@ mod wasm_io;
 
 use crate::common::{arg_string, go_base, path_err, resolve};
 use crate::group_b::{bundle_hash, bundle_read_file};
-use perch_domain::Program;
-use perch_interpreter::{err, go_quote, handler, interpolate_args, Args, Bindings, Handler, Interpreter, Result};
+use crate::requires::{check_host_declared, check_path_declared};
+use perch_domain::{ErrorKind, OpError, Program};
+use perch_interpreter::{
+    err, go_quote, handler, interpolate_args, Args, Bindings, CapMask, Error, Handler, Interpreter, Result,
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -70,6 +76,17 @@ pub fn register_wasm(m: &mut HashMap<String, Handler>) {
     }
 }
 
+/// Typed wasm failure (F04): `kind: message` when displayed.
+fn wasm_err(op: &str, kind: ErrorKind, msg: impl Into<String>) -> Error {
+    Box::new(OpError::new(op, kind, &msg.into()))
+}
+
+/// F03: refuse an operation with `wasm_capability_denied`, carrying the gate's
+/// own message and the offending value as detail.
+fn denied(op: &str, msg: impl Into<String>, detail: &str) -> Error {
+    Box::new(OpError::new(op, ErrorKind::WasmCapabilityDenied, &msg.into()).with_detail(detail))
+}
+
 fn marker_err(name: &'static str) -> Handler {
     handler(move |_i, _b, _a| Err(err(format!("{name} is only valid inside a wasm_run or wasm_bundle block"))))
 }
@@ -95,16 +112,16 @@ fn op_wasm_run(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Val
     let is_alias = args.get("_alias").and_then(Value::as_bool).unwrap_or(false);
     if is_alias {
         let Some(entry) = lookup_bundle_alias(&i.program, &raw_path) else {
-            return Err(err(format!(
+            return Err(wasm_err("wasm_run", ErrorKind::WasmCompileFailed, format!(
                 "wasm_run: {} is not a declared bundle alias (add `include \"…\" as {raw_path}` to your `bundle ... end` section)",
                 go_quote(&raw_path)
             )));
         };
         match bundle_read_file(&entry) {
             Some(Ok(buf)) => module_bytes = Some(buf),
-            Some(Err(e)) => return Err(err(format!("wasm_run {raw_path}: {e}"))),
+            Some(Err(e)) => return Err(wasm_err("wasm_run", ErrorKind::WasmCompileFailed, format!("wasm_run {raw_path}: {e}"))),
             None => {
-                return Err(err(format!(
+                return Err(wasm_err("wasm_run", ErrorKind::WasmCompileFailed, format!(
                     "wasm_run {raw_path}: alias resolves to {} but this binary has no embedded bundle (build with `perch --build`)",
                     go_quote(&entry)
                 )))
@@ -115,7 +132,7 @@ fn op_wasm_run(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Val
     } else {
         module_path = resolve(&raw_path, b);
         if let Err(e) = std::fs::metadata(&module_path) {
-            return Err(err(format!(
+            return Err(wasm_err("wasm_run", ErrorKind::WasmCompileFailed, format!(
                 "wasm_run: module {}: {}",
                 go_quote(&raw_path),
                 path_err("stat", &module_path, &e)
@@ -147,8 +164,16 @@ fn run_wasm_module(
             .map_err(|e| err(format!("{op_name}: interpolating {}: {e}", op.kind)))?;
         match op.kind.as_str() {
             "wasm_arg" => cfg.argv.push(arg_string(&op_args, &["value", "_0"])),
-            "wasm_mount_read" => cfg.mounts_ro.push(resolve(&arg_string(&op_args, &["path", "_0"]), b)),
-            "wasm_mount_write" => cfg.mounts_rw.push(resolve(&arg_string(&op_args, &["path", "_0"]), b)),
+            "wasm_mount_read" => {
+                let p = resolve(&arg_string(&op_args, &["path", "_0"]), b);
+                check_mount(i, b, op_name, "wasm_mount_read", &p, false)?;
+                cfg.mounts_ro.push(p);
+            }
+            "wasm_mount_write" => {
+                let p = resolve(&arg_string(&op_args, &["path", "_0"]), b);
+                check_mount(i, b, op_name, "wasm_mount_write", &p, true)?;
+                cfg.mounts_rw.push(p);
+            }
             "wasm_env" => {
                 for n in arg_string(&op_args, &["names", "_0"]).split(',') {
                     let n = n.trim();
@@ -159,7 +184,11 @@ fn run_wasm_module(
             }
             // Per-module HTTP host allowlist; composes AND-wise with the outer
             // --allow-host policy.
-            "wasm_allow_host" => cfg.allow_host.push(arg_string(&op_args, &["host", "_0"])),
+            "wasm_allow_host" => {
+                let h = arg_string(&op_args, &["host", "_0"]);
+                check_allow_host(i, b, op_name, &h)?;
+                cfg.allow_host.push(h);
+            }
             other => {
                 return Err(err(format!(
                     "{op_name}: {} is not valid inside a {op_name} block (only wasm_arg / wasm_mount_read / wasm_mount_write / wasm_env / wasm_allow_host)",
@@ -174,9 +203,10 @@ fn run_wasm_module(
         Some(bytes) => compile_bytes(rt, cache_key, &bytes),
         None => compile_file(rt, module_path),
     }
-    .map_err(|e| err(format!("{op_name}: compile {}: {e}", go_quote(raw_path))))?;
+    .map_err(|e| wasm_err(op_name, ErrorKind::WasmCompileFailed, format!("{op_name}: compile {}: {e}", go_quote(raw_path))))?;
 
-    let fail = |e: String| err(format!("{op_name} {}: {e}", go_quote(raw_path)));
+    let fail = |e: String| wasm_err(op_name, ErrorKind::WasmCompileFailed, format!("{op_name} {}: {e}", go_quote(raw_path)));
+    let exited = |e: String| wasm_err(op_name, ErrorKind::WasmModuleExited, format!("{op_name} {}: {e}", go_quote(raw_path)));
 
     // WASI configured with EXACTLY the declared capabilities.
     let argv0 = go_base(if module_path.is_empty() { raw_path } else { module_path });
@@ -221,13 +251,27 @@ fn run_wasm_module(
         Ticker::start(rt.engine.clone())
     });
 
+    let instance = match rt.linker.instantiate(&mut store, &compiled) {
+        Ok(inst) => inst,
+        Err(e) => return Err(fail(e.root_cause().to_string())),
+    };
     let outcome = (|| -> wasmtime::Result<()> {
-        let instance = rt.linker.instantiate(&mut store, &compiled)?;
         if let Ok(start) = instance.get_typed_func::<(), ()>(&mut store, "_start") {
             start.call(&mut store, ())?;
         }
         Ok(())
     })();
+    let refusal = store.data().http.refusal();
+    // A failure after the host refused a module HTTP call is reported as
+    // wasm_http_refused (the module itself only ever saw -1); the refusal
+    // reason rides in `detail`.
+    let exited = |msg: String| match &refusal {
+        Some(reason) => {
+            Box::new(OpError::new(op_name, ErrorKind::WasmHTTPRefused, &format!("{op_name} {}: {msg}", go_quote(raw_path))).with_detail(reason.clone()))
+                as Error
+        }
+        None => exited(msg),
+    };
     match outcome {
         Ok(()) => Ok(Value::Null),
         Err(e) => {
@@ -236,15 +280,40 @@ fn run_wasm_module(
                 if x.0 == 0 {
                     return Ok(Value::Null);
                 }
-                return Err(fail(format!("module closed with exit_code({})", x.0)));
+                return Err(exited(format!("module closed with exit_code({})", x.0)));
             }
             let root = e.root_cause().to_string();
             if root == DEADLINE_MSG {
-                return Err(fail("module closed with context deadline exceeded".into()));
+                return Err(exited("module closed with context deadline exceeded".into()));
             }
-            Err(fail(root))
+            Err(exited(root))
         }
     }
+}
+
+/// F03: a mount path must sit inside a declared `read`/`write` root of the
+/// program's `requires` block (same check the file ops use; no block = no
+/// gate, like every other op), and `wasm_mount_write` also needs write
+/// capability in the `sandbox` mask.
+fn check_mount(i: &Interpreter, b: &Bindings, op: &str, marker: &str, path: &str, write: bool) -> Result<()> {
+    if write && CapMask::any_no_write(b.cap_mask.as_deref()) {
+        return Err(denied(
+            op,
+            format!("{marker} {} forbidden by sandbox (no_write scope)", go_quote(path)),
+            path,
+        ));
+    }
+    check_path_declared(i, b, path, write).map_err(|e| denied(op, format!("{marker}: {}", e.message), path))?;
+    Ok(())
+}
+
+/// F03: `wasm_allow_host` must name a host declared in `requires` and needs
+/// network capability in the `sandbox` mask.
+fn check_allow_host(i: &Interpreter, b: &Bindings, op: &str, host: &str) -> Result<()> {
+    if CapMask::any_no_network(b.cap_mask.as_deref()) {
+        return Err(denied(op, format!("wasm_allow_host {} forbidden by sandbox (no_network scope)", go_quote(host)), host));
+    }
+    check_host_declared(i, host).map_err(|e| denied(op, format!("wasm_allow_host: {}", e.message), host))
 }
 
 const DEADLINE_MSG: &str = "perch: wasm deadline exceeded";
@@ -285,7 +354,9 @@ fn compile_bytes(rt: &Runtime, key: &str, bytes: &[u8]) -> std::result::Result<M
     if let Some(m) = cache.get(key) {
         return Ok(m.clone());
     }
-    let m = Module::new(&rt.engine, bytes).map_err(|e| format!("{:#}", e.root_cause()))?;
+    // Persistent cache (F02): PERCH_WASM_CACHE=off skips it entirely.
+    let dir = if wasm_cache::enabled() { wasm_cache::cache_dir() } else { None };
+    let m = wasm_cache::load_or_compile(&rt.engine, dir.as_deref(), bytes)?;
     cache.insert(key.to_string(), m.clone());
     Ok(m)
 }

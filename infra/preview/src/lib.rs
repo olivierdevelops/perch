@@ -98,7 +98,7 @@ pub fn ask_hook(input: Box<dyn Read + Send>, out: SharedWriter) -> BeforeOp {
 /// deterministic output; bodies are summarised by length. The positional
 /// helpers (_0, _1, …) render as "X" (without the key).
 pub fn format_op(op: &Op, args: &Map<String, Value>) -> String {
-    let mut keys: Vec<&String> = args.keys().filter(|k| k.as_str() != "_body").collect();
+    let mut keys: Vec<&String> = args.keys().filter(|k| !matches!(k.as_str(), "_body" | "env_prefix")).collect();
     keys.sort();
     let mut parts: Vec<String> = vec![];
     for k in keys {
@@ -139,7 +139,15 @@ pub fn format_op(op: &Op, args: &Map<String, Value>) -> String {
     if n > 0 {
         suffix += &format!("   {{{} body op{}}}", n, plural(n));
     }
-    format!("{} {}{}", op.kind, parts.join(" "), suffix)
+    format!("{}{} {}{}", env_prefix_text(args), op.kind, parts.join(" "), suffix)
+}
+
+/// R05: an inline env prefix renders shell-style in front of the op
+/// (`K="v" exec bin="tool" …`). Values are shown as written (`${REF}`s
+/// unresolved), so a preview never prints a host secret.
+fn env_prefix_text(args: &Map<String, Value>) -> String {
+    let Some(Value::Object(m)) = args.get("env_prefix") else { return String::new() };
+    m.iter().map(|(k, v)| format!("{k}={} ", go_quote(&to_string_value(v)))).collect()
 }
 
 fn floor_boundary(s: &str, n: usize) -> usize {
@@ -180,6 +188,17 @@ mod tests {
         assert_eq!(
             format_op(&op, &args),
             "shell \"echo hi\" cwd=\"/tmp\"   → ${out}   {2 body ops}"
+        );
+    }
+
+    // R05: the prefix renders shell-style before the op, unresolved.
+    #[test]
+    fn format_op_shows_env_prefix() {
+        let op = Op { kind: "exec".into(), ..Default::default() };
+        let args = map(json!({"bin": "kubectl", "_0": "get", "env_prefix": {"KUBECONFIG": "${CFG}", "A": "b c"}}));
+        assert_eq!(
+            format_op(&op, &args),
+            "KUBECONFIG=\"${CFG}\" A=\"b c\" exec \"get\" bin=\"kubectl\""
         );
     }
 

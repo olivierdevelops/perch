@@ -599,11 +599,16 @@ end
 # `do ... end` body block
 # ────────────────────────────────────────────────────────────────────────────
 
+# Optional `finally` section (R02a): `do … finally … end` is sugar for wrapping
+# the whole body in `try … finally … end`. The section divider is emitted as a
+# `do_finally` event; the loader wraps the body only when the section is
+# non-empty, so a `do` without `finally` lowers exactly as before.
 function do
     arg literal "do"
-    block_closer end
+    block_sections finally closer end
     write `{"event":"do_begin"}
-${body}{"event":"do_end"}
+${body}{"event":"do_finally"}
+${finally}{"event":"do_end"}
 `
 end
 

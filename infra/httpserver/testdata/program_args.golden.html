@@ -144,4 +144,395 @@
     
     <div class="args">
       
-      <label for="
+      <label for="n">-n</label>
+      <div>
+        
+          <input id="n" type="number" step="1" data-arg="n" data-type="int" placeholder="3" data-default="3" />
+        
+      </div>
+      <span class="argtype">int</span>
+      
+      <label for="f">-f</label>
+      <div>
+        
+          <input id="f" type="number" step="any" data-arg="f" data-type="float" placeholder="fl"  />
+        
+      </div>
+      <span class="argtype">float</span>
+      
+      <label for="v">-v</label>
+      <div>
+        
+          <input id="v" type="checkbox" data-arg="v" data-type="bool" checked />
+        
+      </div>
+      <span class="argtype">bool · <span class="opt">optional</span></span>
+      
+      <label for="rest">-rest</label>
+      <div>
+        
+          <textarea id="rest" data-arg="rest" data-type="rest" placeholder="r (one per line)"></textarea>
+        
+      </div>
+      <span class="argtype">string</span>
+      
+      <label for="s">-s</label>
+      <div>
+        
+          <input id="s" type="text" data-arg="s" data-type="string" placeholder="a&amp;b" data-default="a&amp;b" />
+        
+      </div>
+      <span class="argtype">string</span>
+      
+    </div>
+    
+    <div class="row">
+      <button class="run" onclick="run('build', this)">Run</button>
+      <button class="ghost" onclick="copyAsCli('build', this)">Copy as CLI</button>
+      <button class="ghost" onclick="this.closest('.cmd').querySelector('.out')?.classList.remove('show')">Clear</button>
+    </div>
+    <div class="out"></div>
+  </div>
+  
+  <div class="cmd" data-name="it&#39;x/y&#43;z" data-haystack="it&#39;x/y&#43;z ">
+    <div class="cmd-head">
+      <h2>it&#39;x/y&#43;z</h2>
+      
+      
+      
+    </div>
+    
+    
+    <div class="row">
+      <button class="run" onclick="run('it\u0027x\/y\u002bz', this)">Run</button>
+      <button class="ghost" onclick="copyAsCli('it\u0027x\/y\u002bz', this)">Copy as CLI</button>
+      <button class="ghost" onclick="this.closest('.cmd').querySelector('.out')?.classList.remove('show')">Clear</button>
+    </div>
+    <div class="out"></div>
+  </div>
+  
+
+</div>
+
+
+<div class="panel" data-panel="simulate">
+  <div class="panel-head">
+    <h2>🧪 perch simulate</h2>
+    <div class="sub">Walk the program against a hypothetical environment — no execution.</div>
+  </div>
+  <div class="form-grid">
+    <label>command</label><input type="text" id="sim-cmd" placeholder="leave empty to simulate every command" />
+    <label>--sim-os</label><select id="sim-os"><option value="">(host)</option><option>linux</option><option>darwin</option><option>windows</option></select>
+    <label>--sim-arch</label><select id="sim-arch"><option value="">(host)</option><option>amd64</option><option>arm64</option></select>
+    <label>--sim-env</label><input type="text" id="sim-env" placeholder="HOME=/h,PATH=/usr/bin" />
+    <label>--sim-fs-read</label><input type="text" id="sim-fsread" placeholder="/srv,/etc" />
+    <label>--sim-fs-write</label><input type="text" id="sim-fswrite" placeholder="/tmp" />
+    <label>--sim-have-bin</label><input type="text" id="sim-bins" placeholder="docker,kubectl,git" />
+    <label>--sim-allow-host</label><input type="text" id="sim-hosts" placeholder="api.github.com,*.s3.amazonaws.com" />
+    <label>fixture JSON</label><textarea id="sim-fixture" placeholder='Paste a v2 fixture (capabilities + oracles + scenarios). Empty → use the flag fields above.'></textarea>
+  </div>
+  <div class="form-toggles">
+    <label><input type="checkbox" id="sim-envonly" /> --sim-env-only</label>
+    <label><input type="checkbox" id="sim-noshell" /> --sim-no-shell</label>
+    <label><input type="checkbox" id="sim-nonet" /> --sim-no-network</label>
+    <label><input type="checkbox" id="sim-nosub" /> --sim-no-subprocess</label>
+    <label><input type="checkbox" id="sim-nowrite" /> --sim-no-write</label>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runSimulate(this)">Simulate</button>
+    <button class="ghost" onclick="document.getElementById('sim-report').textContent=''">Clear</button>
+    <span id="sim-summary"></span>
+  </div>
+  <div class="report" id="sim-report" style="margin-top:14px"></div>
+</div>
+
+
+<div class="panel" data-panel="scan">
+  <div class="panel-head">
+    <h2>🔍 perch --scan</h2>
+    <div class="sub">Static capability audit + risk findings.</div>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runScan(this)">Run scan</button>
+    <span id="scan-summary"></span>
+  </div>
+  <div class="report" id="scan-report" style="margin-top:14px"></div>
+</div>
+
+
+<div class="panel" data-panel="check">
+  <div class="panel-head">
+    <h2>✓ perch --check</h2>
+    <div class="sub">Syntax + reference validation. Wire into pre-commit.</div>
+  </div>
+  <div class="row">
+    <button class="run" onclick="runCheck(this)">Validate</button>
+    <span id="check-summary"></span>
+  </div>
+  <div class="report" id="check-report" style="margin-top:14px"></div>
+</div>
+
+
+<div class="panel" data-panel="about">
+  <div class="panel-head">
+    <h2>ℹ About this program</h2>
+  </div>
+  <div class="about-grid">
+    <div class="about-card">
+      <h3>Program</h3>
+      <div class="v">name:    demo&lt;&amp;&gt;</div>
+      <div class="v">version: 1.2</div>
+      <div class="v">file:    /tmp/a&#34;b&lt;c&gt;&amp;d/e.perch</div>
+      <div class="v">commands: 2</div>
+    </div>
+    <div class="about-card">
+      <h3>Links</h3>
+      <div><a href="https://olivierdevelops.github.io/perch/" target="_blank">📖 Docs</a></div>
+      <div><a href="https://olivierdevelops.github.io/perch/simulate/" target="_blank">🧪 Simulate guide</a></div>
+      <div><a href="https://olivierdevelops.github.io/perch/mcp/" target="_blank">🤖 MCP server</a></div>
+      <div><a href="https://github.com/olivierdevelops/perch" target="_blank">⌥ GitHub</a></div>
+    </div>
+  </div>
+  
+  <div class="about-card" style="margin-top:14px">
+    <h3>Description</h3>
+    <div>A &#34;desc&#34; it&#39;s</div>
+  </div>
+  
+</div>
+
+</div>
+
+<script>
+
+const savedTheme = localStorage.getItem("perch-theme");
+if (savedTheme === "dark" || (savedTheme === null && matchMedia("(prefers-color-scheme: dark)").matches)) {
+  document.documentElement.classList.add("dark");
+}
+function toggleTheme() {
+  document.documentElement.classList.toggle("dark");
+  localStorage.setItem("perch-theme", document.documentElement.classList.contains("dark") ? "dark" : "light");
+}
+
+
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  document.querySelector(`.panel[data-panel="${t.dataset.tab}"]`).classList.add("active");
+  location.hash = t.dataset.tab;
+}));
+if (location.hash) {
+  const t = document.querySelector(`.tab[data-tab="${location.hash.slice(1)}"]`);
+  if (t) t.click();
+}
+
+
+function filterCommands(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll(".cmd").forEach(c => {
+    const h = (c.dataset.haystack || "").toLowerCase();
+    c.style.display = (!q || h.includes(q)) ? "" : "none";
+  });
+}
+
+
+function collectArgs(card) {
+  const args = {};
+  card.querySelectorAll("[data-arg]").forEach(el => {
+    const t = el.dataset.type;
+    let v;
+    if (t === "bool") {
+      v = el.checked;
+      args[el.dataset.arg] = v;
+    } else if (t === "int") {
+      if (el.value !== "") args[el.dataset.arg] = parseInt(el.value, 10);
+    } else if (t === "float") {
+      if (el.value !== "") args[el.dataset.arg] = parseFloat(el.value);
+    } else if (t === "rest") {
+      const vals = el.value.split("\n").map(s => s.trim()).filter(Boolean);
+      if (vals.length) args[el.dataset.arg] = vals.join("\n");
+    } else {
+      if (el.value !== "") args[el.dataset.arg] = el.value;
+    }
+  });
+  return args;
+}
+
+
+async function run(name, btn) {
+  const card = btn.closest(".cmd");
+  const out = card.querySelector(".out");
+  out.classList.add("show");
+  out.textContent = "";
+  const args = collectArgs(card);
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: name, args }),
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const e = JSON.parse(line);
+          const span = document.createElement("span");
+          if (e.kind === "err") span.className = "err";
+          else if (e.kind === "status") span.className = "status";
+          span.textContent = (e.kind === "status" ? "\n[" + e.msg + "]\n" : e.msg) + "\n";
+          out.appendChild(span);
+          out.scrollTop = out.scrollHeight;
+        } catch (_) {}
+      }
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+function copyAsCli(name, btn) {
+  const card = btn.closest(".cmd");
+  const args = collectArgs(card);
+  const argStr = Object.entries(args).map(([k, v]) => {
+    if (typeof v === "boolean") return v ? `-${k}` : "";
+    return `-${k}=${shellEscape(String(v))}`;
+  }).filter(Boolean).join(" ");
+  const filePart = "-f \/tmp\/a\u0022b\u003cc\u003e\u0026d\/e.perch ";
+  const cli = `perch ${filePart}${name} ${argStr}`.replace(/\s+/g, " ").trim();
+  const old = card.querySelector(".copy-cmd");
+  if (old) old.remove();
+  const div = document.createElement("div");
+  div.className = "copy-cmd";
+  div.textContent = cli;
+  div.title = "click to select";
+  card.querySelector(".row").after(div);
+  navigator.clipboard?.writeText(cli);
+}
+function shellEscape(s) {
+  if (!/[^A-Za-z0-9_./@:%+=,-]/.test(s)) return s;
+  return "'" + s.replace(/'/g, `'\\''`) + "'";
+}
+
+
+async function runSimulate(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("sim-report");
+  const sum = document.getElementById("sim-summary");
+  rep.textContent = "running…";
+  sum.innerHTML = "";
+  try {
+    const fixtureRaw = document.getElementById("sim-fixture").value.trim();
+    let fixture = null;
+    if (fixtureRaw) {
+      try { fixture = JSON.parse(fixtureRaw); }
+      catch (e) { rep.textContent = "fixture JSON parse error: " + e.message; return; }
+    }
+    const env = {
+      OS:           valOf("sim-os"),
+      Arch:         valOf("sim-arch"),
+      Env:          parseKV(valOf("sim-env")),
+      EnvRestrict:  checked("sim-envonly"),
+      FsRead:       splitList(valOf("sim-fsread")),
+      FsWrite:      splitList(valOf("sim-fswrite")),
+      Bins:         binsSet(valOf("sim-bins")),
+      Network:      splitList(valOf("sim-hosts")),
+      NoShell:      checked("sim-noshell"),
+      NoSubprocess: checked("sim-nosub"),
+      NoNetwork:    checked("sim-nonet"),
+      NoWrite:      checked("sim-nowrite"),
+    };
+    const body = { command: valOf("sim-cmd"), env, fixture };
+    const resp = await fetch("/api/simulate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    rep.textContent = data.report || "(no output)";
+    sum.innerHTML = data.ok ? `<span class="pill ok">all clear</span>` : `<span class="pill err">simulated failures present</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+async function runScan(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("scan-report");
+  const sum = document.getElementById("scan-summary");
+  rep.textContent = "running…";
+  sum.innerHTML = "";
+  try {
+    const resp = await fetch("/api/scan", { method: "POST" });
+    const data = await resp.json();
+    rep.textContent = data.report || "(no findings)";
+    const high = (data.findings || []).filter(f => f.severity === "high").length;
+    const med  = (data.findings || []).filter(f => f.severity === "med").length;
+    sum.innerHTML = high ? `<span class="pill err">${high} HIGH · ${med} MED</span>`
+                  : med  ? `<span class="pill warn">${med} MED</span>`
+                  : `<span class="pill ok">no risk findings</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+async function runCheck(btn) {
+  btn.disabled = true;
+  const rep = document.getElementById("check-report");
+  const sum = document.getElementById("check-summary");
+  rep.textContent = "validating…";
+  sum.innerHTML = "";
+  try {
+    const resp = await fetch("/api/check", { method: "POST" });
+    const data = await resp.json();
+    if (data.ok && data.warnings === 0) {
+      rep.textContent = "✓ no issues — every command, arg, and op kind validates.";
+      sum.innerHTML = `<span class="pill ok">clean</span>`;
+    } else {
+      rep.textContent = (data.issues || []).map(i =>
+        `[${i.severity}] ${i.where ? i.where + ": " : ""}${i.message}`
+      ).join("\n") || "(no issues)";
+      sum.innerHTML = data.errors > 0
+        ? `<span class="pill err">${data.errors} error${data.errors!==1?'s':''} · ${data.warnings} warning${data.warnings!==1?'s':''}</span>`
+        : `<span class="pill warn">${data.warnings} warning${data.warnings!==1?'s':''}</span>`;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+function valOf(id) { return document.getElementById(id).value.trim(); }
+function checked(id) { return document.getElementById(id).checked; }
+function splitList(s) { return s ? s.split(",").map(x => x.trim()).filter(Boolean) : null; }
+function parseKV(s) {
+  if (!s) return null;
+  const out = {};
+  s.split(",").forEach(pair => {
+    const i = pair.indexOf("=");
+    if (i > 0) out[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+    else if (pair.trim()) out[pair.trim()] = "";
+  });
+  return out;
+}
+function binsSet(s) {
+  const list = splitList(s);
+  if (!list) return null;
+  const out = {};
+  list.forEach(b => out[b] = true);
+  return out;
+}
+</script>
+</body>
+</html>

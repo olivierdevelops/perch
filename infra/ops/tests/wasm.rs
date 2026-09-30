@@ -22,6 +22,12 @@ fn run_with_stdin(src: &str, stdin: Option<&str>) -> (String, Option<Error>) {
 }
 
 fn run_full(src: &str, stdin: Option<&str>, policy: Option<HTTPPolicy>) -> (String, Option<Error>) {
+    // Runs share process-global env (PERCH_WASM_CACHE*), so they serialize.
+    let _g = env_lock();
+    run_inner(src, stdin, policy)
+}
+
+fn run_inner(src: &str, stdin: Option<&str>, policy: Option<HTTPPolicy>) -> (String, Option<Error>) {
     let prog = match perch_capyloader::load_from_string(src) {
         Ok(p) => p,
         Err(e) => return (String::new(), Some(e)),
@@ -46,6 +52,23 @@ fn run(src: &str) -> (String, Option<Error>) {
 /// `with_env` / `timeout` / `parallel`, and `wasm_run` when its next line is a
 /// body op (a bodyless `wasm_run "m.wasm"` takes no `end`); `end` closes one.
 fn cmd(body: &str) -> String {
+    // Zero-ambient: wasm mounts/hosts must be declared. The default manifest
+    // grants the repo, the temp dir and loopback; T-37/T-38 use `cmd_body`
+    // with their own narrower blocks.
+    let tmp = std::env::temp_dir();
+    let mut reads = vec![root(), tmp.clone()];
+    if let Ok(c) = tmp.canonicalize() {
+        reads.push(c);
+    }
+    let mut req = String::from("requires\n    host \"127.0.0.1\"\n");
+    for r in &reads {
+        req.push_str(&format!("    read \"{0}\"\n    write \"{0}\"\n", r.display()));
+    }
+    req.push_str("end\n");
+    format!("{req}{}", cmd_body(body))
+}
+
+fn cmd_body(body: &str) -> String {
     let lines: Vec<&str> = body.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
     let mut depth = 2;
     let mut out = String::from("name \"x\"\ncommand t\n    do\n");
@@ -161,7 +184,7 @@ fn policy_check_good_and_bad() {
     ));
     let (out, err) = run(&bad);
     let msg = e(&err);
-    assert!(msg.starts_with("wasm_run \""), "bad: {msg} out={out}");
+    assert!(msg.starts_with("wasm_module_exited: wasm_run \""), "bad: {msg} out={out}");
     assert!(msg.ends_with("policy-check.wasm\": module closed with exit_code(1)"), "bad: {msg}");
 }
 
@@ -218,15 +241,17 @@ fn exit_codes() {
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/ok.wasm\"", d.display())));
     assert!(err.is_none(), "{}", e(&err));
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/bad.wasm\"", d.display())));
-    assert_eq!(e(&err), format!("wasm_run \"{}/bad.wasm\": module closed with exit_code(3)", d.display()));
+    assert_eq!(e(&err), format!("wasm_module_exited: wasm_run \"{}/bad.wasm\": module closed with exit_code(3)", d.display()));
 }
 
 #[test]
 fn deadline_interrupts_a_spinning_module() {
     let d = tmpdir();
     std::fs::write(d.join("spin.wasm"), spin_module()).unwrap();
+    let g = env_lock();
     let start = std::time::Instant::now();
-    let (_, err) = run(&cmd(&format!("timeout \"300ms\"\n wasm_run \"{}/spin.wasm\"\n end", d.display())));
+    let (_, err) = run_inner(&cmd(&format!("timeout \"300ms\"\n wasm_run \"{}/spin.wasm\"\n end", d.display())), None, None);
+    drop(g);
     assert!(start.elapsed() < std::time::Duration::from_secs(10));
     assert!(e(&err).contains("deadline exceeded"), "{}", e(&err));
 }
@@ -237,12 +262,12 @@ fn error_paths() {
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/nope.wasm\"", d.display())));
     assert_eq!(
         e(&err),
-        format!("wasm_run: module \"{d}/nope.wasm\": stat {d}/nope.wasm: no such file or directory", d = d.display())
+        format!("wasm_compile_failed: wasm_run: module \"{d}/nope.wasm\": stat {d}/nope.wasm: no such file or directory", d = d.display())
     );
 
     std::fs::write(d.join("junk.wasm"), b"not wasm at all").unwrap();
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/junk.wasm\"", d.display())));
-    assert!(e(&err).starts_with(&format!("wasm_run: compile \"{}/junk.wasm\": ", d.display())), "{}", e(&err));
+    assert!(e(&err).starts_with(&format!("wasm_compile_failed: wasm_run: compile \"{}/junk.wasm\": ", d.display())), "{}", e(&err));
 
     let (_, err) = run(&cmd("wasm_arg \"x\""));
     assert_eq!(e(&err), "wasm_arg is only valid inside a wasm_run or wasm_bundle block");
@@ -252,7 +277,7 @@ fn error_paths() {
 
     // A bare identifier that isn't a declared bundle alias is a host path.
     let (_, err) = run(&cmd("wasm_run ghost"));
-    assert!(e(&err).starts_with("wasm_run: module \"ghost\": stat "), "{}", e(&err));
+    assert!(e(&err).starts_with("wasm_compile_failed: wasm_run: module \"ghost\": stat "), "{}", e(&err));
 
     // Mount of a directory that doesn't exist fails the run.
     let (_, err) = run(&cmd(&format!(
@@ -260,7 +285,7 @@ fn error_paths() {
         root().display(),
         d.display()
     )));
-    assert!(e(&err).starts_with("wasm_run \""), "{}", e(&err));
+    assert!(e(&err).starts_with("wasm_compile_failed: wasm_run \""), "{}", e(&err));
 }
 
 #[test]
@@ -278,11 +303,11 @@ fn bundle_alias_resolution_errors() {
         h(&i, &mut b, &perch_interpreter::Args { map, body: &[] }).err().map(|e| e.to_string()).unwrap_or_default()
     };
     let m = call("nope");
-    assert!(m.starts_with("wasm_run: \"nope\" is not a declared bundle alias (add `include"), "{m}");
+    assert!(m.starts_with("wasm_compile_failed: wasm_run: \"nope\" is not a declared bundle alias (add `include"), "{m}");
     let m = call("pol");
     assert_eq!(
         m,
-        "wasm_run pol: alias resolves to \"hello.wasm\" but this binary has no embedded bundle (build with `perch --build`)"
+        "wasm_compile_failed: wasm_run pol: alias resolves to \"hello.wasm\" but this binary has no embedded bundle (build with `perch --build`)"
     );
 }
 
@@ -350,7 +375,9 @@ fn http_bridge_policy() {
     std::fs::write(d.join("h.wasm"), http_module(&format!("http://127.0.0.1:{port}/x"))).unwrap();
     let plain = cmd(&format!("wasm_run \"{}/h.wasm\"", d.display()));
     let allowed = cmd(&format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"127.0.0.1\"\n end", d.display()));
-    let refused = |err: &Option<Error>| e(err).ends_with("module closed with exit_code(1)");
+    let refused = |err: &Option<Error>| {
+        e(err).starts_with("wasm_http_refused: wasm_run \"") && e(err).contains("module closed with exit_code(1)")
+    };
 
     // No wasm_allow_host: no network, server never hit.
     let (_, err) = run_full(&plain, None, permissive(&[]));
@@ -376,4 +403,131 @@ fn http_bridge_policy() {
     let (_, err) = run_full(&allowed, None, permissive(&["127.0.0.1"]));
     assert!(err.is_none(), "{}", e(&err));
     assert_eq!(hits.load(Ordering::SeqCst), 2);
+}
+
+// ---- F02: persistent compile cache (e2e; unit tests live in wasm_cache.rs) ----
+
+/// Serializes tests that point PERCH_WASM_CACHE_DIR / PERCH_WASM_CACHE at a
+/// scratch location (process-global env).
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static L: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    L.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn cwasm_files(d: &Path) -> usize {
+    std::fs::read_dir(d).map(|r| r.filter_map(|e| e.ok()).filter(|e| e.path().extension().is_some_and(|x| x == "cwasm")).count()).unwrap_or(0)
+}
+
+#[test]
+fn t35_t36_disk_cache_written_switchable_and_read_only_safe() {
+    let _g = env_lock();
+    let d = tmpdir();
+    let cache = d.join("cache");
+    std::env::set_var("PERCH_WASM_CACHE_DIR", &cache);
+    // Distinct module bytes so the in-process cache can't have seen them.
+    let run_exit = |code: u8, name: &str| {
+        // Unique trailing custom section: bytes no other test has compiled.
+        let mut m = exit_module(code);
+        let cname = format!("u{code}{name}");
+        let payload = std::process::id().to_le_bytes();
+        m.extend([0x00, (1 + cname.len() + payload.len()) as u8, cname.len() as u8]);
+        m.extend(cname.as_bytes());
+        m.extend(payload);
+        std::fs::write(d.join(name), m).unwrap();
+        run_inner(&cmd(&format!("wasm_run \"{}/{name}\"", d.display())), None, None).1
+    };
+    // Written on first use.
+    assert!(run_exit(0, "a.wasm").is_none());
+    assert_eq!(cwasm_files(&cache), 1);
+    // PERCH_WASM_CACHE=off: no entry written, run still correct.
+    std::env::set_var("PERCH_WASM_CACHE", "off");
+    let err = run_exit(7, "b.wasm");
+    std::env::remove_var("PERCH_WASM_CACHE");
+    assert!(e(&err).contains("exit_code(7)"), "{}", e(&err));
+    assert_eq!(cwasm_files(&cache), 1);
+    // Read-only cache dir: execution unaffected.
+    let ro = d.join("ro");
+    std::fs::create_dir_all(&ro).unwrap();
+    let mut perm = std::fs::metadata(&ro).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o555);
+    std::fs::set_permissions(&ro, perm).unwrap();
+    std::env::set_var("PERCH_WASM_CACHE_DIR", ro.join("sub"));
+    let err = run_exit(9, "c.wasm");
+    std::env::remove_var("PERCH_WASM_CACHE_DIR");
+    assert!(e(&err).contains("exit_code(9)"), "{}", e(&err));
+}
+
+// ---- F03 / F04: gating and typed kinds ----
+
+fn with_requires(req: &str, body: &str) -> String {
+    let c = cmd_body(body);
+    format!("requires\n{req}\nend\n{c}")
+}
+
+#[test]
+fn t37_mounts_gated_by_requires_roots() {
+    let d = tmpdir();
+    std::fs::create_dir_all(d.join("ok")).unwrap();
+    std::fs::create_dir_all(d.join("other")).unwrap();
+    let hello = format!("{}/{HELLO}", root().display());
+    let req = format!("    read \"{d}/ok\"\n    write \"{d}/ok\"", d = d.display());
+    // Inside the declared roots: allowed.
+    let src = with_requires(&req, &format!("wasm_run \"{hello}\"\n wasm_mount_read \"{d}/ok\"\n wasm_mount_write \"{d}/ok\"\n end", d = d.display()));
+    let (out, err) = run(&src);
+    assert!(err.is_none(), "{} out={out}", e(&err));
+    // Read mount outside every root: refused before the module runs.
+    let src = with_requires(&req, &format!("wasm_run \"{hello}\"\n wasm_mount_read \"{d}/other\"\n end", d = d.display()));
+    let (out, err) = run(&src);
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_mount_read: read of "), "{}", e(&err));
+    assert!(out.is_empty(), "module must not have run: {out}");
+    // Write mount outside the write roots.
+    let req_ro = format!("    read \"{d}/ok\"", d = d.display());
+    let src = with_requires(&req_ro, &format!("wasm_run \"{hello}\"\n wasm_mount_write \"{d}/ok\"\n end", d = d.display()));
+    let (_, err) = run(&src);
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_mount_write: write to "), "{}", e(&err));
+    // A read-only root still allows a read mount.
+    let src = with_requires(&req_ro, &format!("wasm_run \"{hello}\"\n wasm_mount_read \"{d}/ok\"\n end", d = d.display()));
+    let (_, err) = run(&src);
+    assert!(err.is_none(), "{}", e(&err));
+}
+
+#[test]
+fn t38_allow_host_gated_by_requires_hosts() {
+    let d = tmpdir();
+    std::fs::write(d.join("h.wasm"), http_module("http://127.0.0.1:1/x")).unwrap();
+    let body = format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"evil.example.com\"\n end", d.display());
+    let (_, err) = run(&with_requires("    host \"api.example.com\"", &body));
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_allow_host: host \"evil.example.com\" is not declared"), "{}", e(&err));
+    // Declared host passes the gate (the module then exits 1: SSRF refusal).
+    let body = format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"api.example.com\"\n end", d.display());
+    let (_, err) = run(&with_requires("    host \"api.example.com\"", &body));
+    assert!(e(&err).starts_with("wasm_http_refused: "), "{}", e(&err));
+    // Wildcard declaration covers a subdomain.
+    let body = format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"a.example.com\"\n end", d.display());
+    let (_, err) = run(&with_requires("    host \"*.example.com\"", &body));
+    assert!(!e(&err).starts_with("wasm_capability_denied"), "{}", e(&err));
+    // No requires block = empty manifest (zero ambient): denied, like every other op.
+    let (_, err) = run(&cmd_body(&body));
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_allow_host:"), "{}", e(&err));
+}
+
+#[test]
+fn t39_typed_kinds() {
+    let d = tmpdir();
+    std::fs::write(d.join("junk.wasm"), b"not wasm").unwrap();
+    std::fs::write(d.join("bad.wasm"), exit_module(2)).unwrap();
+    std::fs::write(d.join("spin.wasm"), spin_module()).unwrap();
+    let kind = |src: String| e(&run(&src).1).split(':').next().unwrap().to_string();
+    assert_eq!(kind(cmd(&format!("wasm_run \"{}/junk.wasm\"", d.display()))), "wasm_compile_failed");
+    assert_eq!(kind(cmd(&format!("wasm_run \"{}/missing.wasm\"", d.display()))), "wasm_compile_failed");
+    assert_eq!(kind(cmd(&format!("wasm_run \"{}/bad.wasm\"", d.display()))), "wasm_module_exited");
+    assert_eq!(kind(cmd(&format!("timeout \"200ms\"\n wasm_run \"{}/spin.wasm\"\n end", d.display()))), "wasm_module_exited");
+    let denied = with_requires("    read \"/nonexistent-root\"", &format!("wasm_run \"{}/bad.wasm\"\n wasm_mount_read \"{}\"\n end", d.display(), d.display()));
+    assert_eq!(kind(denied), "wasm_capability_denied");
+    // http refusal: SSRF guard blocks loopback, module exits 1.
+    std::fs::write(d.join("h.wasm"), http_module("http://127.0.0.1:1/x")).unwrap();
+    let src = cmd(&format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"127.0.0.1\"\n end", d.display()));
+    let (_, err) = run_full(&src, None, None);
+    let m = e(&err);
+    assert!(m.starts_with("wasm_http_refused: wasm_run \""), "{m}");
 }

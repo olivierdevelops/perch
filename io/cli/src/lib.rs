@@ -45,7 +45,8 @@ pub trait ImportShUseCase {
     fn execute(&self, src_path: &str, out_path: &str) -> Result<(), Error>;
 }
 pub trait ScanUseCase {
-    fn execute(&self, config_path: &str) -> Result<(), Error>;
+    /// `format` is "text" or "json" (validated by the CLI).
+    fn execute(&self, config_path: &str, format: &str) -> Result<(), Error>;
 }
 pub trait HelpUseCase {
     fn execute(&self, topic: &str, as_json: bool) -> Result<(), Error>;
@@ -213,8 +214,15 @@ impl Cli {
                 return err_exit(uc.simulate.execute(&path, &cmd_name, &env, &fixture, &mut std::io::stdout()));
             }
             "--scan" => {
-                let (path, _) = parse_file_flag(&remaining, def);
-                return err_exit(uc.scan.execute(&path));
+                let (path, rest) = parse_file_flag(&remaining, def);
+                let format = match parse_scan_format(&rest) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        return 2;
+                    }
+                };
+                return err_exit(uc.scan.execute(&path, format));
             }
             "help" => {
                 let mut topic = String::new();
@@ -291,8 +299,10 @@ Flags:
   --server      Serve commands.perch as an HTTP UI
   --shell       REPL — type one op per line; bindings persist
   --check       Parse and statically check commands.perch; report problems
+  --scan [--json | --format text|json]
+                Audit what commands.perch can reach; JSON separates declared from inferred
   --completions SHELL  Print shell completions (bash|zsh|fish)
-  --install-lsp        Install the perch-lsp language server (via `go install`)
+  --install-lsp        Install the perch-lsp language server (release download, sha256-verified)
   --install-vscode     Install perch-lsp + the perch VS Code extension
 
 Per-command help:
@@ -380,6 +390,38 @@ pub fn parse_file_flag(args: &[String], def: &str) -> (String, Vec<String>) {
         }
     }
     (def.to_string(), args.to_vec())
+}
+
+/// Reads `--json`, `--format json|text` and `--format=json|text` after
+/// `--scan`. Default "text"; an unknown value is an error (exit 2).
+pub fn parse_scan_format(args: &[String]) -> Result<&'static str, String> {
+    let mut fmt: &'static str = "text";
+    let mut i = 0;
+    while i < args.len() {
+        let a = args[i].as_str();
+        let val = if a == "--json" {
+            Some("json".to_string())
+        } else if let Some(v) = a.strip_prefix("--format=") {
+            Some(v.to_string())
+        } else if a == "--format" {
+            i += 1;
+            match args.get(i) {
+                Some(v) => Some(v.clone()),
+                None => return Err("--format requires a value (text or json)".into()),
+            }
+        } else {
+            None
+        };
+        if let Some(v) = val {
+            fmt = match v.as_str() {
+                "json" => "json",
+                "text" => "text",
+                other => return Err(format!("unknown --format value {other:?} for --scan (want text or json)")),
+            };
+        }
+        i += 1;
+    }
+    Ok(fmt)
 }
 
 /// Strips the `test`-specific flags: `--filter PAT`, `--filter=PAT`,
@@ -611,7 +653,7 @@ mod tests {
     rec_impl!(InstallLSPUseCase, fn execute(&self) -> Result<(), Error> { self.add("lsp".into()); Ok(()) });
     rec_impl!(InstallVSCodeUseCase, fn execute(&self) -> Result<(), Error> { self.add("vscode".into()); Ok(()) });
     rec_impl!(ImportShUseCase, fn execute(&self, a: &str, b: &str) -> Result<(), Error> { self.add(format!("import {a} {b:?}")); Ok(()) });
-    rec_impl!(ScanUseCase, fn execute(&self, c: &str) -> Result<(), Error> { self.add(format!("scan {c}")); Ok(()) });
+    rec_impl!(ScanUseCase, fn execute(&self, c: &str, f: &str) -> Result<(), Error> { self.add(format!("scan {c} {f}")); Ok(()) });
     rec_impl!(HelpUseCase, fn execute(&self, t: &str, j: bool) -> Result<(), Error> { self.add(format!("help {t:?} {j}")); Ok(()) });
     rec_impl!(TestUseCase, fn execute(&self, c: &str, f: &str, v: bool) -> Result<(), Error> { self.add(format!("test {c} {f:?} {v}")); Ok(()) });
     rec_impl!(SimulateUseCase, fn execute(&self, c: &str, n: &str, e: &SimulateEnv, f: &str, _: &mut dyn Write) -> Result<(), Error> { self.add(format!("sim {c} {n:?} {} {f:?}", e.os)); Ok(()) });
@@ -662,6 +704,18 @@ mod tests {
         assert_eq!(dispatch(&["--completions", "bash"]).0, 0);
         assert_eq!(dispatch(&["simulate", "go", "--sim-os", "linux"]).1, vec!["sim commands.perch \"go\" linux \"\""]);
         assert_eq!(dispatch(&[]), (0, vec![]));
+    }
+
+    #[test]
+    fn scan_format_flags() {
+        assert_eq!(dispatch(&["-f", "t.perch", "--scan"]).1, vec!["scan t.perch text"]);
+        assert_eq!(dispatch(&["-f", "t.perch", "--scan", "--json"]).1, vec!["scan t.perch json"]);
+        assert_eq!(dispatch(&["-f", "t.perch", "--scan", "--format", "json"]).1, vec!["scan t.perch json"]);
+        assert_eq!(dispatch(&["--scan", "--format=json"]).1, vec!["scan commands.perch json"]);
+        assert_eq!(dispatch(&["--scan", "--format", "text"]).1, vec!["scan commands.perch text"]);
+        let (code, log) = dispatch(&["--scan", "--format", "yaml"]);
+        assert_eq!((code, log.len()), (2, 0));
+        assert_eq!(dispatch(&["--scan", "--format"]).0, 2);
     }
 
     #[test]

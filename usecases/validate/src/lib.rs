@@ -5,6 +5,8 @@
 //!   - every `run TARGET` op resolves to an existing command
 //!   - every `on_signal HANDLER` modifier resolves to an existing command
 //!   - every op kind in a body is registered with the interpreter
+//!   - `finally` / `rescue` dividers sit only inside a `try` body, once each, in order
+//!   - an inline `NAME=value` env prefix sits on an `exec` op only, with a valid name
 //!   - every `${name}` placeholder in a string-valued op arg resolves to a
 //!     declared arg / `let` capture / global, or looks like an env var
 use perch_domain::{Command, Catch, Op, Program, Requirements};
@@ -262,6 +264,7 @@ impl Checker<'_> {
         for k in cmd.env.keys() {
             known.insert(k.clone());
         }
+        self.check_markers(&cmd.ops, where_, false);
         self.check_ops(&cmd.ops, where_, known);
     }
 
@@ -272,7 +275,43 @@ impl Checker<'_> {
         for g in &self.prog.globals.bindings {
             known.insert(g.name.clone());
         }
+        self.check_markers(&ca.ops, "catch", false);
         self.check_ops(&ca.ops, "catch", known);
+    }
+
+    /// R02: the `_catch` / `_finally` dividers are only meaningful directly
+    /// inside a `try` body, at most once each, `rescue` before `finally`. (The
+    /// grammar guarantees this for source programs; this guards hand-built
+    /// ones and any future lowering.)
+    fn check_markers(&mut self, ops: &[Op], where_: &str, in_try: bool) {
+        let (mut catches, mut finallies) = (0usize, 0usize);
+        for op in ops {
+            match op.kind.as_str() {
+                "_catch" | "_finally" if !in_try => self.add_err(
+                    where_,
+                    format!(
+                        "`{}` divider outside a `try` block — `finally` belongs in `try … finally … end` or at the end of a command's `do … finally … end`",
+                        op.kind.trim_start_matches('_')
+                    ),
+                ),
+                "_catch" => {
+                    catches += 1;
+                    if catches > 1 || finallies > 0 {
+                        self.add_err(where_, "`rescue` must appear once, before `finally`".into());
+                    }
+                }
+                "_finally" => {
+                    finallies += 1;
+                    if finallies > 1 {
+                        self.add_err(where_, "a `try` block can have only one `finally` section".into());
+                    }
+                }
+                _ => {}
+            }
+            if !op.body.is_empty() {
+                self.check_markers(&op.body, where_, op.kind == "try");
+            }
+        }
     }
 
     /// `known` is the set of names available for `${...}` resolution at this
@@ -314,6 +353,9 @@ impl Checker<'_> {
                     }
                 }
             }
+            if let Some(ep) = op.args.get("env_prefix") {
+                self.check_env_prefix(op, ep, where_, &known);
+            }
             if !op.capture_into.is_empty() {
                 known.insert(op.capture_into.clone());
             }
@@ -327,6 +369,55 @@ impl Checker<'_> {
                     }
                 }
                 self.check_ops(&op.body, where_, inner);
+            }
+        }
+    }
+
+    /// R05: an inline env prefix (`env_prefix` arg) belongs on a declared-bin
+    /// call / `exec` only (decision D2), names must be valid identifiers, values
+    /// strings whose `${REF}`s resolve like any op arg. A host env var the file
+    /// did not declare is a warning here (the runtime refuses it with
+    /// `env_not_declared` unless `--env` allows it).
+    fn check_env_prefix(&mut self, op: &Op, ep: &Value, where_: &str, known: &Known) {
+        if op.kind != "exec" {
+            self.add_err(
+                where_,
+                format!(
+                    "env prefix (NAME=value before the call) is only valid on a declared-bin call or `exec`, not on the built-in op {}",
+                    go_quote(&op.kind)
+                ),
+            );
+        }
+        let Value::Object(m) = ep else {
+            self.add_err(where_, "malformed env prefix: expected NAME=value assignments".into());
+            return;
+        };
+        for (name, v) in m {
+            let valid = name.bytes().enumerate().all(|(i, c)| c == b'_' || c.is_ascii_alphabetic() || (i > 0 && c.is_ascii_digit()));
+            if name.is_empty() || !valid {
+                self.add_err(
+                    where_,
+                    format!("malformed env assignment {}: the name before `=` must match [A-Za-z_][A-Za-z0-9_]*", go_quote(name)),
+                );
+            }
+            let Value::String(s) = v else {
+                self.add_err(where_, format!("env prefix {name}: value must be a string"));
+                continue;
+            };
+            for r in placeholders(s) {
+                if r.is_empty() || known.contains(r) {
+                    continue;
+                }
+                if looks_like_env(r) {
+                    if self.prog.requirements.declared && !env_declared(&self.prog.requirements, r) {
+                        self.add_warn(
+                            where_,
+                            format!("env prefix {name}=${{{r}}} reads host env {r:?} which is not declared in `requires` (add `env {r:?}`) — the run is refused with env_not_declared unless `--env {r}` allows it"),
+                        );
+                    }
+                    continue;
+                }
+                self.add_err(where_, format!("unknown placeholder ${{{r}}} in env prefix {name}"));
             }
         }
     }
@@ -745,6 +836,60 @@ mod tests {
         let mut p = prog1(cmd(vec![op("shell", json!({"cmd": "curl https://anywhere.com"}))]));
         p.requirements = Requirements { declared: true, ..Default::default() };
         assert!(has_err(&check(&p, &known(&["shell"])), "not declared"));
+    }
+
+    // T-06: `finally` placement.
+    #[test]
+    fn t06_finally_placement() {
+        let k = known(&["print", "try", "_catch", "_finally"]);
+        // Misplaced: a bare `_finally` divider at command level / in a non-try block.
+        let p = prog1(cmd(vec![op("print", json!({"msg": "a"})), op("_finally", json!({})), op("print", json!({"msg": "b"}))]));
+        assert!(has_err(&check(&p, &k), "`finally` divider outside a `try` block"));
+        let mut nested = op("print", json!({}));
+        nested.body = vec![op("_finally", json!({}))];
+        assert!(has_err(&check(&prog1(cmd(vec![nested])), &k), "outside a `try` block"));
+        // Two finally sections in one try; rescue after finally.
+        let mut t = op("try", json!({}));
+        t.body = vec![op("_finally", json!({})), op("_finally", json!({}))];
+        assert!(has_err(&check(&prog1(cmd(vec![t])), &k), "only one `finally`"));
+        let mut t = op("try", json!({}));
+        t.body = vec![op("_finally", json!({})), op("_catch", json!({}))];
+        assert!(has_err(&check(&prog1(cmd(vec![t])), &k), "before `finally`"));
+        // Well-formed: try body, rescue, finally; and a command-level wrap.
+        let mut t = op("try", json!({}));
+        t.body = vec![op("print", json!({"msg": "a"})), op("_catch", json!({})), op("_finally", json!({})), op("print", json!({"msg": "c"}))];
+        assert_eq!(n_err(&check(&prog1(cmd(vec![t])), &k)), 0);
+    }
+
+    // T-31 (validate half): prefix on a built-in op; T-32: malformed name.
+    #[test]
+    fn t31_t32_env_prefix_misuse() {
+        let k = known(&["print", "exec"]);
+        let p = prog1(cmd(vec![op("print", json!({"msg": "hi", "env_prefix": {"K": "v"}}))]));
+        assert!(has_err(&check(&p, &k), "only valid on a declared-bin call or `exec`"));
+        for bad in ["1K", "K-V", ""] {
+            let mut o = op("exec", json!({"bin": "tool", "env_prefix": {}}));
+            o.args.insert("env_prefix".into(), json!({ bad: "v" }));
+            let mut p = prog1(cmd(vec![o]));
+            p.requirements = Requirements { declared: true, bins: vec![BinReq { name: "tool".into(), ..Default::default() }], ..Default::default() };
+            assert!(has_err(&check(&p, &k), "malformed env assignment"), "{bad}");
+        }
+        // A good prefix: binding ref and declared env are clean; undeclared env warns.
+        let mut o = op("exec", json!({"bin": "tool", "env_prefix": {"A": "${cfg}", "B": "${DECLARED}", "C": "${SECRET}"}}));
+        o.capture_into = String::new();
+        let mut c = cmd(vec![o]);
+        c.env.insert("cfg".into(), "x".into());
+        let mut p = prog1(c);
+        p.requirements = Requirements {
+            declared: true,
+            bins: vec![BinReq { name: "tool".into(), ..Default::default() }],
+            envs: vec![EnvReq { name: "DECLARED".into(), ..Default::default() }],
+            ..Default::default()
+        };
+        let issues = check(&p, &k);
+        assert_eq!(n_err(&issues), 0, "{issues:?}");
+        assert!(issues.iter().any(|i| i.severity == "warning" && i.message.contains("SECRET")));
+        assert!(!issues.iter().any(|i| i.message.contains("DECLARED")));
     }
 
     #[test]

@@ -870,6 +870,208 @@ fn gate_error_messages_are_actionable() {
     assert!(r.err().is_some_and(|e| e.to_string().contains("curl")), "error should name the bin");
 }
 
+// ── R02: command-level finally, non-masking cleanup errors ────────────────────
+
+fn op_error_of(err: &Option<Error>) -> OpError {
+    let e = err.as_ref().expect("expected an error");
+    OpError::classify("", &**e)
+}
+
+// T-07: body fails, command-level finally runs, the ORIGINAL error is re-raised
+// with the original kind and message.
+#[test]
+fn t07_command_finally_runs_and_reraises_original() {
+    let src = r#"name "x"
+requires
+end
+command t
+    do
+        print "body"
+        fail "body boom"
+        print "unreached"
+    finally
+        print "cleanup"
+    end
+end
+"#;
+    let (out, err) = run_source(src, "t", &[]);
+    assert_eq!(out, "body\ncleanup\n", "out={out:?}");
+    assert!(is_op_kind(&err, ErrorKind::UserFail), "{}", describe(&err));
+    assert_eq!(describe(&err), "user_fail: body boom");
+}
+
+// T-08: success path runs the finally exactly once and exits clean.
+#[test]
+fn t08_command_finally_runs_once_on_success() {
+    let src = r#"name "x"
+requires
+end
+command t
+    do
+        print "body"
+    finally
+        print "cleanup"
+    end
+end
+"#;
+    let (out, err) = run_source(src, "t", &[]);
+    assert!(err.is_none(), "{}", describe(&err));
+    assert_eq!(out, "body\ncleanup\n");
+}
+
+// T-09: both fail. The BODY error comes first with its kind; the cleanup error
+// is appended. An enclosing rescue sees the original `${err.kind}`.
+#[test]
+fn t09_both_fail_original_first() {
+    let src = r#"name "x"
+requires
+end
+command t
+    do
+        fail "body boom"
+    finally
+        fail "cleanup boom"
+    end
+end
+command wrapped
+    do
+        try
+            t
+        rescue
+            print "kind=${err.kind} msg=${err.message}"
+        end
+    end
+end
+"#;
+    let (_, err) = run_source(src, "t", &[]);
+    let oe = op_error_of(&err);
+    assert_eq!(oe.kind, ErrorKind::UserFail);
+    assert_eq!(oe.message, "body boom; additionally, finally failed: user_fail: cleanup boom");
+    assert!(describe(&err).starts_with("user_fail: body boom"), "{}", describe(&err));
+
+    let (out, err) = run_source(src, "wrapped", &[]);
+    assert!(err.is_none(), "{}", describe(&err));
+    assert!(out.contains("kind=user_fail msg=body boom; additionally, finally failed:"), "out={out:?}");
+}
+
+// A failing finally with NO pending body error still surfaces (cleanup error is the only one).
+#[test]
+fn finally_failure_alone_surfaces() {
+    let src = r#"name "x"
+requires
+end
+command t
+    do
+        print "ok"
+    finally
+        fail "cleanup only"
+    end
+end
+"#;
+    let (_, err) = run_source(src, "t", &[]);
+    assert_eq!(describe(&err), "user_fail: cleanup only");
+}
+
+// Nested try inside a command-level finally, and finally-only try under rescue.
+#[test]
+fn t11_nested_and_rescue_regressions() {
+    let src = r#"name "x"
+requires
+end
+command t
+    do
+        try
+            try
+                fail "inner"
+            finally
+                print "inner-fin"
+            end
+        rescue
+            print "caught:${err.message}"
+        finally
+            print "mid-fin"
+        end
+        print "body-end"
+    finally
+        print "outer-fin"
+    end
+end
+"#;
+    let (out, err) = run_source(src, "t", &[]);
+    assert!(err.is_none(), "{}", describe(&err));
+    assert_eq!(out, "inner-fin\ncaught:inner\nmid-fin\nbody-end\nouter-fin\n", "out={out:?}");
+}
+
+// ── R05: inline env prefix ────────────────────────────────────────────────────
+
+const PREFIX_SRC_HEAD: &str = "name \"x\"\nCFG = \"from-binding\"\nrequires\n    bin \"sh\"\n    env \"PERCH_T28_DECLARED\"\nend\n";
+
+// T-26 + T-27 + T-30: the prefix reaches that child only, does not leak to the
+// next op, and works on exec and on the capture form.
+#[test]
+fn t26_t27_t30_prefix_reaches_child_only() {
+    let src = format!(
+        "{PREFIX_SRC_HEAD}command t\n    do\n        PERCH_T26=hello sh -c 'echo first=$PERCH_T26'\n        sh -c 'echo second=[$PERCH_T26]'\n        exec PERCH_T26=viaexec sh -c 'echo third=$PERCH_T26'\n        got = PERCH_T26=cap sh -c 'echo $PERCH_T26'\n        print \"got=${{got}}\"\n        sh -c 'echo after=[$PERCH_T26]'\n        print \"binding=[${{PERCH_T26}}]\"\n    end\nend\n"
+    );
+    let (out, err) = run_source(&src, "t", &[]);
+    // `${PERCH_T26}` is not a binding and not a host var: the last print fails the run.
+    assert!(err.is_some(), "a prefix must not create a binding; out={out:?}");
+    for want in ["first=hello", "second=[]", "third=viaexec", "got=cap", "after=[]"] {
+        assert!(out.contains(want), "missing {want:?} in out={out:?}");
+    }
+    assert!(!out.contains("binding=["), "prefix leaked into bindings; out={out:?}");
+}
+
+// T-28: `$NAME` / `${NAME}` resolve from a binding and from a declared host env var.
+#[test]
+fn t28_prefix_resolves_binding_and_declared_env() {
+    std::env::set_var("PERCH_T28_DECLARED", "declared-value");
+    let src = format!(
+        "{PREFIX_SRC_HEAD}command t\n    do\n        A=$CFG B=${{CFG}} C=$PERCH_T28_DECLARED D=\"pre-${{PERCH_T28_DECLARED}}\" sh -c 'echo a=$A b=$B c=$C d=$D'\n    end\nend\n"
+    );
+    let (out, err) = run_source(&src, "t", &[]);
+    assert!(err.is_none(), "{}", describe(&err));
+    assert!(out.contains("a=from-binding b=from-binding c=declared-value d=pre-declared-value"), "out={out:?}");
+}
+
+// T-29: an undeclared host var is refused by the env gate with env_not_declared.
+#[test]
+fn t29_prefix_undeclared_host_var_refused() {
+    std::env::set_var("PERCH_T29_SECRET", "s3cret");
+    let src = format!(
+        "{PREFIX_SRC_HEAD}command t\n    do\n        S=$PERCH_T29_SECRET sh -c 'echo leaked=$S'\n    end\nend\n"
+    );
+    let (out, err) = run_source(&src, "t", &[]);
+    assert!(is_op_kind(&err, ErrorKind::EnvNotDeclared), "{}", describe(&err));
+    assert!(!out.contains("s3cret") && !out.contains("leaked"), "out={out:?}");
+}
+
+// T-31 (runtime half): a prefix on a built-in op is rejected even when the op
+// tree is hand-built (the loader rejects the source form).
+#[test]
+fn t31_prefix_on_builtin_rejected_at_runtime() {
+    let src = format!("{PREFIX_SRC_HEAD}command t\n    do\n        S=1 print hi\n    end\nend\n");
+    let (_, err) = run_source(&src, "t", &[]);
+    assert!(describe(&err).contains("only valid on a declared-bin call or `exec`"), "{}", describe(&err));
+
+    let mut prog = Program::default();
+    prog.commands.insert(
+        "t".into(),
+        perch_domain::Command {
+            name: "t".into(),
+            ops: vec![perch_domain::Op {
+                kind: "print".into(),
+                args: json!({"msg": "hi", "env_prefix": {"K": "v"}}).as_object().cloned().unwrap(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+    );
+    let i = Interpreter::new(all_handlers(), prog);
+    let e = i.run("t", &[]).unwrap_err();
+    assert!(e.to_string().contains("only valid on a declared-bin call or `exec`"), "{e}");
+}
+
 // ── kinds drift ───────────────────────────────────────────────────────────
 
 /// Guards the canonical op-kind list the loader embeds (opkinds.txt) against

@@ -29,9 +29,21 @@ pub struct CallState {
     enabled: bool,
     handles: HashMap<i32, Handle>,
     next_id: i32,
+    /// First host-side refusal reason (SSRF guard, host not allowed, policy);
+    /// the module itself only sees -1. Feeds the `wasm_http_refused` kind.
+    refused: Option<String>,
 }
 
 impl CallState {
+    /// Why the host refused a module HTTP call, if it did.
+    pub fn refusal(&self) -> Option<String> {
+        self.refused.clone()
+    }
+
+    fn refuse(&mut self, why: impl Into<String>) {
+        self.refused.get_or_insert_with(|| why.into());
+    }
+
     fn put(&mut self, h: Handle) -> i32 {
         self.next_id += 1;
         self.handles.insert(self.next_id, h);
@@ -46,6 +58,7 @@ pub fn build_call_state(i: &Interpreter, module_allowed: &[String]) -> CallState
         enabled: false,
         handles: HashMap::new(),
         next_id: 0,
+        refused: None,
     };
     if module_allowed.is_empty() {
         return s;
@@ -82,6 +95,7 @@ fn memory(caller: &mut Caller<'_, HostState>) -> Option<Memory> {
 pub fn install_perch_host_module(linker: &mut Linker<HostState>) -> wasmtime::Result<()> {
     linker.func_wrap("perch", "http_get", |mut caller: Caller<'_, HostState>, ptr: u32, len: u32| -> i32 {
         if !caller.data().http.enabled {
+            caller.data_mut().http.refuse("host not allowed: no wasm_allow_host declared or none permitted by the outer policy");
             return -1;
         }
         let Some(mem) = memory(&mut caller) else { return -1 };
@@ -96,7 +110,12 @@ pub fn install_perch_host_module(linker: &mut Linker<HostState>) -> wasmtime::Re
         let policy = caller.data().http.policy.clone();
         match wasm_get(&policy, &raw) {
             Ok((body, status)) => caller.data_mut().http.put(Handle { status_code: status as i32, body, pos: 0 }),
-            Err(_) => -1,
+            Err(e) => {
+                if e.refused {
+                    caller.data_mut().http.refuse(e.msg);
+                }
+                -1
+            }
         }
     })?;
     linker.func_wrap("perch", "http_status", |caller: Caller<'_, HostState>, h: i32| -> i32 {

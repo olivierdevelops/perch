@@ -35,3 +35,4 @@ perch-runtests = { path = "../usecases/runtests" }
 perch-scan = { path = "../usecases/scan" }
 perch-simulate = { path = "../usecases/simulate" }
 perch-validate = { path = "../usecases/validate" }
+ureq = { version = "2", default-features = false, features = ["tls", "native-certs"] }

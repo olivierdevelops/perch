@@ -369,6 +369,11 @@ fn simulate_op(op: &Op, env: &SimEnv, depth: usize, p: &Program, cmd_name: &str)
             return r;
         }
 
+        "try" => {
+            classify_try(&mut r, op, env, depth, p, cmd_name);
+            return r;
+        }
+
         "os" => {
             // OS execution context block. Prune by --sim-os.
             r.is_block_entry = true;
@@ -429,6 +434,8 @@ fn simulate_op(op: &Op, env: &SimEnv, depth: usize, p: &Program, cmd_name: &str)
             r.reasons.push(format!("explicit fail: {msg}"));
         }
 
+        "exec" => classify_env_prefix(&mut r, args, env, p),
+
         // Explicit exit. Treat as terminator — runs but stops the flow. We
         // still mark WILL_RUN since the op itself succeeds.
         _ => {}
@@ -451,6 +458,87 @@ fn simulate_op(op: &Op, env: &SimEnv, depth: usize, p: &Program, cmd_name: &str)
     }
 
     r
+}
+
+/// `try … rescue … finally … end` (also what a command-level `do … finally`
+/// lowers to). Models R02: the body and rescue arm are simulated as written; the
+/// `finally` section ALWAYS runs, so its ops are classified in their own right
+/// and never masked by a body failure. A body failure with no non-empty
+/// `rescue` arm re-raises after `finally` (the try fails); with a rescue arm it
+/// is caught (the try may still run clean).
+fn classify_try(r: &mut OpResult, op: &Op, env: &SimEnv, depth: usize, p: &Program, cmd_name: &str) {
+    r.is_block_entry = true;
+    // Split on the `_catch` / `_finally` dividers (same partition as opTry).
+    let (mut body, mut rescue, mut fin): (Vec<&Op>, Vec<&Op>, Vec<&Op>) = (Vec::new(), Vec::new(), Vec::new());
+    let mut section = 0;
+    for o in &op.body {
+        match o.kind.as_str() {
+            "_catch" => section = 1,
+            "_finally" => section = 2,
+            _ => match section {
+                0 => body.push(o),
+                1 => rescue.push(o),
+                _ => fin.push(o),
+            },
+        }
+    }
+    let sim = |ops: &[&Op]| -> Vec<OpResult> { ops.iter().map(|o| simulate_op(o, env, depth + 1, p, cmd_name)).collect() };
+    let (body_res, rescue_res, fin_res) = (sim(&body), sim(&rescue), sim(&fin));
+    let worst = |rs: &[OpResult]| {
+        if rs.iter().any(|c| c.outcome == Outcome::WillFail) {
+            Outcome::WillFail
+        } else if rs.iter().any(|c| c.outcome == Outcome::MightFail) {
+            Outcome::MightFail
+        } else {
+            Outcome::WillRun
+        }
+    };
+    let (b, rc, f) = (worst(&body_res), worst(&rescue_res), worst(&fin_res));
+    // Pending-error outcome after the body and (if present) the rescue arm.
+    let after_body = match (b, rescue.is_empty()) {
+        (Outcome::WillRun, _) => Outcome::WillRun,
+        (Outcome::MightFail, true) => Outcome::MightFail,
+        (Outcome::WillFail, true) => Outcome::WillFail,
+        (_, false) => rc,
+    };
+    if b != Outcome::WillRun && !fin.is_empty() {
+        r.reasons.push("finally runs even though the body can fail; the body error is re-raised first (a failing finally is appended, not substituted)".into());
+    }
+    // A failing finally only decides the outcome when the body was clean.
+    r.outcome = match (after_body, f) {
+        (Outcome::WillFail, _) => Outcome::WillFail,
+        (Outcome::MightFail, _) => Outcome::MightFail,
+        (Outcome::WillRun, f) => f,
+    };
+    r.children = body_res.into_iter().chain(rescue_res).chain(fin_res).collect();
+}
+
+/// R05: a `NAME=VALUE` prefix on an exec op. Notes the overlay and flags host
+/// env refs the file did not declare (the runtime refuses those with
+/// `env_not_declared` unless `--env` allows them).
+fn classify_env_prefix(r: &mut OpResult, args: &Map<String, Value>, env: &SimEnv, p: &Program) {
+    let Some(Value::Object(m)) = args.get("env_prefix") else { return };
+    let names: Vec<&str> = m.keys().map(String::as_str).collect();
+    r.reasons.push(format!("env prefix applies to this process only: {}", names.join(", ")));
+    for (k, v) in m {
+        let Value::String(s) = v else { continue };
+        for m in env_ref_re().captures_iter(s) {
+            let name = &m[1];
+            let is_global = p.globals.bindings.iter().any(|g| g.name == name);
+            let declared = !p.requirements.declared || p.requirements.envs.iter().any(|e| e.name == name);
+            let allowed = env.env.as_ref().is_some_and(|e| e.contains_key(name));
+            if !is_global && !declared && !allowed {
+                r.scenarios.push(Scenario {
+                    description: format!("env prefix {k}=${{{name}}} reads host env {}", quote(name)),
+                    outcome: Outcome::MightFail,
+                    reason: "not declared in `requires env` — refused with env_not_declared unless a binding or --env provides it".into(),
+                });
+                if r.outcome == Outcome::WillRun {
+                    r.outcome = Outcome::MightFail;
+                }
+            }
+        }
+    }
 }
 
 fn simulate_body(ops: &[Op], env: &SimEnv, depth: usize, p: &Program, cmd_name: &str) -> Vec<OpResult> {
@@ -804,7 +892,12 @@ fn check_env_interpolation(args: &Map<String, Value>, env: &SimEnv) -> (String, 
     if !env.env_restrict {
         return (String::new(), Vec::new());
     }
-    for v in args.values() {
+    // Env-prefix values (R05) are nested in an object; scan them too.
+    let prefix_vals: Vec<&Value> = match args.get("env_prefix") {
+        Some(Value::Object(m)) => m.values().collect(),
+        _ => Vec::new(),
+    };
+    for v in args.values().chain(prefix_vals) {
         let Value::String(s) = v else { continue };
         for m in env_ref_re().captures_iter(s) {
             let name = &m[1];
@@ -984,6 +1077,15 @@ fn render_op_result(w: &mut dyn Write, r: &OpResult, indent: &str) -> std::io::R
 }
 
 fn summarize_op(op: &Op) -> String {
+    // R05: show an inline env prefix shell-style in front of the op.
+    let prefix: String = match op.args.get("env_prefix") {
+        Some(Value::Object(m)) => m.iter().map(|(k, v)| format!("{k}={} ", quote(v.as_str().unwrap_or("")))).collect(),
+        _ => String::new(),
+    };
+    format!("{prefix}{}", summarize_op_inner(op))
+}
+
+fn summarize_op_inner(op: &Op) -> String {
     let a = &op.args;
     match op.kind.as_str() {
         "_template_call" => return format!("call {}", string_arg(a, &["name"])),
@@ -1047,6 +1149,61 @@ mod tests {
         let mut out = Vec::new();
         render_result(&mut out, res, p, name).unwrap();
         String::from_utf8(out).unwrap()
+    }
+
+    // R02: `finally` is modelled — it runs after a failing body and is never masked.
+    #[test]
+    fn try_finally_is_modelled() {
+        let mut fail_then_clean = block(
+            "try",
+            json!({}),
+            vec![
+                op("fail", json!({"msg": "boom"})),
+                op("_catch", json!({})),
+                op("_finally", json!({})),
+                op("print", json!({"msg": "cleanup"})),
+            ],
+        );
+        fail_then_clean.line = 1;
+        let p = prog(vec![("go", vec![fail_then_clean])]);
+        let res = simulate_command(&p, "go", &SimEnv::default());
+        // Body fails, no rescue: the try fails, but the finally op is still listed as running.
+        assert_eq!(res.ops[0].outcome, Outcome::WillFail);
+        let out = render(&res, &p, "go");
+        assert!(out.contains("finally runs even though the body can fail"), "{out}");
+        assert!(out.contains("✓ print \"cleanup\""), "{out}");
+        // With a non-empty rescue arm the failure is caught.
+        let caught = block(
+            "try",
+            json!({}),
+            vec![
+                op("fail", json!({"msg": "boom"})),
+                op("_catch", json!({})),
+                op("print", json!({"msg": "handled"})),
+                op("_finally", json!({})),
+            ],
+        );
+        let p = prog(vec![("go", vec![caught])]);
+        let res = simulate_command(&p, "go", &SimEnv::default());
+        assert_eq!(res.ops[0].outcome, Outcome::WillRun);
+    }
+
+    // R05: the prefix is shown, and an undeclared host env ref is flagged.
+    #[test]
+    fn env_prefix_is_shown_and_checked() {
+        let mut p = prog(vec![(
+            "go",
+            vec![op("exec", json!({"bin": "kubectl", "_0": "get", "env_prefix": {"KUBECONFIG": "${CFG}", "T": "${SECRET}"}}))],
+        )]);
+        p.requirements.declared = true;
+        p.globals.bindings.push(perch_domain::GlobalBinding { name: "CFG".into(), ..Default::default() });
+        let res = simulate_command(&p, "go", &SimEnv::default());
+        let out = render(&res, &p, "go");
+        assert!(out.contains("KUBECONFIG=\"${CFG}\" T=\"${SECRET}\" exec"), "{out}");
+        assert!(out.contains("env prefix applies to this process only: KUBECONFIG, T"), "{out}");
+        assert!(out.contains("reads host env \"SECRET\""), "{out}");
+        assert!(!out.contains("reads host env \"CFG\""), "{out}");
+        assert_eq!(res.ops[0].outcome, Outcome::MightFail);
     }
 
     #[test]

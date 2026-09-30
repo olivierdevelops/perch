@@ -138,18 +138,18 @@
     {{if .Args}}
     <div class="args">
       {{range .Args}}
-      <label for="{{$.Name}}-{{.Name}}">-{{.Name}}</label>
+      <label for="{{.Name}}">-{{.Name}}</label>
       <div>
         {{if eq .Type "bool"}}
-          <input id="{{$.Name}}-{{.Name}}" type="checkbox" data-arg="{{.Name}}" data-type="bool" {{if and .HasDefault .Default}}checked{{end}} />
+          <input id="{{.Name}}" type="checkbox" data-arg="{{.Name}}" data-type="bool" {{if and .HasDefault .Default}}checked{{end}} />
         {{else if eq .Type "int"}}
-          <input id="{{$.Name}}-{{.Name}}" type="number" step="1" data-arg="{{.Name}}" data-type="int" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+          <input id="{{.Name}}" type="number" step="1" data-arg="{{.Name}}" data-type="int" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
         {{else if eq .Type "float"}}
-          <input id="{{$.Name}}-{{.Name}}" type="number" step="any" data-arg="{{.Name}}" data-type="float" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+          <input id="{{.Name}}" type="number" step="any" data-arg="{{.Name}}" data-type="float" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
         {{else if .Rest}}
-          <textarea id="{{$.Name}}-{{.Name}}" data-arg="{{.Name}}" data-type="rest" placeholder="{{.Description}} (one per line)"></textarea>
+          <textarea id="{{.Name}}" data-arg="{{.Name}}" data-type="rest" placeholder="{{.Description}} (one per line)"></textarea>
         {{else}}
-          <input id="{{$.Name}}-{{.Name}}" type="text" data-arg="{{.Name}}" data-type="string" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
+          <input id="{{.Name}}" type="text" data-arg="{{.Name}}" data-type="string" placeholder="{{if .HasDefault}}{{.Default}}{{else}}{{.Description}}{{end}}" {{if .HasDefault}}data-default="{{.Default}}"{{end}} />
         {{end}}
       </div>
       <span class="argtype">{{.Type}}{{if .Optional}} · <span class="opt">optional</span>{{end}}</span>

@@ -114,16 +114,31 @@ module.exports = grammar({
 
     // ── do { ops } ──────────────────────────────────────────────────────
 
+    // `do … finally … end` — the optional `finally` section is cleanup that
+    // always runs (sugar for wrapping the whole body in `try … finally`).
     do_block: $ => seq(
       'do',
       repeat($._op),
+      optional($.finally_section),
       'end',
     ),
 
+    finally_section: $ => seq('finally', repeat($._op)),
+
     _op: $ => choice(
       $.assign_stmt,
+      $.try_op,
       $.block_op,
       $.call_op,
+    ),
+
+    // `try … rescue … finally … end`
+    try_op: $ => seq(
+      'try',
+      repeat($._op),
+      optional(seq('rescue', repeat($._op))),
+      optional($.finally_section),
+      'end',
     ),
 
     // `NAME = callee args…` — capture. No `let` keyword; `=` is the assignment
@@ -131,6 +146,7 @@ module.exports = grammar({
     assign_stmt: $ => seq(
       field('name', $.identifier),
       '=',
+      repeat($.env_assignment),
       field('callee', $.identifier),
       repeat($._arg_value),
     ),
@@ -149,10 +165,20 @@ module.exports = grammar({
       'for_each',
     ),
 
+    // `NAME=VALUE … binary verb --args` — inline env prefix (one process only).
+    // Leading assignments only; `name=value` after the binary is an ordinary arg.
     call_op: $ => seq(
+      repeat($.env_assignment),
       field('callee', $.identifier),
       repeat($._arg_value),
     ),
+
+    // No space around `=`; VALUE is bare, quoted, `$NAME` or `${NAME}`.
+    env_assignment: $ => token(seq(
+      /[A-Za-z_][A-Za-z0-9_]*/,
+      '=',
+      choice(/"[^"]*"/, /'[^']*'/, /[^\s"']*/),
+    )),
 
     _arg_value: $ => choice($.string, $.integer, $.float, $.boolean, $.null, $.identifier),
 

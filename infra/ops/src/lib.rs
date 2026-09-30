@@ -6,6 +6,7 @@
 mod assertions;
 mod cache;
 pub mod common;
+pub mod confine;
 mod contexts;
 mod errors;
 mod flow;
@@ -20,6 +21,7 @@ pub mod seams;
 mod system;
 mod wasm;
 
+pub use confine::{advisory_banner, probe as confine_probe, confine, scopes_from_requirements, ConfineError, Scopes, Support};
 pub use group_b::{bundle_hash, bundle_read_file, set_bundle};
 pub use flow::{arch_target_matches, compare_values, looks_like_version, os_target_matches};
 pub use hookcat::{

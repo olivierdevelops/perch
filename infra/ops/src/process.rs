@@ -423,6 +423,85 @@ pub fn apply_env(i: &Interpreter, cmd: &mut Command, b: &Bindings) {
     }
 }
 
+/// R05 (inline env prefix): resolves the `env_prefix` op arg (an object of
+/// NAME to template string, set by the loader from `NAME=VALUE … bin verb`) into
+/// the overlay for ONE spawned process. Each `${REF}` resolves bindings first
+/// (vars, then per-command env); a name that is not a binding is a HOST env var
+/// and passes the same gates as every other host-env read: `--env` (when an
+/// allowlist is active the name must be on it), else the file's `requires env`
+/// declaration or the default operational set. A refused name is
+/// `env_not_declared`, so a prefix can never smuggle an undeclared secret into a
+/// child. Returns an empty overlay when the op has no prefix.
+pub fn env_prefix_overlay(
+    i: &Interpreter,
+    b: &Bindings,
+    args: &Map<String, Value>,
+) -> std::result::Result<Vec<(String, String)>, Error> {
+    let Some(Value::Object(prefix)) = args.get("env_prefix") else { return Ok(Vec::new()) };
+    let mut overlay = Vec::with_capacity(prefix.len());
+    for (name, raw) in prefix {
+        let raw = to_string_value(raw);
+        let mut out = String::new();
+        let mut rest = raw.as_str();
+        while let Some(at) = rest.find("${") {
+            out.push_str(&rest[..at]);
+            let Some(end) = rest[at + 2..].find('}') else {
+                return Err(err(format!("env prefix {name}: unterminated ${{ in {}", go_quote(&raw))));
+            };
+            let var = rest[at + 2..at + 2 + end].trim();
+            out.push_str(&resolve_prefix_ref(i, b, name, var)?);
+            rest = &rest[at + 2 + end + 1..];
+        }
+        out.push_str(rest);
+        overlay.push((name.clone(), out));
+    }
+    Ok(overlay)
+}
+
+fn resolve_prefix_ref(i: &Interpreter, b: &Bindings, prefix_name: &str, var: &str) -> Result<String> {
+    if let Some(v) = b.vars.get(var) {
+        return Ok(to_string_value(v));
+    }
+    if let Some(v) = b.env.get(var) {
+        return Ok(v.clone());
+    }
+    // Host env, behind the existing gates.
+    let permitted = match &b.env_allowlist {
+        Some(al) => al.get(var).copied().unwrap_or(false),
+        None => {
+            default_bin_env().contains(&var)
+                || !i.program.requirements.declared
+                || i.program.requirements.envs.iter().any(|e| e.name == var)
+        }
+    };
+    if !permitted {
+        let why = if b.env_allowlist.is_some() {
+            "is not in the --env allowlist"
+        } else {
+            "is not declared in `requires`"
+        };
+        return Err(Box::new(
+            OpError::new("exec", ErrorKind::EnvNotDeclared, &format!("env prefix {prefix_name}=${{{var}}}: env var {var:?} {why}"))
+                .with_detail(var),
+        ));
+    }
+    std::env::var(var).map_err(|_| {
+        Box::new(OpError::new(
+            "exec",
+            ErrorKind::UnresolvedVar,
+            &format!("env prefix {prefix_name}=${{{var}}}: {var:?} is not set"),
+        )) as Error
+    })
+}
+
+/// Layers an R05 overlay on top of the (already scrubbed) child env, for this
+/// one process only.
+fn apply_env_overlay(cmd: &mut Command, overlay: &[(String, String)]) {
+    for (k, v) in overlay {
+        cmd.env(k, v);
+    }
+}
+
 // ── ops ───────────────────────────────────────────────────────────────────
 
 fn op_try_shell(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> {
@@ -642,6 +721,7 @@ fn exec_with(i: &Interpreter, b: &Bindings, args: &Map<String, Value>) -> Result
     // Capability + manifest gate. Reuses the same declared-bin enforcement as
     // `shell` (and the CapMask no_subprocess / allow-bin checks).
     check_exec_bin(i, &bin)?;
+    let overlay = env_prefix_overlay(i, b, args)?;
     let argv = collect_argv(args);
     let display = display_of(&bin, &argv);
     let runerr;
@@ -649,6 +729,7 @@ fn exec_with(i: &Interpreter, b: &Bindings, args: &Map<String, Value>) -> Result
     match build_command(&resolve_exec_path(i, &bin), &argv) {
         Ok(mut cmd) => {
             apply_env(i, &mut cmd, b);
+            apply_env_overlay(&mut cmd, &overlay);
             set_dir(&mut cmd, &b.cwd);
             // Capture stdout into a buffer (so `let x = exec …` works), then tee
             // the captured bytes to the program's stdout so a bare `exec …` streams.
@@ -751,10 +832,12 @@ fn op_pipe(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> 
             return Err(Box::new(OpError::new("pipe", ErrorKind::Unclassified, "pipe: exec stage missing binary")));
         }
         check_exec_bin(i, &bin)?;
+        let overlay = env_prefix_overlay(i, b, &a)?;
         let argv = collect_argv(&a);
         let display = display_of(&bin, &argv);
         let cmd = build_command(&resolve_exec_path(i, &bin), &argv).map_err(run_err_to_error).map(|mut c| {
             apply_env(i, &mut c, b);
+            apply_env_overlay(&mut c, &overlay);
             set_dir(&mut c, &b.cwd);
             c
         });

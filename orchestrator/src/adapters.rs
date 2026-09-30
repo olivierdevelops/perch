@@ -77,6 +77,21 @@ impl cli::CommandHelpUseCase for CommandHelp {
     }
 }
 
+/// Real HTTPS GET for installlsp (the use case receives it as a parameter).
+pub fn http_fetch(url: &str) -> Result<Vec<u8>, Error> {
+    use std::io::Read;
+    let resp = ureq::get(url)
+        .timeout(std::time::Duration::from_secs(120))
+        .call()
+        .map_err(|e| -> Error { format!("GET {url}: {e}").into() })?;
+    let mut buf = Vec::new();
+    resp.into_reader()
+        .take(256 * 1024 * 1024)
+        .read_to_end(&mut buf)
+        .map_err(|e| -> Error { format!("read {url}: {e}").into() })?;
+    Ok(buf)
+}
+
 pub struct InstallLsp(pub perch_installlsp::Impl);
 impl cli::InstallLSPUseCase for InstallLsp {
     fn execute(&self) -> Result<(), Error> {
@@ -100,8 +115,8 @@ impl cli::ImportShUseCase for ImportSh {
 
 pub struct Scan(pub perch_scan::Impl);
 impl cli::ScanUseCase for Scan {
-    fn execute(&self, c: &str) -> Result<(), Error> {
-        self.0.execute(c, &mut stdout())
+    fn execute(&self, c: &str, format: &str) -> Result<(), Error> {
+        self.0.execute(c, format, &mut stdout())
     }
 }
 

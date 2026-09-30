@@ -13,7 +13,10 @@
 //! match works the same way: `_case <value>` and `_else` are sentinels; the
 //! handler picks the first matching case (or _else) and runs that arm's body.
 use perch_domain::{ErrorKind, Op, OpError};
-use perch_interpreter::{handler, to_string_value, Args, Bindings, Error, Handler, Interpreter, Result};
+use perch_interpreter::{
+    handler, is_quit, is_timeout, merge_cleanup_error, to_string_value, Args, Bindings, Error, Handler, Interpreter, Result,
+    FINALLY_GRACE,
+};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -42,18 +45,24 @@ fn sentinel_err(name: &'static str, parent: &'static str) -> Handler {
 /// Executes the try-body; on error, populates ${BIND.*} bindings and runs the
 /// catch-body. The finally-body runs unconditionally last. If the catch-body
 /// itself errors (or there is no catch and the try-body errored), the error
-/// propagates after finally runs.
+/// propagates after finally runs. A failing finally never hides a pending error
+/// (see the merge below); a timeout runs finally under a fresh grace deadline.
 fn op_try(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> {
     let (try_body, catch_body, finally_body, catch_bind) = split_try_body(args.body);
 
     // Run try-body; capture the error (if any) without aborting yet.
     let mut try_err: Option<Error> = i.run_ops(&try_body, b).err();
 
+    // A wall-clock timeout (or a user quit) is not a catchable failure: the
+    // deadline has already expired, so a rescue arm could not run anything. It
+    // skips the rescue but still runs `finally` (D1).
+    let uncatchable = try_err.as_ref().is_some_and(|e| is_timeout(e) || is_quit(e));
+
     // Catch arm — only if try errored AND a NON-EMPTY rescue arm exists. (The
     // grammar always emits the `_catch` marker via block_sections, so an absent
     // or empty `rescue` yields an empty catch body; that must NOT swallow the
     // error — `try … end` / `try … finally … end` re-raise.)
-    if try_err.is_some() && catch_body.as_ref().is_some_and(|c| !c.is_empty()) {
+    if !uncatchable && try_err.is_some() && catch_body.as_ref().is_some_and(|c| !c.is_empty()) {
         let oe = OpError::classify("", &**try_err.as_ref().unwrap());
         populate_err_bindings(b, &catch_bind, &oe);
         // Whatever bindings catch produced/clobbered remain visible to the
@@ -62,10 +71,28 @@ fn op_try(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> {
         try_err = i.run_ops(catch_body.as_deref().unwrap_or(&[]), b).err();
     }
 
-    // Finally — always runs. Its errors override everything else (otherwise
-    // users couldn't observe a failure in their cleanup code).
+    // Finally — always runs (under a fresh grace deadline when the body timed
+    // out). If it fails while NO error is pending, its error surfaces. If it
+    // fails while a body error is pending, the BODY error is reported (same
+    // kind, so an enclosing rescue sees the original `${err.kind}`) with the
+    // cleanup failure appended; a masked original is the worse outcome.
     if let Some(fin) = &finally_body {
-        i.run_ops(fin, b)?;
+        if let Err(fe) = i.run_finally(fin, b, try_err.as_ref()) {
+            match try_err.take() {
+                None => return Err(fe),
+                Some(be) => {
+                    if is_timeout(&be) || is_quit(&be) {
+                        let note = if is_timeout(&fe) {
+                            format!("↪ finally did not finish within its {}s grace period\n", FINALLY_GRACE.as_secs())
+                        } else {
+                            format!("↪ finally failed: {fe}\n")
+                        };
+                        i.stderr.write_str(&note).ok();
+                    }
+                    try_err = Some(merge_cleanup_error(be, &fe));
+                }
+            }
+        }
     }
     match try_err {
         Some(e) => Err(e),

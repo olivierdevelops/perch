@@ -4,6 +4,5 @@ mod bin;
 mod errors;
 mod program;
 
-pub use bin::*;
 pub use errors::*;
 pub use program::*;

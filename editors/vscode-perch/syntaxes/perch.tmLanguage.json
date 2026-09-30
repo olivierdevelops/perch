@@ -7,6 +7,7 @@
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#booleans-nulls" },
+    { "include": "#env-prefix" },
     { "include": "#structural-keywords" },
     { "include": "#config-modifiers" },
     { "include": "#block-ops" },
@@ -63,10 +64,27 @@
         "match": "^\\s*(name|about|version)\\b"
       }]
     },
+    "env-prefix": {
+      "patterns": [{
+        "comment": "Inline env prefix: leading NAME=VALUE tokens before a binary call (also after `exec` or `x =`).",
+        "match": "^\\s*(?:exec\\s+|[A-Za-z_][A-Za-z0-9_]*\\s+=\\s+)?((?:[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s\"']*)\\s+)+)",
+        "captures": {
+          "1": {
+            "patterns": [{
+              "match": "([A-Za-z_][A-Za-z0-9_]*)(=)",
+              "captures": {
+                "1": { "name": "variable.other.constant.env.perch" },
+                "2": { "name": "keyword.operator.assignment.perch" }
+              }
+            }]
+          }
+        }
+      }]
+    },
     "structural-keywords": {
       "patterns": [{
         "name": "keyword.control.perch",
-        "match": "\\b(command|do|end|catch|fail|exit)\\b"
+        "match": "\\b(command|do|end|catch|fail|exit|try|rescue|finally)\\b"
       }]
     },
     "config-modifiers": {

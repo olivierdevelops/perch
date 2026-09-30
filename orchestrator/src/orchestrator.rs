@@ -365,7 +365,7 @@ fn build_cli(s: &Settings, bundle: Option<perch_embed::Bundle>) -> Cli {
     };
 
     let install_lsp_fn: perch_installvscode::InstallLSPFn =
-        Box::new(|| perch_installlsp::Impl.execute(&mut std::io::stdout()));
+        Box::new(|| perch_installlsp::Impl::new(Box::new(a::http_fetch)).execute(&mut std::io::stdout()));
 
     let uc = UseCases {
         run: Box::new(a::Run(perch_runcommand::Impl {
@@ -390,7 +390,7 @@ fn build_cli(s: &Settings, bundle: Option<perch_embed::Bundle>) -> Cli {
             known_ops: known_fn(&known),
         })),
         command_help: Box::new(a::CommandHelp(perch_commandhelp::Impl { load: loader(&embedded) })),
-        install_lsp: Box::new(a::InstallLsp(perch_installlsp::Impl)),
+        install_lsp: Box::new(a::InstallLsp(perch_installlsp::Impl::new(Box::new(a::http_fetch)))),
         install_vscode: Box::new(a::InstallVscode(perch_installvscode::Impl { install_lsp: Some(install_lsp_fn) })),
         import_sh: Box::new(a::ImportSh(perch_importsh::Impl)),
         scan: Box::new(a::Scan(perch_scan::Impl { load: Box::new(perch_capyloader::load) })),

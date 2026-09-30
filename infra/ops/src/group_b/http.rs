@@ -284,6 +284,35 @@ fn is_redirect(status: u16) -> bool {
     matches!(status, 301 | 302 | 303 | 307 | 308)
 }
 
+/// TLS client config trusting the operating system's root store, falling back
+/// to the bundled webpki roots only when the system store yields nothing
+/// (F06: corporate / local CAs installed in the OS must work).
+fn tls_config() -> std::sync::Arc<rustls::ClientConfig> {
+    use std::sync::{Arc, OnceLock};
+    static CFG: OnceLock<Arc<rustls::ClientConfig>> = OnceLock::new();
+    CFG.get_or_init(|| {
+        let mut store = rustls::RootCertStore::empty();
+        let native = rustls_native_certs::load_native_certs().unwrap_or_default();
+        let (valid, _invalid) = store.add_parsable_certificates(native);
+        if valid == 0 {
+            store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        }
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let cfg = rustls::ClientConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .expect("rustls protocol versions")
+            .with_root_certificates(store)
+            .with_no_client_auth();
+        Arc::new(cfg)
+    })
+    .clone()
+}
+
+/// The shared agent builder: system trust roots (see `tls_config`).
+fn agent_builder() -> ureq::AgentBuilder {
+    ureq::AgentBuilder::new().tls_config(tls_config())
+}
+
 fn op_error(kind: ErrorKind, msg: &str, detail: &str) -> Error {
     Box::new(OpError::new("http", kind, msg).with_detail(detail))
 }
@@ -323,7 +352,7 @@ pub fn run_http(i: &Interpreter, method: &str, raw_url: &str, body: Option<&str>
         };
         op_error(kind, &msg, raw_url)
     };
-    let mut agent = ureq::AgentBuilder::new().redirects(0).timeout(Duration::from_secs(30)).user_agent("Go-http-client/1.1");
+    let mut agent = agent_builder().redirects(0).timeout(Duration::from_secs(30)).user_agent("Go-http-client/1.1");
     agent = agent.try_proxy_from_env(true);
     let agent = agent.build();
     let mut method = method.to_string();
@@ -432,6 +461,27 @@ fn op_download(i: &Interpreter, b: &mut Bindings, a: &Args<'_>) -> Result<Value>
 
 #[cfg(test)]
 mod tests {
+    // T-42 (manual): system trust roots.
+    //   1. Make a local CA + leaf for `localhost`:
+    //        openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=perch-test-ca -keyout ca.key -out ca.pem
+    //        openssl req -newkey rsa:2048 -nodes -subj /CN=localhost -addext subjectAltName=DNS:localhost -keyout l.key -out l.csr
+    //        openssl x509 -req -in l.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 2 -copy_extensions copy -out l.pem
+    //   2. Serve it:  openssl s_server -accept 8443 -cert l.pem -key l.key -www
+    //   3. Before trusting the CA: a `.perch` with `http_get "https://localhost:8443/"`
+    //      (and `host "localhost"` declared, plus the loopback/SSRF policy opened as
+    //      needed) FAILS with a certificate error.
+    //   4. Trust ca.pem in the OS store (macOS: `security add-trusted-cert -d -k
+    //      ~/Library/Keychains/login.keychain-db ca.pem`; Linux: copy to
+    //      /usr/local/share/ca-certificates + `update-ca-certificates`), rerun: SUCCEEDS.
+    //   5. Remove the CA again; the call fails again. Empty system store falls back
+    //      to bundled webpki roots (public sites still work).
+    #[test]
+    fn agent_builds_with_system_or_bundled_roots() {
+        let _ = super::agent_builder().build();
+        let cfg = super::tls_config();
+        assert!(std::sync::Arc::strong_count(&cfg) >= 1);
+    }
+
     use super::*;
 
     fn pol(hosts: &[&str]) -> HTTPPolicy {
@@ -514,17 +564,34 @@ mod tests {
 
 /// One GET for the wasm host bridge (wasm_http.go `doHTTPGet`): the same
 /// SSRF/allowlist gate on the initial URL and every redirect hop as
+/// Failure of a wasm-bridge GET. `refused` marks policy/SSRF/host refusals
+/// (surfaced as `wasm_http_refused`) as opposed to transport failures.
+#[derive(Debug, Clone)]
+pub(crate) struct WasmGetErr {
+    pub refused: bool,
+    pub msg: String,
+}
+
+impl WasmGetErr {
+    fn refused(msg: String) -> Self {
+        WasmGetErr { refused: true, msg }
+    }
+    fn failed(msg: String) -> Self {
+        WasmGetErr { refused: false, msg }
+    }
+}
+
 /// `run_http`, but without the `requires` host gate (the wasm bridge has its
 /// own `wasm_allow_host` allowlist) and returning the buffered body (32 MB cap)
 /// and status. Err carries a message the bridge discards (module sees -1).
-pub(crate) fn wasm_get(p: &HTTPPolicy, raw_url: &str) -> std::result::Result<(Vec<u8>, u16), String> {
+pub(crate) fn wasm_get(p: &HTTPPolicy, raw_url: &str) -> std::result::Result<(Vec<u8>, u16), WasmGetErr> {
     let mut cur = match parse_target(raw_url) {
         Ok(t) => t,
-        Err(ParseFail::Bad(m)) => return Err(m),
-        Err(ParseFail::NoHost(raw)) => return Err(format!("empty host in URL {}", go_quote(&raw))),
+        Err(ParseFail::Bad(m)) => return Err(WasmGetErr::refused(m)),
+        Err(ParseFail::NoHost(raw)) => return Err(WasmGetErr::refused(format!("empty host in URL {}", go_quote(&raw)))),
     };
-    validate_request_url(&cur, p)?;
-    let agent = ureq::AgentBuilder::new()
+    validate_request_url(&cur, p).map_err(WasmGetErr::refused)?;
+    let agent = agent_builder()
         .redirects(0)
         .timeout(Duration::from_secs(30))
         .user_agent("Go-http-client/1.1")
@@ -534,23 +601,23 @@ pub(crate) fn wasm_get(p: &HTTPPolicy, raw_url: &str) -> std::result::Result<(Ve
     loop {
         let scheme = cur.url.scheme();
         if scheme != "http" && scheme != "https" {
-            return Err(format!("unsupported protocol scheme {}", go_quote(scheme)));
+            return Err(WasmGetErr::refused(format!("unsupported protocol scheme {}", go_quote(scheme))));
         }
         let resp = match agent.request("GET", cur.url.as_str()).call() {
             Ok(r) => r,
             Err(ureq::Error::Status(_, r)) => r,
-            Err(ureq::Error::Transport(t)) => return Err(t.to_string()),
+            Err(ureq::Error::Transport(t)) => return Err(WasmGetErr::failed(t.to_string())),
         };
         let status = resp.status();
         let loc = resp.header("Location").unwrap_or("").to_string();
         if !is_redirect(status) || loc.is_empty() {
             let mut body = Vec::new();
-            resp.into_reader().take(32 << 20).read_to_end(&mut body).map_err(|e| e.to_string())?;
+            resp.into_reader().take(32 << 20).read_to_end(&mut body).map_err(|e| WasmGetErr::failed(e.to_string()))?;
             return Ok((body, status));
         }
-        let next = cur.url.join(&loc).map_err(|e| e.to_string())?;
+        let next = cur.url.join(&loc).map_err(|e| WasmGetErr::failed(e.to_string()))?;
         let prev = std::mem::replace(&mut cur, target_from_url(next.clone()));
         via.push(prev);
-        check_redirect(&next, &via, p)?;
+        check_redirect(&next, &via, p).map_err(WasmGetErr::refused)?;
     }
 }

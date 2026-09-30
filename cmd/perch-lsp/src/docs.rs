@@ -21,7 +21,11 @@ pub const KEYWORD_DOCS: &[(&str, &str)] = &[
     ("dir", "Set the cwd for the body."),
     ("on_signal", "Run HANDLER (another command) on SIGINT/SIGTERM."),
     ("env", "Set an env var for the body's `shell` calls."),
-    ("do", "Open the executable body block."),
+    ("do", "Open the executable body block. Optional `finally` section before `end`: `do … finally … end` runs the cleanup ops after the body on success, on failure (the ORIGINAL error is re-raised; a failing cleanup is appended as `; additionally, finally failed: …`) and when `timeout`/`--max-runtime` fires (5 s grace)."),
+    ("finally", "Cleanup section that always runs. Command level: `do … finally … end` (sugar for wrapping the whole body in `try … finally … end`). Inside `try … rescue … finally … end` the same rules apply. A failing `finally` never hides the body error."),
+    ("rescue", "Inside `try … rescue … end`: runs when the body fails; `${err.kind}` / `${err.message}` describe the error. Non-empty `rescue` swallows the error."),
+    ("try", "Structured error handling: `try … rescue … finally … end`."),
+    ("NAME=value", "Inline env prefix on a declared-bin call, `exec`, or capture: `KUBECONFIG=$CFG kubectl get pods`. `VALUE` is bare, quoted, `$NAME` or `${NAME}` (bindings first, then host env under `requires env` / `--env`). Applies to that one process only. Not allowed on built-in ops. `name=value` after the binary is an ordinary argument."),
     ("end", "Close the most-recent block."),
 ];
 

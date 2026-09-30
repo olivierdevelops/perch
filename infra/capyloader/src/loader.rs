@@ -157,7 +157,8 @@ fn go_io_message(e: &std::io::Error) -> String {
 /// directives encountered. Pure (no IO).
 fn parse_once(script_src: &str) -> Result<(Program, Vec<ImportDirective>), Error> {
     let lib = shared_library().map_err(|e| wrap("compile perch library", e))?;
-    let stream = lib.run(script_src).map_err(|e| {
+    let script_src = mark_env_prefixed_statements(script_src);
+    let stream = lib.run(&script_src).map_err(|e| {
         let pe = CapyParseError {
             msg: if e.plain { e.to_string() } else { e.msg.clone() },
             hint: e.hint.clone(),
@@ -215,7 +216,7 @@ fn resolve_imports(
     // whose bin is actually a command (→ `run`) or a template (→
     // `_template_call`, which the expansion pass below then inlines). Bins are
     // left as exec. This is what lets `run`/`call` be dropped from the surface.
-    resolve_bare_dispatch(&mut prog);
+    resolve_bare_dispatch(&mut prog)?;
 
     // Re-run template expansion now that imported templates are merged into
     // prog.templates. parse_event_stream did a first pass on the parent
@@ -234,7 +235,7 @@ fn resolve_imports(
 /// {command, template, bin}, so the mapping is unambiguous. Names that are
 /// neither command nor template stay as exec (a real bin, or an
 /// undeclared-bin error raised later by `enforce_zero_ambient`).
-fn resolve_bare_dispatch(prog: &mut Program) {
+fn resolve_bare_dispatch(prog: &mut Program) -> Result<(), String> {
     let cmds: BTreeSet<String> = prog.commands.keys().cloned().collect();
     let tmpls: BTreeSet<String> = prog.templates.keys().cloned().collect();
     let req = prog.requirements.clone();
@@ -247,8 +248,29 @@ fn resolve_bare_dispatch(prog: &mut Program) {
         op_kinds: &'a BTreeSet<String>,
     }
 
-    fn walk(ops: &mut [Op], cx: &Ctx) {
+    fn walk(ops: &mut [Op], cx: &Ctx) -> Result<(), String> {
         for op in ops.iter_mut() {
+            // R05 (decision D2): an inline `NAME=VALUE` prefix belongs to a
+            // declared-bin call or `exec` only — never a built-in op, a command
+            // or a template call.
+            if op.kind == "exec" && op.args.contains_key("env_prefix") {
+                let bin = op.args.get("bin").and_then(|v| v.as_str()).unwrap_or("");
+                let what = if cx.op_kinds.contains(bin) && !cx.req.bin_allowed(bin) {
+                    Some("a built-in op")
+                } else if cx.cmds.contains(bin) {
+                    Some("a command")
+                } else if cx.tmpls.contains(bin) {
+                    Some("a template")
+                } else {
+                    None
+                };
+                if let Some(what) = what {
+                    return Err(format!(
+                        "env prefix (NAME=value before the call) is only valid on a declared-bin call or `exec`; `{bin}` is {what} \
+                         — use `with_env` or the command's `env` modifier instead"
+                    ));
+                }
+            }
             if op.kind == "exec" && truthy_arg(op.args.get("implicit")) {
                 let bin = op
                     .args
@@ -362,21 +384,23 @@ fn resolve_bare_dispatch(prog: &mut Program) {
                 }
             }
             if !op.body.is_empty() {
-                walk(&mut op.body, cx);
+                walk(&mut op.body, cx)?;
             }
         }
+        Ok(())
     }
 
     let cx = Ctx { cmds: &cmds, tmpls: &tmpls, req: &req, op_kinds };
-    for c in prog.commands.values_mut() {
-        walk(&mut c.ops, &cx);
+    for (name, c) in prog.commands.iter_mut() {
+        walk(&mut c.ops, &cx).map_err(|e| format!("command {name}: {e}"))?;
     }
     if let Some(catch) = prog.catch.as_mut() {
-        walk(&mut catch.ops, &cx);
+        walk(&mut catch.ops, &cx).map_err(|e| format!("catch: {e}"))?;
     }
-    for t in prog.templates.values_mut() {
-        walk(&mut t.ops, &cx);
+    for (name, t) in prog.templates.iter_mut() {
+        walk(&mut t.ops, &cx).map_err(|e| format!("template {name}: {e}"))?;
     }
+    Ok(())
 }
 
 /// Copies the positional argv slots from an exec op's args into a destination
@@ -747,6 +771,9 @@ fn parse_event_stream(stream: &str) -> Result<(Program, Vec<ImportDirective>), S
     let mut cur_tpl: Option<String> = None;
     let mut cur_arg: Option<ArgSpec> = None;
     let mut op_stack: Option<OpStack> = None;
+    // Index into the `do` body's ops where the command-level `finally` section
+    // starts (set by the `do_finally` divider event).
+    let mut do_finally_at: Option<usize> = None;
 
     let mut line_num = 0;
     for raw in stream.split('\n') {
@@ -1037,7 +1064,36 @@ fn parse_event_stream(stream: &str) -> Result<(Program, Vec<ImportDirective>), S
                 op_stack = Some(OpStack { root, path: Vec::new() });
             }
 
+            "do_finally" => {
+                // Section divider between the `do` body and its `finally`
+                // section. Only ever emitted by the `do` function, so the op
+                // stack is live; nested `try … finally` dividers are separate
+                // marker ops, never this event.
+                let Some(stack) = op_stack.as_ref() else {
+                    return Err(format!("line {line_num}: `finally` outside a do block"));
+                };
+                do_finally_at = Some(stack.dest(&mut prog).len());
+            }
+
             "do_end" => {
+                // R02a: a non-empty command-level `finally` wraps the whole
+                // body in the same marker stream as `try … finally … end`
+                // (one `try` op: body, `_catch` with no rescue arm, `_finally`,
+                // cleanup), so opTry semantics stay in one place.
+                if let (Some(at), Some(stack)) = (do_finally_at.take(), op_stack.as_ref()) {
+                    let ops = stack.dest(&mut prog);
+                    if ops.len() > at {
+                        let fin = ops.split_off(at);
+                        let line = ops.first().or(fin.first()).map(|o| o.line).unwrap_or(0);
+                        let mut body = std::mem::take(ops);
+                        let mut catch_args = Map::new();
+                        catch_args.insert("bind".into(), Value::String("err".into()));
+                        body.push(Op { kind: "_catch".into(), args: catch_args, ..Default::default() });
+                        body.push(Op { kind: "_finally".into(), ..Default::default() });
+                        body.extend(fin);
+                        ops.push(Op { kind: "try".into(), body, line, ..Default::default() });
+                    }
+                }
                 match state {
                     ParserState::CommandDo => state = ParserState::Command,
                     ParserState::CatchDo => state = ParserState::Catch,
@@ -1236,27 +1292,33 @@ fn parse_event_stream(stream: &str) -> Result<(Program, Vec<ImportDirective>), S
     // token stays one slot even if its runtime value contains spaces — while
     // letting the grammar be one `exec BIN tail` function instead of an
     // arity-capped overload ladder. (capy >= ac128fb: quote-preserving tail.)
-    split_exec_argv_all(&mut prog);
+    split_exec_argv_all(&mut prog)?;
 
     Ok((prog, imports))
 }
 
 /// Walks every command/catch/template body (recursing into block bodies) and
 /// expands any `exec` op's argv_raw into _0.._N slots.
-fn split_exec_argv_all(prog: &mut Program) {
-    for cmd in prog.commands.values_mut() {
-        split_exec_argv(&mut cmd.ops);
+fn split_exec_argv_all(prog: &mut Program) -> Result<(), String> {
+    for (name, cmd) in prog.commands.iter_mut() {
+        split_exec_argv(&mut cmd.ops).map_err(|e| format!("command {name}: {e}"))?;
     }
     if let Some(catch) = prog.catch.as_mut() {
-        split_exec_argv(&mut catch.ops);
+        split_exec_argv(&mut catch.ops).map_err(|e| format!("catch: {e}"))?;
     }
-    for tpl in prog.templates.values_mut() {
-        split_exec_argv(&mut tpl.ops);
+    for (name, tpl) in prog.templates.iter_mut() {
+        split_exec_argv(&mut tpl.ops).map_err(|e| format!("template {name}: {e}"))?;
     }
+    Ok(())
 }
 
-fn split_exec_argv(ops: &mut [Op]) {
+fn split_exec_argv(ops: &mut [Op]) -> Result<(), String> {
     for op in ops.iter_mut() {
+        if op.kind == "exec" && !op.args.contains_key("argv_raw") {
+            // `exec K=v` with nothing after the assignments: nothing to run.
+            let bin = op.args.get("bin").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            peel_env_prefix(&[bin])?;
+        }
         if op.kind == "exec" {
             if let Some(Value::String(raw)) = op.args.get("argv_raw").cloned() {
                 op.args.remove("argv_raw");
@@ -1267,6 +1329,23 @@ fn split_exec_argv(ops: &mut [Op]) {
                 let mut full = vec![bin];
                 full.extend(tokens);
                 let (clauses, ops_between) = split_chain(&full);
+                if ops_between.is_empty() {
+                    // R05: peel leading `NAME=VALUE` tokens off the (single) clause
+                    // into the `env_prefix` arg; the first non-assignment token is
+                    // the real binary. Tokens AFTER it are never touched.
+                    let (prefix, k) = peel_env_prefix(&full)?;
+                    if k > 0 {
+                        op.args.insert("bin".into(), Value::String(full[k].clone()));
+                        op.args.insert("env_prefix".into(), prefix);
+                        // `full[i]` is `classified[i - 1]`; argv is `full[k + 1..]`.
+                        let implicit = truthy_arg(op.args.get("implicit"));
+                        for (n, t) in classified[k..].iter().enumerate() {
+                            let key = if implicit && t.bare { format!("_{n}_var") } else { format!("_{n}") };
+                            op.args.insert(key, Value::String(t.text.clone()));
+                        }
+                        continue;
+                    }
+                }
                 if !ops_between.is_empty() {
                     // `exec a && exec b ; exec c` — fold into an exec_chain
                     // block op whose body holds one child exec per clause.
@@ -1285,7 +1364,7 @@ fn split_exec_argv(ops: &mut [Op]) {
                         ..Default::default()
                     };
                     for clause in &clauses {
-                        op.body.push(make_exec_op(clause));
+                        op.body.push(make_exec_op(clause)?);
                     }
                 } else {
                     // Only IMPLICIT execs (a bare leading name, possibly an op) get
@@ -1304,9 +1383,10 @@ fn split_exec_argv(ops: &mut [Op]) {
             }
         }
         if !op.body.is_empty() {
-            split_exec_argv(&mut op.body);
+            split_exec_argv(&mut op.body)?;
         }
     }
+    Ok(())
 }
 
 /// Partitions a flat exec token stream on top-level `&&` / `||` / `;` operator
@@ -1339,15 +1419,221 @@ fn split_chain(tokens: &[String]) -> (Vec<Vec<String>>, Vec<String>) {
 }
 
 /// Builds a single exec Op from a clause's tokens (bin + argv).
-fn make_exec_op(clause: &[String]) -> Op {
+fn make_exec_op(clause: &[String]) -> Result<Op, String> {
     let mut args = Map::new();
     if !clause.is_empty() {
-        args.insert("bin".into(), Value::String(clause[0].clone()));
-        for (n, tok) in clause[1..].iter().enumerate() {
+        // R05: each chained clause may carry its own `NAME=VALUE` prefix.
+        let (prefix, k) = peel_env_prefix(clause)?;
+        if k > 0 {
+            args.insert("env_prefix".into(), prefix);
+        }
+        args.insert("bin".into(), Value::String(clause[k].clone()));
+        for (n, tok) in clause[k + 1..].iter().enumerate() {
             args.insert(format!("_{n}"), Value::String(tok.clone()));
         }
     }
-    Op { kind: "exec".into(), args, ..Default::default() }
+    Ok(Op { kind: "exec".into(), args, ..Default::default() })
+}
+
+// ── inline env prefix (R05) ──────────────────────────────────────────────────
+
+/// `NAME=VALUE` with `NAME` = `[A-Za-z_][A-Za-z0-9_]*`. Returns (name, value).
+fn parse_env_assignment(tok: &str) -> Option<(&str, &str)> {
+    let (name, value) = tok.split_once('=')?;
+    if is_bare_ident(name.as_bytes()) {
+        Some((name, value))
+    } else {
+        None
+    }
+}
+
+/// A token shaped like an assignment whose NAME is not a valid identifier
+/// (`1FOO=x`, `FOO-BAR=x`, `=x`). Rejected rather than silently read as a
+/// binary name; a path or flag (`./x=y`, `--k=v`) is not flagged.
+fn is_malformed_env_assignment(tok: &str) -> bool {
+    let Some((name, _)) = tok.split_once('=') else { return false };
+    if is_bare_ident(name.as_bytes()) {
+        return false;
+    }
+    name.is_empty()
+        || (name.as_bytes()[0].is_ascii_alphanumeric() || name.as_bytes()[0] == b'_')
+            && name.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
+}
+
+/// Rewrites `$NAME` to `${NAME}` (so the op-arg resolver's one syntax applies);
+/// `${NAME}` and everything else pass through untouched.
+fn normalize_dollar_refs(v: &str) -> String {
+    let b = v.as_bytes();
+    let mut out = String::with_capacity(v.len() + 2);
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'$' && i + 1 < b.len() && (b[i + 1] == b'_' || b[i + 1].is_ascii_alphabetic()) {
+            let mut j = i + 1;
+            while j < b.len() && (b[j] == b'_' || b[j].is_ascii_alphanumeric()) {
+                j += 1;
+            }
+            out.push_str("${");
+            out.push_str(&v[i + 1..j]);
+            out.push('}');
+            i = j;
+            continue;
+        }
+        let ch = v[i..].chars().next().unwrap();
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
+}
+
+/// Splits the leading `NAME=VALUE` tokens off an exec token run (bin first).
+/// Returns the `env_prefix` object (name to string, source order) and the number
+/// of tokens consumed. Errors on a malformed `NAME=` token or when nothing but
+/// assignments is left (no command to apply them to).
+fn peel_env_prefix(tokens: &[String]) -> Result<(Value, usize), String> {
+    let mut prefix = Map::new();
+    let mut k = 0;
+    while k < tokens.len() {
+        let tok = &tokens[k];
+        if let Some((name, value)) = parse_env_assignment(tok) {
+            prefix.insert(name.to_string(), Value::String(normalize_dollar_refs(value)));
+            k += 1;
+        } else if is_malformed_env_assignment(tok) {
+            return Err(format!(
+                "malformed env assignment {}: the name before `=` must match [A-Za-z_][A-Za-z0-9_]*",
+                go_quote(tok)
+            ));
+        } else {
+            break;
+        }
+    }
+    if k > 0 && k == tokens.len() {
+        return Err(format!(
+            "env prefix {} has no command to apply to (write `NAME=value BIN verb …`)",
+            go_quote(&tokens[k - 1])
+        ));
+    }
+    Ok((Value::Object(prefix), k))
+}
+
+/// Source pre-pass for R05. capy reads `K=v tool args` at statement start as a
+/// capture (`K = v tool args`) — the same tokens as the spaced form — so the
+/// adjacency that marks a prefix would be lost. This pass finds statements
+/// whose FIRST word is a no-space `NAME=VALUE` (value may be quoted) followed
+/// by more tokens, and inserts the `exec` keyword, which routes them to the
+/// explicit exec grammar with the assignment as `bin`; [`peel_env_prefix`] then
+/// turns the leading assignment tokens into `env_prefix`. It mirrors capy's
+/// line model: backtick strings may span lines, `#` starts a comment, a line
+/// opened inside an unclosed bracket is a continuation, and only indented
+/// statements (command bodies) are candidates. The capture form
+/// (`out = K=v tool`) and `exec K=v tool` already parse correctly.
+fn mark_env_prefixed_statements(src: &str) -> std::borrow::Cow<'_, str> {
+    if !src.contains('=') {
+        return std::borrow::Cow::Borrowed(src);
+    }
+    let mut out = String::with_capacity(src.len() + 16);
+    let mut in_backtick = false;
+    let mut depth: i64 = 0;
+    let mut changed = false;
+    for (n, line) in src.split('\n').enumerate() {
+        if n > 0 {
+            out.push('\n');
+        }
+        let continuation = in_backtick || depth > 0;
+        let trimmed = line.trim_start_matches([' ', '\t']);
+        let indent = line.len() - trimmed.len();
+        if !continuation && indent > 0 && starts_env_prefixed_call(trimmed) {
+            out.push_str(&line[..indent]);
+            out.push_str("exec ");
+            out.push_str(trimmed);
+            changed = true;
+        } else {
+            out.push_str(line);
+        }
+        scan_line_state(line, &mut in_backtick, &mut depth);
+    }
+    if changed {
+        std::borrow::Cow::Owned(out)
+    } else {
+        std::borrow::Cow::Borrowed(src)
+    }
+}
+
+/// Updates the multi-line state (open backtick string, bracket depth) after one
+/// source line, ignoring quoted text and `#` comments.
+fn scan_line_state(line: &str, in_backtick: &mut bool, depth: &mut i64) {
+    let b = line.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        if *in_backtick {
+            if c == b'\\' {
+                i += 2;
+                continue;
+            }
+            if c == b'`' {
+                *in_backtick = false;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'`' => *in_backtick = true,
+            b'#' => return,
+            b'"' | b'\'' => {
+                i += 1;
+                while i < b.len() && b[i] != c {
+                    if b[i] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            }
+            b'(' | b'{' | b'[' => *depth += 1,
+            b')' | b'}' | b']' => *depth -= 1,
+            _ => {}
+        }
+        i += 1;
+    }
+}
+
+/// Whether `stmt` (an indented statement, indent stripped) begins with an
+/// assignment-shaped word (`NAME=VALUE`, or a malformed `1X=…` / `=…`) and has
+/// at least one more token after it.
+fn starts_env_prefixed_call(stmt: &str) -> bool {
+    let b = stmt.as_bytes();
+    // First word, honoring quotes: up to the first unquoted space/tab.
+    let mut i = 0;
+    let mut eq: Option<usize> = None;
+    while i < b.len() && b[i] != b' ' && b[i] != b'\t' {
+        match b[i] {
+            b'"' | b'\'' => {
+                let q = b[i];
+                i += 1;
+                while i < b.len() && b[i] != q {
+                    if b[i] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            }
+            b'=' if eq.is_none() => eq = Some(i),
+            b'#' => return false,
+            _ => {}
+        }
+        i += 1;
+    }
+    let Some(eq) = eq else { return false };
+    let word = &stmt[..i.min(stmt.len())];
+    // `a==b` / `a=>b` are not assignments.
+    if matches!(b.get(eq + 1), Some(b'=') | Some(b'>')) {
+        return false;
+    }
+    if !(parse_env_assignment(word).is_some() || is_malformed_env_assignment(word)) {
+        return false;
+    }
+    // Something other than a comment must follow the word.
+    let rest = stmt[i.min(stmt.len())..].trim_start();
+    !rest.is_empty() && !rest.starts_with('#')
 }
 
 /// One split argv token plus a classification: `bare` is true when the token in
@@ -1525,6 +1811,18 @@ fn substitute_ops(ops: &[Op], bindings: &BTreeMap<String, String>, template_name
                     match v {
                         Value::String(s) => {
                             new_args.insert(k.clone(), Value::String(substitute_string(s, bindings)));
+                        }
+                        // `env_prefix` (R05): template args substitute into the values.
+                        Value::Object(m) => {
+                            let mut nm = Map::new();
+                            for (nk, nv) in m {
+                                let nv = match nv {
+                                    Value::String(s) => Value::String(substitute_string(s, bindings)),
+                                    other => other.clone(),
+                                };
+                                nm.insert(nk.clone(), nv);
+                            }
+                            new_args.insert(k.clone(), Value::Object(nm));
                         }
                         _ => {
                             new_args.insert(k.clone(), v.clone());
