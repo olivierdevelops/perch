@@ -667,6 +667,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "perch-lsp"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-mcp"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "perch-opcatalog"
 version = "0.1.0"
 dependencies = [

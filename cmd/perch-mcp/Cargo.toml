@@ -1,0 +1,14 @@
+[package]
+name = "perch-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "perch-mcp"
+path = "src/main.rs"
+
+[dependencies]
+perch-domain = { path = "../../domain" }
+serde.workspace = true
+serde_json.workspace = true
