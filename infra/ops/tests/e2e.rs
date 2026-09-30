@@ -876,18 +876,12 @@ fn gate_error_messages_are_actionable() {
 /// drift from the handler registry.
 #[test]
 fn op_kinds_in_sync() {
-    // The wasm ops are a later porting phase (register_wasm is a stub).
-    let pending_wasm: BTreeSet<&str> =
-        ["wasm_allow_host", "wasm_arg", "wasm_env", "wasm_mount_read", "wasm_mount_write", "wasm_run"].into();
     let want: BTreeSet<String> = builtin_kinds().into_iter().collect();
     let got: BTreeSet<String> = perch_capyloader::op_kinds().into_iter().collect();
     for k in &want {
         assert!(got.contains(k), "op {k:?} is a registered handler but missing from infra/capyloader/opkinds.txt");
     }
     for k in &got {
-        if pending_wasm.contains(k.as_str()) {
-            continue;
-        }
         assert!(want.contains(k), "op {k:?} is in opkinds.txt but is NOT a registered handler (stale entry)");
     }
 }

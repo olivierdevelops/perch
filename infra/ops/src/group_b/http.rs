@@ -511,3 +511,46 @@ mod tests {
         assert_eq!(url_error_op("DELETE"), "Delete");
     }
 }
+
+/// One GET for the wasm host bridge (wasm_http.go `doHTTPGet`): the same
+/// SSRF/allowlist gate on the initial URL and every redirect hop as
+/// `run_http`, but without the `requires` host gate (the wasm bridge has its
+/// own `wasm_allow_host` allowlist) and returning the buffered body (32 MB cap)
+/// and status. Err carries a message the bridge discards (module sees -1).
+pub(crate) fn wasm_get(p: &HTTPPolicy, raw_url: &str) -> std::result::Result<(Vec<u8>, u16), String> {
+    let mut cur = match parse_target(raw_url) {
+        Ok(t) => t,
+        Err(ParseFail::Bad(m)) => return Err(m),
+        Err(ParseFail::NoHost(raw)) => return Err(format!("empty host in URL {}", go_quote(&raw))),
+    };
+    validate_request_url(&cur, p)?;
+    let agent = ureq::AgentBuilder::new()
+        .redirects(0)
+        .timeout(Duration::from_secs(30))
+        .user_agent("Go-http-client/1.1")
+        .try_proxy_from_env(true)
+        .build();
+    let mut via: Vec<Target> = Vec::new();
+    loop {
+        let scheme = cur.url.scheme();
+        if scheme != "http" && scheme != "https" {
+            return Err(format!("unsupported protocol scheme {}", go_quote(scheme)));
+        }
+        let resp = match agent.request("GET", cur.url.as_str()).call() {
+            Ok(r) => r,
+            Err(ureq::Error::Status(_, r)) => r,
+            Err(ureq::Error::Transport(t)) => return Err(t.to_string()),
+        };
+        let status = resp.status();
+        let loc = resp.header("Location").unwrap_or("").to_string();
+        if !is_redirect(status) || loc.is_empty() {
+            let mut body = Vec::new();
+            resp.into_reader().take(32 << 20).read_to_end(&mut body).map_err(|e| e.to_string())?;
+            return Ok((body, status));
+        }
+        let next = cur.url.join(&loc).map_err(|e| e.to_string())?;
+        let prev = std::mem::replace(&mut cur, target_from_url(next.clone()));
+        via.push(prev);
+        check_redirect(&next, &via, p)?;
+    }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "perchhttp"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Guest-side SDK for perch's host-provided HTTP (perch.http_get) in wasm_run modules"
+
+# Standalone: intentionally NOT a member of the perch workspace (it targets
+# wasm32-wasip1 guests, not the host).
+[workspace]
+
+[dependencies]

@@ -11,7 +11,7 @@ mod files;
 mod gate;
 mod gofmt;
 mod hash;
-mod http;
+pub(crate) mod http;
 mod network;
 mod paths;
 mod regex;
