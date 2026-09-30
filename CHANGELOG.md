@@ -4,6 +4,12 @@ All notable changes to perch are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [0.1.1]
+
+### Changed
+
+- **perch is now written in Rust.** The command-line surface, `.perch` language, `perch-lsp` and `perch-mcp` are drop-in compatible with the Go build (compared on stdout, stderr and exit codes across the demos, recipes and docs). The capy engine is the native `capy-core` crate and `wasm_run` runs on wasmtime, so a `wasm_run` now honors `timeout` / `--max-runtime` (wazero never interrupted a running module). Known gaps: Windows test coverage is incomplete, and the first `wasm_run` of a large module compiles for a few seconds (no persistent compile cache yet).
+
 ### Added
 
 - **`hooks … end` — intercept built-in ops with `before` / `after` / `on_error`.** A file-scope block declares author-controlled interceptors: `before write guard`, `after exec audit`, `on_error any notify`. Each line is `TIMING TARGET HANDLER` — `HANDLER` is a normal command that runs around every op whose **kind** (`write_file`) or **capability category** (`read`/`write`/`net`/`exec`/`env`, or `any`) matches `TARGET`. A `before` handler that `fail`s **vetoes** the op (it never runs); `after`/`on_error` observe. The handler sees `${hook.op}`, `${hook.target}`, `${hook.timing}`, `${hook.error}`. Implemented at the interpreter's single op-dispatch point (so it's a check, not a new execution model), with a re-entrancy guard (a hook's own ops don't re-fire hooks) and a zero-overhead fast path when no hooks are declared. `--check` validates the handler exists and the timing/target are sane. **Honest scope:** hooks genuinely enforce perch's *own* ops (a `before write_file` veto stops the write) and audit subprocess *command lines*, but they're in-process policy + observability — not a sandbox, and a `before exec` hook can't see the spawned binary's internal syscalls. Docs: [hooks.md](docs/hooks.md).

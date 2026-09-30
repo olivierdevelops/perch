@@ -1043,7 +1043,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "perch"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-audit",
  "perch-capyloader",
@@ -1075,7 +1075,7 @@ dependencies = [
 
 [[package]]
 name = "perch-audit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-interpreter",
@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "perch-capyloader"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "capy-core",
  "perch-domain",
@@ -1097,7 +1097,7 @@ dependencies = [
 
 [[package]]
 name = "perch-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "perch-commandhelp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "perch-domain"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1123,7 +1123,7 @@ dependencies = [
 
 [[package]]
 name = "perch-embed"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1133,7 +1133,7 @@ dependencies = [
 
 [[package]]
 name = "perch-exportopscatalog"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-opcatalog",
  "perch-ops",
@@ -1142,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "perch-help"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1151,7 +1151,7 @@ dependencies = [
 
 [[package]]
 name = "perch-httpserver"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "perch-capyloader",
@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "perch-importsh"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "regex",
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "perch-initconfig"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1186,7 +1186,7 @@ dependencies = [
 
 [[package]]
 name = "perch-installlsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "perch-installvscode"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-vscodeext",
@@ -1205,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "perch-interpreter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "libc",
  "perch-domain",
@@ -1215,7 +1215,7 @@ dependencies = [
 
 [[package]]
 name = "perch-listcommands"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1224,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "perch-lsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-capyloader",
  "perch-domain",
@@ -1237,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "perch-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-capyloader",
  "perch-domain",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "perch-opcatalog"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-capyloader",
  "perch-domain",
@@ -1262,7 +1262,7 @@ dependencies = [
 
 [[package]]
 name = "perch-ops"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "base64",
@@ -1293,7 +1293,7 @@ dependencies = [
 
 [[package]]
 name = "perch-preview"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-interpreter",
@@ -1303,7 +1303,7 @@ dependencies = [
 
 [[package]]
 name = "perch-report"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-interpreter",
@@ -1313,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "perch-runbuild"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flate2",
  "perch-domain",
@@ -1324,7 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "perch-runcommand"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1333,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "perch-runserver"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1342,7 +1342,7 @@ dependencies = [
 
 [[package]]
 name = "perch-runshell"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-interpreter",
@@ -1352,7 +1352,7 @@ dependencies = [
 
 [[package]]
 name = "perch-runtests"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "perch-scan"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "regex",
@@ -1371,7 +1371,7 @@ dependencies = [
 
 [[package]]
 name = "perch-simulate"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "regex",
@@ -1381,7 +1381,7 @@ dependencies = [
 
 [[package]]
 name = "perch-validate"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "perch-interpreter",
@@ -1391,7 +1391,7 @@ dependencies = [
 
 [[package]]
 name = "perch-vscodeext"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perch-domain",
  "serde",

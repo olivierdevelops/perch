@@ -1,0 +1,8 @@
+# Always check text out with LF, including on Windows: several files are
+# embedded with include_str!/include_bytes! and compared byte-for-byte against
+# Go-generated output (e.g. the httpserver index.html goldens).
+* text=auto eol=lf
+*.wasm binary
+*.png binary
+*.gif binary
+*.ico binary

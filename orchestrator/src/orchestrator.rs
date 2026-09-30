@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 type Error = perch_cli::Error;
 
 /// The perch version string. Bumped on each release tag.
-pub const VERSION: &str = "0.1.0";
+pub const VERSION: &str = "0.1.1";
 
 /// The default config the CLI looks for when no -f flag is given.
 pub const DEFAULT_COMMANDS_FILE: &str = "commands.perch";
