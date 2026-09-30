@@ -6,5 +6,6 @@ license.workspace = true
 
 [dependencies]
 perch-domain = { path = "../../domain" }
+perch-interpreter = { path = "../interpreter" }
 serde.workspace = true
 serde_json.workspace = true
