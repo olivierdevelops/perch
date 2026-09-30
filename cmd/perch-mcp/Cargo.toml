@@ -10,5 +10,8 @@ path = "src/main.rs"
 
 [dependencies]
 perch-domain = { path = "../../domain" }
+perch-interpreter = { path = "../../infra/interpreter" }
+perch-capyloader = { path = "../../infra/capyloader" }
+perch-ops = { path = "../../infra/ops" }
 serde.workspace = true
 serde_json.workspace = true
