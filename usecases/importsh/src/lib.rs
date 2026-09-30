@@ -186,9 +186,9 @@ pub fn translate(bash_src: &str, program_name: &str) -> String {
         // shebang and full-line comments. Before the first code line they're
         // "file-level" — emitted above `name` as plain comments. After the
         // first code line, they sit with the code that follows.
-        if trim.starts_with('#') {
+        if let Some(after_hash) = trim.strip_prefix('#') {
             if !seen_code {
-                prologue_comments.push(format!("# {}", &trim[1..]));
+                prologue_comments.push(format!("# {after_hash}"));
                 continue;
             }
             emit(&mut cur, &mut main_body, format!("        {trim}"));

@@ -238,10 +238,10 @@ fn walk(tw: &mut tar::Builder<GzEncoder<Vec<u8>>>, root: &Path, dir: &Path, seen
         let path = dir.join(&n);
         let fi = fs::symlink_metadata(&path).map_err(|e| -> Error { go_path_err("lstat", &path, &e).into() })?;
         let fname = n.to_string_lossy();
-        if fi.is_dir() {
-            if matches!(fname.as_ref(), ".git" | "node_modules" | "__pycache__" | ".venv" | "venv" | ".tox" | "dist" | ".cache") {
-                continue; // SkipDir
-            }
+        if fi.is_dir()
+            && matches!(fname.as_ref(), ".git" | "node_modules" | "__pycache__" | ".venv" | "venv" | ".tox" | "dist" | ".cache")
+        {
+            continue; // SkipDir
         }
         if fname == ".DS_Store" {
             continue;

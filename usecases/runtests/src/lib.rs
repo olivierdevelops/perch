@@ -204,15 +204,37 @@ fn quote(s: &str) -> String {
         match c {
             '"' => o.push_str("\\\""),
             '\\' => o.push_str("\\\\"),
+            '\x07' => o.push_str("\\a"),
+            '\x08' => o.push_str("\\b"),
+            '\x0c' => o.push_str("\\f"),
             '\n' => o.push_str("\\n"),
-            '\t' => o.push_str("\\t"),
             '\r' => o.push_str("\\r"),
+            '\t' => o.push_str("\\t"),
+            '\x0b' => o.push_str("\\v"),
+            c if is_print(c) => o.push(c),
             c if (c as u32) < 0x20 || c as u32 == 0x7f => o.push_str(&format!("\\x{:02x}", c as u32)),
-            c => o.push(c),
+            c if (c as u32) < 0x10000 => o.push_str(&format!("\\u{:04x}", c as u32)),
+            c => o.push_str(&format!("\\U{:08x}", c as u32)),
         }
     }
     o.push('"');
     o
+}
+
+/// Go's `strconv.IsPrint`, approximated for non-ASCII.
+fn is_print(c: char) -> bool {
+    let u = c as u32;
+    if u < 0x80 {
+        return (0x20..0x7f).contains(&u);
+    }
+    if c.is_control() || c.is_whitespace() {
+        return false;
+    }
+    !matches!(u,
+        0x00ad | 0x0600..=0x0605 | 0x061c | 0x06dd | 0x070f | 0x180e
+        | 0x200b..=0x200f | 0x2028..=0x202e | 0x2060..=0x206f
+        | 0xe000..=0xf8ff | 0xfeff | 0xfff9..=0xfffb | 0xfffe | 0xffff
+        | 0xf0000..=0x10ffff)
 }
 
 /// Returns the sorted list of test-marked command names that match the

@@ -48,7 +48,7 @@ fn go_float(f: f64) -> String {
     let e = format!("{:e}", f);
     let (mant, exp) = e.split_once('e').unwrap();
     let exp: i32 = exp.parse().unwrap();
-    if exp < -4 || exp >= 21 {
+    if !(-4..21).contains(&exp) {
         format!("{}e{}{:02}", mant, if exp < 0 { '-' } else { '+' }, exp.abs())
     } else {
         format!("{}", f)
