@@ -19,3 +19,6 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # which looks like a hang. Workspace crates keep fast, debuggable dev builds.
 [profile.dev.package."*"]
 opt-level = 2
+
+[profile.release]
+strip = true

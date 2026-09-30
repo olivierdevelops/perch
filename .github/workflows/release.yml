@@ -11,39 +11,38 @@ permissions:
 jobs:
   build:
     name: ${{ matrix.target.os }}-${{ matrix.target.arch }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.target.runner }}
     strategy:
       fail-fast: false
       matrix:
         target:
-          - { os: darwin,  arch: amd64, ext: ''     }
-          - { os: darwin,  arch: arm64, ext: ''     }
-          - { os: linux,   arch: amd64, ext: ''     }
-          - { os: linux,   arch: arm64, ext: ''     }
-          - { os: windows, arch: amd64, ext: '.exe' }
-          - { os: windows, arch: arm64, ext: '.exe' }
+          - { os: darwin,  arch: amd64, triple: x86_64-apple-darwin,       runner: macos-latest,   ext: ''     }
+          - { os: darwin,  arch: arm64, triple: aarch64-apple-darwin,      runner: macos-latest,   ext: ''     }
+          - { os: linux,   arch: amd64, triple: x86_64-unknown-linux-gnu,  runner: ubuntu-latest,  ext: ''     }
+          - { os: linux,   arch: arm64, triple: aarch64-unknown-linux-gnu, runner: ubuntu-24.04-arm, ext: ''   }
+          - { os: windows, arch: amd64, triple: x86_64-pc-windows-msvc,    runner: windows-latest, ext: '.exe' }
+          - { os: windows, arch: arm64, triple: aarch64-pc-windows-msvc,   runner: windows-latest, ext: '.exe' }
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          go-version: '1.24'
+          targets: ${{ matrix.target.triple }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target.triple }}
 
       - name: build
-        env:
-          GOOS:   ${{ matrix.target.os }}
-          GOARCH: ${{ matrix.target.arch }}
-          CGO_ENABLED: '0'
+        shell: bash
         run: |
-          OUT="perch-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
-          go build -ldflags='-s -w' -trimpath -o "$OUT" .
-          shasum -a 256 "$OUT" > "$OUT.sha256"
-          OUT_LSP="perch-lsp-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
-          go build -ldflags='-s -w' -trimpath -o "$OUT_LSP" ./cmd/perch-lsp
-          shasum -a 256 "$OUT_LSP" > "$OUT_LSP.sha256"
-          OUT_MCP="perch-mcp-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
-          go build -ldflags='-s -w' -trimpath -o "$OUT_MCP" ./cmd/perch-mcp
-          shasum -a 256 "$OUT_MCP" > "$OUT_MCP.sha256"
+          cargo build --release --target ${{ matrix.target.triple }} -p perch -p perch-lsp -p perch-mcp
+          for pair in perch:perch perch-lsp:perch-lsp perch-mcp:perch-mcp; do
+            SRC="target/${{ matrix.target.triple }}/release/${pair%%:*}${{ matrix.target.ext }}"
+            OUT="${pair##*:}-${{ matrix.target.os }}-${{ matrix.target.arch }}${{ matrix.target.ext }}"
+            cp "$SRC" "$OUT"
+            shasum -a 256 "$OUT" > "$OUT.sha256"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
