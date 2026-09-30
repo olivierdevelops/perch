@@ -20,6 +20,7 @@ pub mod seams;
 mod system;
 mod wasm;
 
+pub use group_b::{bundle_hash, bundle_read_file, set_bundle};
 pub use flow::{arch_target_matches, compare_values, looks_like_version, os_target_matches};
 pub use hookcat::{
     hook_categories, hook_category_of, HOOK_CAT_ENV, HOOK_CAT_EXEC, HOOK_CAT_NET, HOOK_CAT_READ, HOOK_CAT_WRITE,

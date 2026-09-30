@@ -13,3 +13,9 @@ license = "MIT"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+
+# Third-party deps (notably wasmtime/cranelift) are compiled optimised even in
+# dev builds: an unoptimised cranelift takes ~25s to compile a 1.5MB module,
+# which looks like a hang. Workspace crates keep fast, debuggable dev builds.
+[profile.dev.package."*"]
+opt-level = 2

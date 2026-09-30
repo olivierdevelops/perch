@@ -106,15 +106,29 @@ pub fn format_op(op: &Op, args: &Map<String, Value>) -> String {
         if v.is_empty() {
             continue;
         }
-        // Trim very long values to keep the preview readable.
+        // Trim very long values to keep the preview readable. Go cuts at byte
+        // 77, which can split a multi-byte char; %q then renders the stray
+        // bytes as \xNN escapes, so do the same.
+        let mut stray = String::new();
         if v.len() > 80 {
             let cut = floor_boundary(&v, 77);
+            for b in &v.as_bytes()[cut..77] {
+                stray.push_str(&format!("\\x{b:02x}"));
+            }
             v = format!("{}…", &v[..cut]);
         }
+        let mut q = go_quote(&v);
+        if !stray.is_empty() {
+            // Insert the escapes just before the trailing "…\"" of the quoted value.
+            let tail = "…\"";
+            q.truncate(q.len() - tail.len());
+            q.push_str(&stray);
+            q.push_str(tail);
+        }
         if k.starts_with('_') {
-            parts.push(go_quote(&v));
+            parts.push(q);
         } else {
-            parts.push(format!("{}={}", k, go_quote(&v)));
+            parts.push(format!("{}={}", k, q));
         }
     }
     let mut suffix = String::new();

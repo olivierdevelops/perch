@@ -1045,7 +1045,32 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 name = "perch"
 version = "0.1.0"
 dependencies = [
+ "perch-audit",
+ "perch-capyloader",
+ "perch-cli",
+ "perch-commandhelp",
  "perch-domain",
+ "perch-embed",
+ "perch-exportopscatalog",
+ "perch-help",
+ "perch-httpserver",
+ "perch-importsh",
+ "perch-initconfig",
+ "perch-installlsp",
+ "perch-installvscode",
+ "perch-interpreter",
+ "perch-listcommands",
+ "perch-ops",
+ "perch-preview",
+ "perch-report",
+ "perch-runbuild",
+ "perch-runcommand",
+ "perch-runserver",
+ "perch-runshell",
+ "perch-runtests",
+ "perch-scan",
+ "perch-simulate",
+ "perch-validate",
 ]
 
 [[package]]

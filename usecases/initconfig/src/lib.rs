@@ -31,7 +31,14 @@ impl Impl {
         // has no effect on parsing; it's just a hint to the kernel + a hint
         // to the user that "this file is itself a program."
         let data = format!("{}\n", template(&base(&cwd)).trim());
-        write_executable(path, data.as_bytes())?;
+        write_executable(path, data.as_bytes()).map_err(|e| {
+            let why = match e.kind() {
+                std::io::ErrorKind::NotFound => "no such file or directory".to_string(),
+                std::io::ErrorKind::PermissionDenied => "permission denied".to_string(),
+                _ => e.to_string(),
+            };
+            std::io::Error::new(e.kind(), format!("open {path}: {why}"))
+        })?;
         writeln!(out, "✓ wrote {path}")?;
         writeln!(out)?;
         writeln!(out, "Try:")?;
