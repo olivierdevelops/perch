@@ -38,3 +38,4 @@ vendor/
 
 # Private design notes — local-only
 ideas/
+/target

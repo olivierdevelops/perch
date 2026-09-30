@@ -1,0 +1,15 @@
+# Rust port of perch. Each VHCO folder is one crate; Cargo's dependency graph
+# enforces "modules don't import each other" — only `orchestrator` depends on
+# the others. The Go tree stays in place until the port reaches parity.
+[workspace]
+resolver = "2"
+members = ["domain"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
