@@ -129,8 +129,7 @@ impl cli::ExportOpsCatalogUseCase for ExportOps {
 }
 
 /// Bridges `cli::SimulateEnv` (no use-case imports) to `simulate::SimEnv`.
-/// The CLI side can't distinguish an absent list from an empty one, so an
-/// empty list/map means "flag not given" (unrestricted).
+/// `None` = flag not given (unrestricted); `Some(empty)` = given but empty.
 pub struct Simulate(pub perch_simulate::Impl);
 impl cli::SimulateUseCase for Simulate {
     fn execute(
@@ -141,27 +140,18 @@ impl cli::SimulateUseCase for Simulate {
         fixture_path: &str,
         w: &mut dyn Write,
     ) -> Result<(), Error> {
-        let opt_vec = |v: &Vec<String>| if v.is_empty() { None } else { Some(v.clone()) };
-        let opt_map = |m: &HashMap<String, String>| {
-            if m.is_empty() {
-                None
-            } else {
-                Some(m.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<BTreeMap<_, _>>())
-            }
+        let opt_map = |m: &Option<HashMap<String, String>>| {
+            m.as_ref().map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<BTreeMap<_, _>>())
         };
-        let sim = perch_simulate::SimEnv {
+let sim = perch_simulate::SimEnv {
             os: env.os.clone(),
             arch: env.arch.clone(),
             env: opt_map(&env.env),
             env_restrict: env.env_restrict,
-            fs_read: opt_vec(&env.fs_read),
-            fs_write: opt_vec(&env.fs_write),
-            bins: if env.bins.is_empty() {
-                None
-            } else {
-                Some(env.bins.iter().map(|(k, v)| (k.clone(), *v)).collect())
-            },
-            network: opt_vec(&env.network),
+            fs_read: env.fs_read.clone(),
+            fs_write: env.fs_write.clone(),
+            bins: env.bins.as_ref().map(|b| b.iter().map(|(k, v)| (k.clone(), *v)).collect()),
+            network: env.network.clone(),
             no_shell: env.no_shell,
             no_subprocess: env.no_subprocess,
             no_network: env.no_network,

@@ -74,12 +74,14 @@ pub trait ExportOpsCatalogUseCase {
 pub struct SimulateEnv {
     pub os: String,
     pub arch: String,
-    pub env: HashMap<String, String>,
+    // `None` = flag not given; `Some(empty)` = given but empty (Go's nil vs
+    // empty map/slice), which simulate treats differently (e.g. network blocked).
+    pub env: Option<HashMap<String, String>>,
     pub env_restrict: bool,
-    pub fs_read: Vec<String>,
-    pub fs_write: Vec<String>,
-    pub bins: HashMap<String, bool>,
-    pub network: Vec<String>,
+    pub fs_read: Option<Vec<String>>,
+    pub fs_write: Option<Vec<String>>,
+    pub bins: Option<HashMap<String, bool>>,
+    pub network: Option<Vec<String>>,
     pub no_shell: bool,
     pub no_subprocess: bool,
     pub no_network: bool,
@@ -456,27 +458,27 @@ pub fn parse_simulate_flags(args: &[String]) -> (String, SimulateEnv, String) {
         } else if a == "--sim-arch" {
             env.arch = take();
         } else if let Some(v) = a.strip_prefix("--sim-env=") {
-            env.env = kv_map(v);
+            env.env = Some(kv_map(v));
         } else if a == "--sim-env" {
-            env.env = kv_map(&take());
+            env.env = Some(kv_map(&take()));
         } else if a == "--sim-env-only" {
             env.env_restrict = true;
         } else if let Some(v) = a.strip_prefix("--sim-fs-read=") {
-            env.fs_read = string_list(v);
+            env.fs_read = Some(string_list(v));
         } else if a == "--sim-fs-read" {
-            env.fs_read = string_list(&take());
+            env.fs_read = Some(string_list(&take()));
         } else if let Some(v) = a.strip_prefix("--sim-fs-write=") {
-            env.fs_write = string_list(v);
+            env.fs_write = Some(string_list(v));
         } else if a == "--sim-fs-write" {
-            env.fs_write = string_list(&take());
+            env.fs_write = Some(string_list(&take()));
         } else if let Some(v) = a.strip_prefix("--sim-have-bin=") {
-            env.bins = bin_set(v);
+            env.bins = Some(bin_set(v));
         } else if a == "--sim-have-bin" {
-            env.bins = bin_set(&take());
+            env.bins = Some(bin_set(&take()));
         } else if let Some(v) = a.strip_prefix("--sim-allow-host=") {
-            env.network = string_list(v);
+            env.network = Some(string_list(v));
         } else if a == "--sim-allow-host" {
-            env.network = string_list(&take());
+            env.network = Some(string_list(&take()));
         } else if a == "--sim-no-shell" {
             env.no_shell = true;
         } else if a == "--sim-no-subprocess" {
@@ -562,11 +564,13 @@ mod tests {
         assert_eq!(fx, "f.json");
         assert_eq!(env.os, "linux");
         assert_eq!(env.arch, "arm64");
-        assert_eq!(env.env.get("C").unwrap(), "x=y");
-        assert_eq!(env.env.get("B").unwrap(), "");
+        assert_eq!(env.env.as_ref().unwrap().get("C").unwrap(), "x=y");
+        assert_eq!(env.env.as_ref().unwrap().get("B").unwrap(), "");
         assert!(env.env_restrict && env.no_shell && !env.no_write);
-        assert_eq!(env.fs_read, s(&["a", "b", "c"]));
-        assert!(env.bins["git"] && env.bins["go"]);
+        assert_eq!(env.fs_read, Some(s(&["a", "b", "c"])));
+        assert!(env.network.is_none());
+        let bins = env.bins.unwrap();
+        assert!(bins["git"] && bins["go"]);
     }
 
     #[test]
