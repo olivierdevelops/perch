@@ -12,3 +12,15 @@ perch-interpreter = { path = "../interpreter" }
 perch-capyloader = { path = "../capyloader" }
 regex = "1"
 sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
+hex = "0.4"
+sha1 = "0.10"
+crc32fast = "1"
+url = "2"
+percent-encoding = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+ureq = { version = "2", default-features = false, features = ["tls"] }
+libc = "0.2"

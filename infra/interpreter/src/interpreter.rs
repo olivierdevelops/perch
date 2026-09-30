@@ -221,7 +221,7 @@ pub struct Interpreter {
     /// each op dispatch — a long-running shell can't be interrupted mid-call,
     /// but the NEXT op after it returns [`ErrTimeout`]. Set by
     /// `--max-runtime SECS`.
-    pub deadline: Option<Instant>,
+    pub deadline: Mutex<Option<Instant>>,
     /// Governs http_get / http_post / download redirect and destination
     /// behaviour. `None` = secure defaults (no private IPs, no scheme
     /// downgrade, max 5 hops).
@@ -248,12 +248,23 @@ impl Interpreter {
             allowed_shell_bins: None,
             no_shell_metachars: false,
             after_op: None,
-            deadline: None,
+            deadline: Mutex::new(None),
             http_policy: None,
             tracer: None,
             preflight_hook: None,
             hook_category: None,
         }
+    }
+
+    /// The wall-clock deadline, if any (Go: `Deadline`, zero = none).
+    pub fn deadline(&self) -> Option<Instant> {
+        *self.deadline.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Sets (or clears) the deadline. Block ops (`timeout`, `sandbox`) narrow it
+    /// for their body and restore the previous value afterwards.
+    pub fn set_deadline(&self, d: Option<Instant>) {
+        *self.deadline.lock().unwrap_or_else(|e| e.into_inner()) = d;
     }
 
     pub fn set_before_op(&self, hook: Option<BeforeOp>) {
@@ -355,7 +366,7 @@ impl Interpreter {
         // Wall-clock budget: refuse to start a new op if we're past the
         // deadline. We can't interrupt a long-running op mid-call, but we can
         // prevent the next one from firing.
-        if let Some(d) = self.deadline {
+        if let Some(d) = self.deadline() {
             if Instant::now() > d {
                 return Err(Box::new(ErrTimeout));
             }

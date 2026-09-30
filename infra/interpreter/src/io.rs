@@ -7,17 +7,31 @@ use std::sync::{Arc, Mutex, MutexGuard};
 #[derive(Clone)]
 pub struct SharedWriter {
     inner: Arc<Mutex<Box<dyn Write + Send>>>,
+    kind: StdKind,
+}
+
+/// Which process stream (if any) a [`SharedWriter`] wraps, so subprocess ops can
+/// hand the child the real fd (Go passes `*os.File` straight through).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StdKind {
+    Stdout,
+    Stderr,
+    Other,
 }
 
 impl SharedWriter {
     pub fn new(w: Box<dyn Write + Send>) -> Self {
-        SharedWriter { inner: Arc::new(Mutex::new(w)) }
+        SharedWriter { inner: Arc::new(Mutex::new(w)), kind: StdKind::Other }
     }
     pub fn stdout() -> Self {
-        Self::new(Box::new(std::io::stdout()))
+        SharedWriter { kind: StdKind::Stdout, ..Self::new(Box::new(std::io::stdout())) }
     }
     pub fn stderr() -> Self {
-        Self::new(Box::new(std::io::stderr()))
+        SharedWriter { kind: StdKind::Stderr, ..Self::new(Box::new(std::io::stderr())) }
+    }
+    /// The process stream this writer wraps, or `Other`.
+    pub fn std_kind(&self) -> StdKind {
+        self.kind
     }
     /// Discards everything (Go's `io.Discard`).
     pub fn discard() -> Self {
@@ -47,14 +61,19 @@ impl Write for SharedWriter {
 #[derive(Clone)]
 pub struct SharedReader {
     inner: Arc<Mutex<Box<dyn Read + Send>>>,
+    is_stdin: bool,
 }
 
 impl SharedReader {
     pub fn new(r: Box<dyn Read + Send>) -> Self {
-        SharedReader { inner: Arc::new(Mutex::new(r)) }
+        SharedReader { inner: Arc::new(Mutex::new(r)), is_stdin: false }
     }
     pub fn stdin() -> Self {
-        Self::new(Box::new(std::io::stdin()))
+        SharedReader { is_stdin: true, ..Self::new(Box::new(std::io::stdin())) }
+    }
+    /// True when this is the process's real stdin (subprocesses can inherit it).
+    pub fn is_process_stdin(&self) -> bool {
+        self.is_stdin
     }
     pub fn empty() -> Self {
         Self::new(Box::new(std::io::empty()))
