@@ -3,7 +3,7 @@
 # the others. The Go tree stays in place until the port reaches parity.
 [workspace]
 resolver = "2"
-members = ["domain", "infra/audit infra/capyloader infra/embed infra/httpserver infra/interpreter infra/opcatalog infra/ops infra/preview infra/report infra/vscodeext usecases/commandhelp usecases/exportopscatalog usecases/help usecases/importsh usecases/initconfig usecases/installlsp usecases/installvscode usecases/listcommands usecases/runbuild usecases/runcommand usecases/runserver usecases/runshell usecases/runtests usecases/scan usecases/simulate usecases/validate io/cli", "orchestrator"]
+members = ["domain", "infra/audit", "infra/capyloader", "infra/embed", "infra/httpserver", "infra/interpreter", "infra/opcatalog", "infra/ops", "infra/preview", "infra/report", "infra/vscodeext", "usecases/commandhelp", "usecases/exportopscatalog", "usecases/help", "usecases/importsh", "usecases/initconfig", "usecases/installlsp", "usecases/installvscode", "usecases/listcommands", "usecases/runbuild", "usecases/runcommand", "usecases/runserver", "usecases/runshell", "usecases/runtests", "usecases/scan", "usecases/simulate", "usecases/validate", "io/cli", "orchestrator"]
 
 [workspace.package]
 version = "0.1.0"

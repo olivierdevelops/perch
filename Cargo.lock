@@ -37,9 +37,259 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "perch"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+]
+
+[[package]]
+name = "perch-audit"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-capyloader"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-cli"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-commandhelp"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "perch-domain"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-embed"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-exportopscatalog"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-help"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-httpserver"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-importsh"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-initconfig"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-installlsp"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-installvscode"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-interpreter"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-listcommands"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-opcatalog"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-ops"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-preview"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-report"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-runbuild"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-runcommand"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-runserver"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-runshell"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-runtests"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-scan"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-simulate"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-validate"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "perch-vscodeext"
+version = "0.1.0"
+dependencies = [
+ "perch-domain",
  "serde",
  "serde_json",
 ]

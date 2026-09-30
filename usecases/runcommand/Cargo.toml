@@ -1,0 +1,10 @@
+[package]
+name = "perch-runcommand"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+perch-domain = { path = "../../domain" }
+serde.workspace = true
+serde_json.workspace = true
