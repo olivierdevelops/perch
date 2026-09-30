@@ -8,3 +8,7 @@ license.workspace = true
 perch-domain = { path = "../../domain" }
 serde.workspace = true
 serde_json.workspace = true
+perch-interpreter = { path = "../interpreter" }
+perch-capyloader = { path = "../capyloader" }
+regex = "1"
+sha2 = "0.10"

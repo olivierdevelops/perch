@@ -1,1 +1,756 @@
-//! Port of usecases/scan (Go). The sibling *.go files are the source of truth.
+//! Audits a perch program for what it actually needs and what posture it could
+//! be run under safely. Static analysis only — no execution. Produces:
+//!
+//!   - CAPABILITIES NEEDED: shell? subprocess? network? writes? — with the
+//!     specific binaries / hosts / paths it touches.
+//!   - ENV VARS REFERENCED: every ${UPPER_SNAKE} in any string arg.
+//!   - RISK FINDINGS: a ranked list of patterns worth a human's attention
+//!     (sudo, shell injection on unvalidated args, catch-→shell passthroughs,
+//!     downloads + chmod + exec, etc.).
+//!   - RECOMMENDED INVOCATION: the tightest CLI flag combination that should
+//!     still let the script run.
+//!
+//! The goal is to make reviewing a stranger's .perch file (or your own, before
+//! shipping it) something you do in ~30 seconds instead of ~30 minutes.
+use perch_domain::{Op, Program};
+use regex::Regex;
+use serde_json::Value;
+use std::collections::BTreeMap;
+use std::io::Write;
+use std::sync::OnceLock;
+
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type LoadFn = Box<dyn Fn(&str) -> Result<Program, Error>>;
+
+pub struct Impl {
+    pub load: LoadFn,
+}
+
+impl Impl {
+    /// Loads, analyzes and prints the report to `out` (Go: stdout).
+    pub fn execute(&self, path: &str, out: &mut dyn Write) -> Result<(), Error> {
+        let p = (self.load)(path)?;
+        let r = analyze(&p);
+        print_report(out, &p, path, &r)?;
+        Ok(())
+    }
+}
+
+/// The result of analyzing a program. Maps record how many times each thing
+/// appears, which makes "you have one shell call to git and twelve to docker"
+/// actionable rather than a binary yes/no. (Sorted maps: Go sorts keys before
+/// every use.)
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Report {
+    pub needs_shell: bool,
+    /// bash first-token → count
+    pub shell_bins: BTreeMap<String, usize>,
+    pub has_shell_sudo: bool,
+    /// Any shell has |, >, $(, ;, &&, ...
+    pub has_shell_pipe: bool,
+    pub needs_subprocess: bool,
+    pub subprocess_ops: BTreeMap<String, usize>,
+    pub needs_network: bool,
+    pub hosts: BTreeMap<String, usize>,
+    pub needs_write: bool,
+    pub write_roots: BTreeMap<String, usize>,
+    pub env_vars: BTreeMap<String, usize>,
+    pub has_proxy_args: bool,
+    pub has_catch: bool,
+    /// Catch contains a shell op (open passthrough).
+    pub catch_forwards: bool,
+    pub findings: Vec<Finding>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Finding {
+    /// "high" | "med" | "low" | "info"
+    pub severity: String,
+    pub where_: String,
+    pub issue: String,
+    pub fix: String,
+}
+
+/// Walks the program and produces a [`Report`]. Pure — no IO.
+pub fn analyze(p: &Program) -> Report {
+    let mut r = Report::default();
+
+    if let Some(catch) = &p.catch {
+        r.has_catch = true;
+        walk_ops(&catch.ops, "catch", &mut r, true);
+    }
+    // BTreeMap iterates commands sorted, for deterministic finding order.
+    for (n, c) in &p.commands {
+        if c.modifiers.proxy_args {
+            r.has_proxy_args = true;
+        }
+        walk_ops(&c.ops, &format!("command {n}"), &mut r, false);
+    }
+    // Globals' string values can reference env vars too.
+    for g in &p.globals.bindings {
+        if let Value::String(s) = &g.value {
+            record_env(s, &mut r);
+        }
+    }
+    r
+}
+
+/// The recursive scanner. `in_catch` flags catch-block context so we can report
+/// "catch forwards to shell" as its own finding.
+fn walk_ops(ops: &[Op], where_: &str, r: &mut Report, in_catch: bool) {
+    for (i, op) in ops.iter().enumerate() {
+        let op_where = format!("{} op #{} ({})", where_, i + 1, op.kind);
+
+        // Harvest env-var references from every string arg.
+        for v in op.args.values() {
+            if let Value::String(s) = v {
+                record_env(s, r);
+            }
+        }
+
+        match op.kind.as_str() {
+            "shell" | "shell_output" | "shell_detached" | "shell_in" | "try_shell" => {
+                r.needs_shell = true;
+                if in_catch {
+                    r.catch_forwards = true;
+                }
+                classify_shell(op, r);
+            }
+            "pkg_install" | "pkg_uninstall" | "kill_by_name" | "process_running" | "bin_version" | "os_version" => {
+                r.needs_subprocess = true;
+                *r.subprocess_ops.entry(op.kind.clone()).or_default() += 1;
+            }
+            "http_get" | "http_post" | "http_put" | "http_delete" | "http_status" | "download" => {
+                r.needs_network = true;
+                record_host(op, r);
+            }
+            "dns_lookup" | "port_check" | "port_free" | "find_free_port" | "wait_for_url" | "wait_for_port"
+            | "public_ip" | "local_ip" | "mac_address" | "interfaces" => {
+                r.needs_network = true;
+            }
+            "write_file" | "append_file" | "append_line" | "ensure_line_in_file" | "replace_in_file"
+            | "backup_file" | "cp" | "mv" | "rm" | "mkdir" | "chmod" | "touch" | "copy_dir" | "ensure_dir"
+            | "make_executable" | "symlink" | "link_into_path" | "mktemp_file" | "mktemp_dir" | "add_to_path"
+            | "tar_create" | "tar_extract" | "gzip" | "ungzip" | "zip_create" | "zip_extract"
+            | "bundle_extract" | "bundle_dir" => {
+                r.needs_write = true;
+                record_write(op, r);
+            }
+            _ => {}
+        }
+
+        // Risk findings checked after classification so the message can
+        // reference the same op_where string.
+        check_risks(op, &op_where, r, in_catch);
+
+        // Recurse into block bodies.
+        if !op.body.is_empty() {
+            walk_ops(&op.body, where_, r, in_catch);
+        }
+    }
+}
+
+/// Inspects a shell op's command-line for binary + risk patterns.
+fn classify_shell(op: &Op, r: &mut Report) {
+    let cmd = first_string_arg(op, &["cmd", "_0", "_1"]);
+    if cmd.is_empty() {
+        return;
+    }
+    let bin = first_shell_token(cmd);
+    if !bin.is_empty() {
+        *r.shell_bins.entry(bin.to_string()).or_default() += 1;
+    }
+    if bin == "sudo" || cmd.trim().starts_with("sudo ") {
+        r.has_shell_sudo = true;
+    }
+    if ["|", ">", "<", "&", ";", "`", "$("].iter().any(|ch| cmd.contains(ch)) {
+        r.has_shell_pipe = true;
+    }
+}
+
+/// Extracts host from a URL-like arg.
+fn record_host(op: &Op, r: &mut Report) {
+    let url = first_string_arg(op, &["url", "_0"]);
+    if url.is_empty() {
+        return;
+    }
+    if let Some(h) = extract_host(url) {
+        *r.hosts.entry(h.to_string()).or_default() += 1;
+    }
+}
+
+/// Captures the target path-or-root of a write op.
+fn record_write(op: &Op, r: &mut Report) {
+    let p = first_string_arg(op, &["path", "dst", "link", "_0", "_1"]);
+    if p.is_empty() {
+        return;
+    }
+    *r.write_roots.entry(path_root(p)).or_default() += 1;
+}
+
+fn push(r: &mut Report, severity: &str, where_: &str, issue: &str, fix: &str) {
+    r.findings.push(Finding {
+        severity: severity.into(),
+        where_: where_.into(),
+        issue: issue.into(),
+        fix: fix.into(),
+    });
+}
+
+fn check_risks(op: &Op, where_: &str, r: &mut Report, in_catch: bool) {
+    match op.kind.as_str() {
+        "shell" | "shell_output" | "shell_detached" | "shell_in" | "try_shell" => {
+            let cmd = first_string_arg(op, &["cmd", "_0", "_1"]);
+            if cmd.contains("sudo ") {
+                push(
+                    r,
+                    "high",
+                    where_,
+                    "shell command uses `sudo` (privilege escalation)",
+                    "drop sudo, or guard with `if is_admin ... end` and run perch itself elevated",
+                );
+            }
+            if in_catch && cmd.contains("${proxy_args}") {
+                push(
+                    r,
+                    "med",
+                    where_,
+                    "catch forwards `${proxy_args}` to a shell — any input becomes a shell command",
+                    "intentional for `extend an existing tool` patterns; document it and pin `--allow-bin` to the wrapped binary only",
+                );
+            }
+            // Crude shell-injection heuristic: a non-validated ${var} inside a
+            // shell string is hard to bound. Flag as low — the user often has
+            // done validation we can't see.
+            if has_unvalidated_interp(cmd) {
+                push(
+                    r,
+                    "low",
+                    where_,
+                    "shell command interpolates `${var}` with no obvious validation",
+                    "add a `regex_match` guard, or promote to a native op (which receives args structurally and can't be shell-injected)",
+                );
+            }
+        }
+        "make_executable" => {
+            push(
+                r,
+                "med",
+                where_,
+                "`make_executable` flips the +x bit — downstream `shell` could then run unverified code",
+                "pair with `verify_sha256` against a known hash before flipping +x",
+            );
+        }
+        _ => {}
+    }
+}
+
+// ─── helpers ─────────────────────────────────────────────────────────
+
+fn first_string_arg<'a>(op: &'a Op, names: &[&str]) -> &'a str {
+    for n in names {
+        if let Some(Value::String(s)) = op.args.get(*n) {
+            return s;
+        }
+    }
+    ""
+}
+
+/// Returns the basename of the first non-env-assignment token. Mirrors the
+/// runtime --allow-bin matcher so the suggestion is directly actionable.
+fn first_shell_token(s: &str) -> &str {
+    for f in s.split_whitespace() {
+        if f.contains('=') {
+            continue; // FOO=bar style assignment, skip
+        }
+        // Strip leading ./ or path prefix.
+        if let Some(idx) = f.rfind(['/', '\\']) {
+            return &f[idx + 1..];
+        }
+        return f;
+    }
+    ""
+}
+
+struct Res {
+    url_host: Regex,
+    env_var: Regex,
+    interp: Regex,
+}
+
+fn res() -> &'static Res {
+    static R: OnceLock<Res> = OnceLock::new();
+    R.get_or_init(|| Res {
+        url_host: Regex::new(r"^[a-z]+://([^/:?#]+)").unwrap(),
+        env_var: Regex::new(r"\$\{([A-Z][A-Z0-9_]*)\}").unwrap(),
+        interp: Regex::new(r"\$\{[a-z_][a-zA-Z0-9_]*\}").unwrap(),
+    })
+}
+
+fn extract_host(url: &str) -> Option<&str> {
+    res().url_host.captures(url).map(|m| m.get(1).unwrap().as_str())
+}
+
+fn record_env(s: &str, r: &mut Report) {
+    for m in res().env_var.captures_iter(s) {
+        *r.env_vars.entry(m[1].to_string()).or_default() += 1;
+    }
+}
+
+/// Summarises a write target — full absolute paths and ${anchor}/sub paths get
+/// collapsed so the report doesn't repeat the same prefix dozens of times.
+/// Best-effort.
+fn path_root(p: &str) -> String {
+    let p = p.trim();
+    if p.starts_with("${") {
+        if let Some(end) = p.find('}') {
+            let anchor = &p[..end + 1];
+            // Include first path segment after the anchor, if any.
+            let after = &p[end + 1..];
+            let rest = after.strip_prefix('/').unwrap_or(after);
+            if let Some(i) = rest.find('/') {
+                if i > 0 {
+                    return format!("{}/{}/…", anchor, &rest[..i]);
+                }
+            }
+            if !rest.is_empty() {
+                return format!("{anchor}/{rest}");
+            }
+            return anchor.to_string();
+        }
+    }
+    if let Some(tail) = p.strip_prefix('/') {
+        let parts: Vec<&str> = tail.splitn(3, '/').collect();
+        if parts.len() >= 2 {
+            return format!("/{}/{}/…", parts[0], parts[1]);
+        }
+        return format!("/{}", parts[0]);
+    }
+    p.to_string()
+}
+
+/// A quick heuristic: any lowercase ${ident} in a shell string. Real validation
+/// would track guards (regex_match etc.) in the surrounding scope — out of
+/// scope for this static pass.
+fn has_unvalidated_interp(s: &str) -> bool {
+    res().interp.is_match(s)
+}
+
+// ─── pretty-print ────────────────────────────────────────────────────
+
+/// Writes a human-readable scan report to `w`.
+pub fn print_report(w: &mut dyn Write, p: &Program, path: &str, r: &Report) -> std::io::Result<()> {
+    write!(w, "\n  ── {path} ──────────────────────────────────────────────\n\n")?;
+    writeln!(
+        w,
+        "  {} command(s), {} catch, {} binding(s)",
+        p.commands.len(),
+        bool_str(p.catch.is_some()),
+        p.globals.bindings.len()
+    )?;
+    writeln!(w)?;
+
+    // RISK SCORE — a one-glance summary for non-experts. Computed from declared
+    // capabilities + finding severities. See score_report.
+    let (score, reasons) = score_report(r);
+    writeln!(w, "  RISK: {}", risk_badge(score))?;
+    for why in &reasons {
+        writeln!(w, "    · {why}")?;
+    }
+    writeln!(w)?;
+
+    // CAPABILITIES
+    writeln!(w, "  CAPABILITIES NEEDED")?;
+    cap_line(w, "shell", r.needs_shell, &summarise_shell(r))?;
+    cap_line(w, "subprocess", r.needs_subprocess, &summarise_subprocess(r))?;
+    cap_line(w, "network", r.needs_network, &summarise_net(r))?;
+    cap_line(w, "writes", r.needs_write, &summarise_writes(r))?;
+    writeln!(w)?;
+
+    // ENV VARS
+    if !r.env_vars.is_empty() {
+        writeln!(w, "  ENV VARS REFERENCED")?;
+        write!(w, "    {}\n\n", keys(&r.env_vars).join(", "))?;
+    }
+
+    // FINDINGS
+    if !r.findings.is_empty() {
+        writeln!(w, "  RISK FINDINGS")?;
+        for sev in ["high", "med", "low", "info"] {
+            for f in &r.findings {
+                if f.severity != sev {
+                    continue;
+                }
+                let tag = sev.to_uppercase();
+                writeln!(w, "    [{:<4}] {}", tag, f.where_)?;
+                writeln!(w, "             {}", f.issue)?;
+                if !f.fix.is_empty() {
+                    writeln!(w, "         →   {}", f.fix)?;
+                }
+                writeln!(w)?;
+            }
+        }
+    } else {
+        writeln!(w, "  RISK FINDINGS")?;
+        writeln!(w, "    (none)")?;
+        writeln!(w)?;
+    }
+
+    // RECOMMENDED INVOCATION
+    writeln!(w, "  RECOMMENDED INVOCATION")?;
+    for line in recommended_invocation(path, r) {
+        writeln!(w, "    {line}")?;
+    }
+    writeln!(w)?;
+    writeln!(w, "  Compared to bare `perch -f {path}`:")?;
+    for line in delta_summary(r) {
+        writeln!(w, "    {line}")?;
+    }
+    writeln!(w)?;
+    Ok(())
+}
+
+/// Synthesises the tightest CLI command the script should still run under.
+/// Returned as a list of lines so the printer can backslash-wrap nicely.
+pub fn recommended_invocation(path: &str, r: &Report) -> Vec<String> {
+    let mut lines = vec!["perch \\".to_string()];
+    let mut add = |s: &str| lines.push(format!("  {s} \\"));
+
+    // Negative caps the script doesn't need.
+    if !r.needs_shell {
+        add("--no-shell");
+    }
+    if !r.needs_subprocess {
+        add("--no-subprocess");
+    }
+    if !r.needs_network {
+        add("--no-network");
+    }
+    if !r.needs_write {
+        add("--no-write");
+    }
+
+    // Positive scoping where the script does need a thing.
+    if r.needs_shell && !r.shell_bins.is_empty() && r.shell_bins.len() <= 8 {
+        add(&format!("--allow-bin {}", keys(&r.shell_bins).join(",")));
+    }
+    if r.needs_shell && !r.has_shell_pipe {
+        add("--no-shell-metachars");
+    }
+    if !r.env_vars.is_empty() && r.env_vars.len() <= 20 {
+        add(&format!("--env {}", keys(&r.env_vars).join(",")));
+    }
+
+    // Belt-and-braces.
+    add("--max-runtime 600");
+    // Audit path uses the script's basename so the suggestion is portable
+    // across directories (avoid leaking the user's full path).
+    let mut script_name = path.strip_suffix(".perch").unwrap_or(path);
+    if let Some(idx) = script_name.rfind(['/', '\\']) {
+        script_name = &script_name[idx + 1..];
+    }
+    add(&format!("--audit /var/log/perch-{script_name}.ndjson"));
+    lines.push(format!("  -f {path}"));
+    lines
+}
+
+fn delta_summary(r: &Report) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    if !r.needs_shell {
+        out.push("- shell subprocess entirely disabled".into());
+    } else if !r.shell_bins.is_empty() && r.shell_bins.len() <= 8 {
+        out.push(format!("- shell pinned to {{{}}}", keys(&r.shell_bins).join(", ")));
+        if !r.has_shell_pipe {
+            out.push("- no pipes / redirects / `$()` allowed in shell args".into());
+        }
+    }
+    if !r.needs_network {
+        out.push("- network access entirely disabled".into());
+    }
+    if !r.needs_write {
+        out.push("- filesystem mutation entirely disabled".into());
+    }
+    if !r.needs_subprocess {
+        out.push("- pkg_install/kill_by_name/etc. disabled".into());
+    }
+    if !r.env_vars.is_empty() {
+        out.push(format!(
+            "- host env scoped to {} declared var(s) (rest scrubbed from subprocesses)",
+            r.env_vars.len()
+        ));
+    }
+    out.push("- 10-minute wall-clock cap; structured audit trail".into());
+    out
+}
+
+fn cap_line(w: &mut dyn Write, name: &str, on: bool, detail: &str) -> std::io::Result<()> {
+    let marker = if on { "✓" } else { "✗" };
+    writeln!(w, "    {marker} {name:<12} {detail}")
+}
+
+fn summarise_shell(r: &Report) -> String {
+    if !r.needs_shell {
+        return "— add `--no-shell` for free".into();
+    }
+    if r.shell_bins.is_empty() {
+        return "(no binary parsed)".into();
+    }
+    let bins = keys(&r.shell_bins);
+    let mut tag = String::new();
+    if r.has_shell_sudo {
+        tag = "  ⚠ uses sudo".into();
+    }
+    if r.has_shell_pipe {
+        tag.push_str("  ⚠ pipes/redirects");
+    }
+    format!("({} call(s), binaries: {}){}", r.shell_bins.values().sum::<usize>(), bins.join(", "), tag)
+}
+
+fn summarise_subprocess(r: &Report) -> String {
+    if !r.needs_subprocess {
+        return "— add `--no-subprocess` for free".into();
+    }
+    format!("({})", keys(&r.subprocess_ops).join(", "))
+}
+
+fn summarise_net(r: &Report) -> String {
+    if !r.needs_network {
+        return "— add `--no-network` for free".into();
+    }
+    if r.hosts.is_empty() {
+        return "(unknown hosts — only `${var}` URLs found)".into();
+    }
+    format!("({} host(s): {})", r.hosts.len(), keys(&r.hosts).join(", "))
+}
+
+fn summarise_writes(r: &Report) -> String {
+    if !r.needs_write {
+        return "— add `--no-write` for free".into();
+    }
+    if r.write_roots.is_empty() {
+        return "(paths from `${var}` only)".into();
+    }
+    format!("(roots: {})", keys(&r.write_roots).join(", "))
+}
+
+fn bool_str(b: bool) -> &'static str {
+    if b {
+        "1"
+    } else {
+        "0"
+    }
+}
+
+/// Sorted keys (the maps are already ordered).
+fn keys(m: &BTreeMap<String, usize>) -> Vec<&str> {
+    m.keys().map(|s| s.as_str()).collect()
+}
+
+// ─── risk scoring ────────────────────────────────────────────────────
+//
+// Converts a Report into a HIGH / MED / LOW / SAFE summary that non-experts
+// can read at a glance. Used in the --scan output and (eventually) in the web
+// UI's Scan tab.
+//
+// The score is intentionally coarse:
+//
+//   HIGH  — at least one HIGH-severity finding (sudo, ${proxy_args} into
+//           shell, unvalidated interp into shell, etc.) OR the program needs
+//           both shell + network without any allowlist.
+//   MED   — at least one MED-severity finding OR the program does anything in
+//           two or more "powerful" categories without explicit allowlists.
+//   LOW   — needs only one category (shell, network, writes), or has only
+//           LOW-severity findings.
+//   SAFE  — pure ops; no shell, no network, no subprocess, no writes.
+//
+// This is intentionally NOT a security guarantee — it's a UI affordance for
+// "is this worth carefully reading before I run?"
+
+/// The coarse classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RiskScore {
+    Safe,
+    Low,
+    Med,
+    High,
+}
+
+impl std::fmt::Display for RiskScore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RiskScore::Safe => "SAFE",
+            RiskScore::Low => "LOW",
+            RiskScore::Med => "MED",
+            RiskScore::High => "HIGH",
+        })
+    }
+}
+
+/// Computes a coarse risk score plus the reasons that pushed it up from SAFE.
+/// The reasons are human-readable strings shown to users; they're not a stable
+/// API.
+pub fn score_report(r: &Report) -> (RiskScore, Vec<String>) {
+    let mut score = RiskScore::Safe;
+    let mut reasons: Vec<String> = Vec::new();
+
+    // Capability-driven baseline.
+    let mut cats = 0;
+    if r.needs_shell {
+        cats += 1;
+        reasons.push("executes shell".into());
+    }
+    if r.needs_subprocess {
+        cats += 1;
+        reasons.push("spawns subprocesses (pkg_install / kill / process_running)".into());
+    }
+    if r.needs_network {
+        cats += 1;
+        let n = r.hosts.len();
+        let hosts = if n > 0 { format!(" ({} host{})", n, plural(n)) } else { String::new() };
+        reasons.push(format!("network access{hosts}"));
+    }
+    if r.needs_write {
+        cats += 1;
+        let n = r.write_roots.len();
+        let hosts = if n > 0 { format!(" ({} root{})", n, plural(n)) } else { String::new() };
+        reasons.push(format!("writes the filesystem{hosts}"));
+    }
+
+    score = match cats {
+        0 => score, // Stays SAFE.
+        1 => RiskScore::Low,
+        _ => RiskScore::Med,
+    };
+
+    // Specific high-signal patterns push the score up.
+    if r.has_shell_sudo {
+        score = RiskScore::High;
+        reasons.push("uses `sudo` (privilege escalation)".into());
+    }
+    if r.has_shell_pipe {
+        if score < RiskScore::Med {
+            score = RiskScore::Med;
+        }
+        reasons.push("uses shell metacharacters (pipe / && / ; / $())".into());
+    }
+    if r.catch_forwards {
+        score = RiskScore::High;
+        reasons.push("catch-all forwards ${proxy_args} to shell (any unknown verb → shell)".into());
+    }
+
+    // Findings escalate.
+    for f in &r.findings {
+        match f.severity.as_str() {
+            "high" => {
+                if score < RiskScore::High {
+                    score = RiskScore::High;
+                }
+            }
+            "med" => {
+                if score < RiskScore::Med {
+                    score = RiskScore::Med;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if reasons.is_empty() {
+        reasons = vec!["no privileged operations — pure ops only".into()];
+    }
+    (score, reasons)
+}
+
+/// Renders the score as a short colored-by-letter label. Terminal coloring is
+/// intentionally NOT applied here (the caller's shell may or may not be a TTY);
+/// the badge is plain text.
+pub fn risk_badge(s: RiskScore) -> &'static str {
+    match s {
+        RiskScore::Safe => "🟢 SAFE  (pure ops — no shell, no network, no writes)",
+        RiskScore::Low => "🟡 LOW   (limited surface — review the capabilities below)",
+        RiskScore::Med => "🟠 MED   (multiple capabilities or shell metachars — review carefully)",
+        RiskScore::High => "🔴 HIGH  (sudo / proxy_args / privileged ops — read every command before running)",
+    }
+}
+
+fn plural(n: usize) -> &'static str {
+    if n == 1 {
+        ""
+    } else {
+        "s"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use perch_domain::{Catch, Command, GlobalBinding};
+    use serde_json::json;
+
+    fn op(kind: &str, args: Value) -> Op {
+        Op { kind: kind.into(), args: args.as_object().cloned().unwrap_or_default(), ..Default::default() }
+    }
+
+    fn prog(ops: Vec<Op>) -> Program {
+        let mut p = Program::default();
+        p.commands.insert("go".into(), Command { name: "go".into(), ops, ..Default::default() });
+        p
+    }
+
+    #[test]
+    fn pure_program_is_safe() {
+        let p = prog(vec![op("print", json!({"msg": "hi"}))]);
+        let r = analyze(&p);
+        assert_eq!(score_report(&r), (RiskScore::Safe, vec!["no privileged operations — pure ops only".to_string()]));
+        let mut out = Vec::new();
+        print_report(&mut out, &p, "x/y.perch", &r).unwrap();
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains("  1 command(s), 0 catch, 0 binding(s)\n"));
+        assert!(s.contains("    ✗ shell        — add `--no-shell` for free\n"));
+        assert!(s.contains("  RISK FINDINGS\n    (none)\n"));
+        assert!(s.contains("    --audit /var/log/perch-y.ndjson \\\n      -f x/y.perch\n") || s.contains("--audit /var/log/perch-y.ndjson \\\n"));
+    }
+
+    #[test]
+    fn shell_sudo_and_findings() {
+        let mut p = prog(vec![
+            op("shell", json!({"cmd": "FOO=1 /usr/bin/sudo rm -rf ${target} | tee x", "extra": "${HOME}"})),
+            op("http_get", json!({"url": "https://example.com:8080/x"})),
+            op("write_file", json!({"path": "${HOME}/a/b/c"})),
+            op("make_executable", json!({"path": "/usr/local/bin/x"})),
+        ]);
+        p.catch = Some(Catch { ops: vec![op("shell", json!({"cmd": "git ${proxy_args}"}))], ..Default::default() });
+        p.globals.bindings.push(GlobalBinding { name: "g".into(), ty: "string".into(), value: json!("${TOKEN}") });
+        let r = analyze(&p);
+        assert!(r.needs_shell && r.has_shell_pipe && r.catch_forwards && r.has_catch);
+        assert_eq!(r.shell_bins.get("sudo"), Some(&1));
+        assert!(r.has_shell_sudo);
+        assert_eq!(r.hosts.get("example.com"), Some(&1));
+        assert_eq!(r.write_roots.get("${HOME}/a/…"), Some(&1));
+        assert_eq!(r.write_roots.get("/usr/local/…"), Some(&1));
+        assert_eq!(r.env_vars.keys().cloned().collect::<Vec<_>>(), vec!["HOME", "TOKEN"]);
+        // catch is walked first, then commands in name order.
+        assert_eq!(r.findings[0].where_, "catch op #1 (shell)");
+        assert_eq!(r.findings[0].severity, "med");
+        assert_eq!(score_report(&r).0, RiskScore::High);
+        let inv = recommended_invocation("dir/app.perch", &r);
+        assert_eq!(inv[0], "perch \\");
+        assert!(inv.contains(&"  --allow-bin git,sudo \\".to_string()));
+        assert_eq!(inv.last().unwrap(), "  -f dir/app.perch");
+        assert!(!inv.contains(&"  --no-shell-metachars \\".to_string()));
+    }
+
+    #[test]
+    fn helpers() {
+        assert_eq!(path_root("/a/b/c/d"), "/a/b/…");
+        assert_eq!(path_root("/a/b"), "/a/b/…");
+        assert_eq!(path_root("/a"), "/a");
+        assert_eq!(path_root("${X}"), "${X}");
+        assert_eq!(path_root("${X}/y"), "${X}/y");
+        assert_eq!(path_root("rel/p"), "rel/p");
+        assert_eq!(first_shell_token("A=b B=c ./bin/tool x"), "tool");
+        assert_eq!(extract_host("ftp://h.io/p"), Some("h.io"));
+        assert_eq!(extract_host("nope"), None);
+        assert!(has_unvalidated_interp("echo ${x}") && !has_unvalidated_interp("echo ${X}"));
+    }
+}

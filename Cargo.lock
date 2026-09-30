@@ -365,9 +365,13 @@ dependencies = [
 name = "perch-ops"
 version = "0.1.0"
 dependencies = [
+ "perch-capyloader",
  "perch-domain",
+ "perch-interpreter",
+ "regex",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

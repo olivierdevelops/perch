@@ -1,0 +1,541 @@
+[
+  {
+    "name": "perch <cmd>",
+    "kind": "subcommand",
+    "group": "Execution",
+    "synopsis": "run a named command from commands.perch in the cwd",
+    "usage": "perch <cmd> [args...]",
+    "description": "",
+    "examples": [
+      "perch deploy",
+      "perch test -race"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "-f",
+    "kind": "flag",
+    "group": "Execution",
+    "synopsis": "load a specific .perch file (or `-` for stdin)",
+    "usage": "perch -f <file>|- <cmd> [args...]",
+    "description": "Override the default commands.perch lookup. The special path \"-\" reads the\n.perch source from stdin — used for pipelines like `curl URL | perch -f - run`.\nWhen stdin is the source, perch treats the program as untrusted by default\n(see --trust-stdin and the --allow-* flags).",
+    "examples": [
+      "perch -f deploy.perch up",
+      "curl URL | perch -f - --allow-shell run"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/getting-started/",
+    "see_also": [
+      "--trust-stdin",
+      "--allow-shell"
+    ]
+  },
+  {
+    "name": "--help, -h",
+    "kind": "flag",
+    "group": "Execution",
+    "synopsis": "list commands in the loaded .perch file",
+    "usage": "perch [--help|-h]   |   perch <cmd> --help",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--version",
+    "kind": "flag",
+    "group": "Execution",
+    "synopsis": "print perch version",
+    "usage": "perch --version",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--server",
+    "kind": "subcommand",
+    "group": "Execution",
+    "synopsis": "serve a web UI for the loaded .perch file",
+    "usage": "perch --server [--port N]",
+    "description": "Spawns a small HTTP server on 127.0.0.1:10032 (default) that renders one button per declared command with typed argument forms. /api/exec streams stdout/stderr as NDJSON. Use for handing a .perch surface to non-engineers.",
+    "examples": [
+      "perch --server",
+      "perch --server --port 8080"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/llm-control-plane/",
+    "see_also": null
+  },
+  {
+    "name": "--shell",
+    "kind": "subcommand",
+    "group": "Execution",
+    "synopsis": "interactive REPL for the loaded .perch file",
+    "usage": "perch --shell",
+    "description": "Type a command name + args; perch runs it with persistent bindings across lines.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--init",
+    "kind": "subcommand",
+    "group": "Authoring",
+    "synopsis": "scaffold a starter commands.perch with shebang + main",
+    "usage": "perch --init",
+    "description": "Writes commands.perch in the cwd, sets +x, includes #!/usr/bin/env perch at the top so the file is immediately runnable as a script (./commands.perch). Refuses if a file already exists.",
+    "examples": [
+      "perch --init",
+      "./commands.perch hello"
+    ],
+    "doc_url": "",
+    "see_also": [
+      "shebang"
+    ]
+  },
+  {
+    "name": "--check, --validate",
+    "kind": "subcommand",
+    "group": "Authoring",
+    "synopsis": "static validation of a .perch file",
+    "usage": "perch --check [-f FILE]",
+    "description": "Catches typed-arg mismatches, duplicate args, colliding positional indexes, missing run targets, unknown op kinds, unresolved ${name} placeholders. Wire into pre-commit; runs in <100ms on typical files.",
+    "examples": [
+      "perch --check",
+      "perch --check -f deploy.perch"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/language/",
+    "see_also": null
+  },
+  {
+    "name": "--export",
+    "kind": "subcommand",
+    "group": "Authoring",
+    "synopsis": "write JSON catalog of built-in .perch ops and auto-bound vars",
+    "usage": "perch --export[=-]",
+    "description": "Documents statement-level ops (exec, print, if, write_file, …) and auto-bound ${name} variables (os, script_dir, home_dir, …) for writing .perch files — not CLI commands from commands.perch. Bare flag prints to stdout; --export=PATH writes a file.",
+    "examples": [
+      "perch --export",
+      "perch --export=catalog.json"
+    ],
+    "doc_url": "",
+    "see_also": [
+      "--check"
+    ]
+  },
+  {
+    "name": "--scan",
+    "kind": "subcommand",
+    "group": "Authoring",
+    "synopsis": "static security audit (capabilities + risk findings + recommended invocation)",
+    "usage": "perch --scan [-f FILE]",
+    "description": "Walks the program (no execution), reports the capabilities it needs (shell/network/writes/subprocess), the env vars it touches, risk findings (sudo, catch passthrough, unvalidated interpolation), and the tightest --no-*/--allow-bin/--env invocation that should still let it run.",
+    "examples": [
+      "perch --scan -f deploy.perch"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/sandbox/",
+    "see_also": null
+  },
+  {
+    "name": "--import",
+    "kind": "subcommand",
+    "group": "Authoring",
+    "synopsis": "translate a .sh into a best-effort .perch scaffold",
+    "usage": "perch --import <script.sh> [-o <out.perch>]",
+    "description": "Recognises functions, variable assignments, echo, & (background). Preserves bash semantics by routing unrecognised lines through `shell` ops. The output passes --check immediately and runs identically to the original; you progressively promote shell ops to native ops.",
+    "examples": [
+      "perch --import deploy.sh"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/migrating-from-shell/",
+    "see_also": null
+  },
+  {
+    "name": "--dry-run",
+    "kind": "flag",
+    "group": "Authoring",
+    "synopsis": "print every op (with interpolated args) and skip execution",
+    "usage": "perch --dry-run <cmd>",
+    "description": "Walks the program, prints each op as it would fire (kind + interpolated args + capture target), but never calls the handler. Captures get empty values so subsequent interpolation still works.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--ask",
+    "kind": "flag",
+    "group": "Authoring",
+    "synopsis": "interactive step-through — y/n/a/q per op",
+    "usage": "perch --ask <cmd>",
+    "description": "For each op: `y` runs and prompts next, `n` skips, `a` runs this op then all remaining without further prompts, `q` quits. Stacks with --no-shell etc.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--build",
+    "kind": "subcommand",
+    "group": "Build",
+    "synopsis": "bundle a .perch into a self-extracting binary",
+    "usage": "perch --build [-o NAME] [--include PATH]",
+    "description": "Produces a portable binary with the parsed .perch embedded inside, plus an optional file tree (--include). Recipients run the binary directly — no Go, no perch install, no source.",
+    "examples": [
+      "perch --build -o deploy",
+      "perch --build --include ./src -o stt_bin"
+    ],
+    "doc_url": "https://olivierdevelops.github.io/perch/embedding/",
+    "see_also": null
+  },
+  {
+    "name": "--no-shell",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "disable every shell-spawning op",
+    "usage": "",
+    "description": "Blocks shell, shell_output, shell_detached, shell_in, try_shell. With --no-shell + --no-subprocess on, perch can't spawn any subprocess.",
+    "examples": null,
+    "doc_url": "https://olivierdevelops.github.io/perch/sandbox/",
+    "see_also": [
+      "--no-subprocess",
+      "--allow-bin",
+      "--no-shell-metachars"
+    ]
+  },
+  {
+    "name": "--no-subprocess",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "disable pkg_install, kill_by_name, bin_version, etc.",
+    "usage": "",
+    "description": "Blocks ops that fork-exec without going through shell. Closes the subprocess escape hatch for the non-`shell` paths.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--no-network",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "disable every network op (http_*, download, dns_lookup, port_*, wait_for_*, IP/MAC discovery)",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--no-write",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "disable every filesystem-mutation op (write_file, cp, mv, rm, mkdir, chmod, archives, symlinks, bundle_extract, …)",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--allow-bin",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "when shell is allowed, restrict which binaries it can spawn",
+    "usage": "perch --allow-bin NAME[,NAME...] <cmd>",
+    "description": "First non-env-assignment token of every shell command must be in the list. Basename-matched, so /usr/local/bin/git matches \"git\". Multiple --allow-bin flags compose additively.",
+    "examples": [
+      "perch --allow-bin git,docker run",
+      "perch --allow-bin=kubectl deploy"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--no-shell-metachars",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "reject `|`, `>`, `<`, `&`, `;`, `` ` ``, `$(` in shell args",
+    "usage": "",
+    "description": "Stops shell-injection-style escapes inside an otherwise-allowed call. Pair with --allow-bin for `only X calls, no pipes/redirects/subshells`.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--env",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "restrict which host env vars resolve via ${NAME}",
+    "usage": "perch --env A,B,C <cmd>   |   perch --env <cmd>  (bare = no env vars visible)",
+    "description": "Only listed env vars resolve via interpolation fallthrough. Auto-bound names (${home}, ${cache_dir}, ${is_macos}, …) are not env vars and are unaffected. Bonus: subprocesses inherit only the allowlist too — closes the env-exfiltration escape hatch for shell ops.",
+    "examples": [
+      "perch --env HOME,PATH,API_KEY deploy",
+      "perch --env -f script.perch run"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--max-runtime",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "wall-clock budget for the whole invocation",
+    "usage": "perch --max-runtime SECS <cmd>",
+    "description": "",
+    "examples": [
+      "perch --max-runtime 60 deploy"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--audit",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "structured NDJSON trace of every op",
+    "usage": "perch --audit FILE.ndjson <cmd>   (path `-` = stdout)",
+    "description": "One line per op call: timestamp, command, kind, interpolated args, duration, ok/error. Plus session-start / session-end. Blocked ops record the denial too — same artifact for security review.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--restrictions",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "list every --no-* flag with the ops it blocks",
+    "usage": "perch --restrictions",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--max-redirects",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "cap the redirect-follow chain for http_*/download (default 5)",
+    "usage": "perch --max-redirects N <cmd>",
+    "description": "0 is equivalent to --no-redirects. The cap is enforced before any redirect packet is sent — perch never follows past the cap.",
+    "examples": [
+      "perch --max-redirects 0 -f script.perch run",
+      "perch --max-redirects 2 deploy"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--no-redirects",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "refuse to follow any redirect for http_*/download",
+    "usage": "perch --no-redirects <cmd>",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--allow-host",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "restrict HTTP requests + redirects to specific hosts",
+    "usage": "perch --allow-host HOST[,HOST...] <cmd>   (repeatable)",
+    "description": "When set, every URL hit by http_get / http_post / download / http_status — INITIAL request AND every redirect destination — must match an entry. Patterns:\n   - exact:           api.github.com\n   - single-label *:  *.s3.amazonaws.com   (matches api.x.com, NOT a.b.x.com)\n   - host:port:       localhost:8080       (port must match exactly)\n   - IP literal:      10.0.0.1\nComposes AND-wise with the SSRF guard — a host in the allowlist still has to pass the private-IP check unless --allow-private-ips is also set. Multiple --allow-host flags accumulate.",
+    "examples": [
+      "perch --allow-host api.github.com,registry.docker.io deploy",
+      "perch --allow-host \"*.example.com\" run",
+      "perch --allow-host localhost:8080 --allow-private-ips dev"
+    ],
+    "doc_url": "",
+    "see_also": [
+      "--allow-private-ips",
+      "--no-redirects",
+      "--max-redirects"
+    ]
+  },
+  {
+    "name": "--allow-private-ips",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "permit HTTP requests / redirects to private IPs",
+    "usage": "",
+    "description": "By default perch refuses to dial any host that resolves to a loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16 — AWS metadata service!), private (RFC 1918 / IPv6 ULA), or unspecified address. Pass this flag when the script needs to talk to a localhost service or your internal network.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": [
+      "--no-network",
+      "--allow-scheme-downgrade"
+    ]
+  },
+  {
+    "name": "--allow-scheme-downgrade",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "permit https → http redirect chains",
+    "usage": "",
+    "description": "By default a 30x from https://X to http://Y is refused. Pass this flag for legacy endpoints where the downgrade is intentional.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--allow-shell",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "(stdin only) re-enable shell ops",
+    "usage": "",
+    "description": "When -f - reads from stdin, perch defaults to the strictest posture. --allow-shell opts in to shell. No-op for file input.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": [
+      "--trust-stdin"
+    ]
+  },
+  {
+    "name": "--allow-subprocess",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "(stdin only) re-enable subprocess ops",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--allow-network",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "(stdin only) re-enable network ops",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--allow-write",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "(stdin only) re-enable filesystem-mutation ops",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--trust-stdin",
+    "kind": "flag",
+    "group": "Security",
+    "synopsis": "skip the deny-by-default applied to stdin input",
+    "usage": "",
+    "description": "Use when you piped a .perch file you wrote yourself and want the file-input posture (everything allowed unless explicitly restricted).",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "perch-mcp",
+    "kind": "subcommand",
+    "group": "Agents",
+    "synopsis": "MCP server — exposes commands as tools for AI agents",
+    "usage": "perch-mcp -f <file>",
+    "description": "Model Context Protocol server (JSON-RPC over stdio). Tools: perch_list, perch_run. Configure Claude Desktop / Cursor / Zed to launch it.",
+    "examples": null,
+    "doc_url": "https://olivierdevelops.github.io/perch/mcp/",
+    "see_also": [
+      "--allow-bin",
+      "--no-shell",
+      "--audit"
+    ]
+  },
+  {
+    "name": "perch-lsp",
+    "kind": "subcommand",
+    "group": "Agents",
+    "synopsis": "Language Server Protocol server for .perch authoring",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "https://olivierdevelops.github.io/perch/lsp/",
+    "see_also": null
+  },
+  {
+    "name": "--install-lsp",
+    "kind": "subcommand",
+    "group": "Agents",
+    "synopsis": "install the perch-lsp binary via `go install`",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--install-vscode",
+    "kind": "subcommand",
+    "group": "Agents",
+    "synopsis": "install the bundled VS Code extension",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "--completions",
+    "kind": "subcommand",
+    "group": "Agents",
+    "synopsis": "emit a shell completion script",
+    "usage": "perch --completions bash|zsh|fish",
+    "description": "",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "shebang",
+    "kind": "concept",
+    "group": "Concepts",
+    "synopsis": "running a .perch file directly via #!/usr/bin/env perch",
+    "usage": "",
+    "description": "perch --init writes the shebang line at the top of commands.perch and sets the file +x. Then ./commands.perch invokes the `main` command (or lists commands if no `main`); ./commands.perch hello runs hello explicitly. The shebang is a # comment to capy's parser — no grammar change.",
+    "examples": [
+      "perch --init && chmod +x commands.perch && ./commands.perch"
+    ],
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "interpolation",
+    "kind": "concept",
+    "group": "Concepts",
+    "synopsis": "${name} substitution inside string args",
+    "usage": "",
+    "description": "Resolution order: command args → top-level bindings → per-command env → host env (host scope respects --env). Auto-bound names (home, cache_dir, exe_path, is_macos, …) are always available. The three string delimiters \"...\", '...', `...` are all raw — no backslash escapes — and all do interpolation. Pick the one that doesn't appear in your content.",
+    "examples": null,
+    "doc_url": "https://olivierdevelops.github.io/perch/language/#interpolation",
+    "see_also": null
+  },
+  {
+    "name": "auto-bindings",
+    "kind": "concept",
+    "group": "Concepts",
+    "synopsis": "~30 variables every command starts with already bound",
+    "usage": "",
+    "description": "os, arch, home, cache_dir, config_dir, data_dir, temp_dir, exe_path, exe_dir, script_path, script_dir, path_sep, exe_ext, null_device, cpu_count, user, hostname, is_windows, is_macos, is_linux, is_unix, is_arm64, is_amd64, pid, now_unix, … — the building blocks of cross-platform install/build/uninstall scripts.",
+    "examples": null,
+    "doc_url": "",
+    "see_also": null
+  },
+  {
+    "name": "sandbox",
+    "kind": "concept",
+    "group": "Concepts",
+    "synopsis": "the full capability-restriction model",
+    "usage": "",
+    "description": "",
+    "examples": null,
+    "doc_url": "https://olivierdevelops.github.io/perch/sandbox/",
+    "see_also": null
+  }
+]
