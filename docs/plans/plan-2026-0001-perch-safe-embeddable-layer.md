@@ -441,8 +441,8 @@ Statuses: NOT STARTED, IN PROGRESS, BLOCKED, DONE, FAILED, DEFERRED, NOT APPLICA
 | L-15 | P1 | F07 template fix and goldens | F07 | httpserver | L-04 | NOT STARTED | — |
 | L-16 | P2 | R04 library facade | R04, UC-04 | orchestrator | L-12, L-10 | NOT STARTED | — |
 | L-17 | P2 | F05 installlsp download | F05 | installlsp | L-04 | NOT STARTED | — |
-| L-18 | P2 | F09 tidy and Go references | F09 | §7.1/§7.3 rows | L-16 | NOT STARTED | — |
-| L-19 | P3 | F01 Windows iteration | F01, UC-06 | as found | L-18 | NOT STARTED | — |
+| L-18 | P2 | F09 tidy and Go references | F09 | §7.1/§7.3 rows | L-16 | DONE | group_b helpers deduped where behavior-neutral; `check_host_declared`, `check_path_declared` and `ensure_line_in_file` left DEFERRED because unifying them changes error text or file mode (see commit b341aa6) |
+| L-19 | P3 | F01 Windows iteration | F01, UC-06 | as found | L-18 | DEFERRED | requester decision 2026-10-01 ("ignore windows ci for now, defer for later"). Windows path-normalisation and portability fixes landed in `3b0471c`, `bdfbece`, `4718779`; Windows tests stay non-blocking (`continue-on-error`), remaining failures unmeasured |
 | L-20 | P4 | Run all tests T-01–T-46; record results | all | docs/testing | L-19 | NOT STARTED | — |
 | L-21 | P4 | F08 Go v0.1.0 oracle diff | F08 | scratch | L-18 | NOT STARTED | — |
 | L-22 | P4 | Validation report | DOC-02 | docs/reports | L-20, L-21 | NOT STARTED | — |
