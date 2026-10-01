@@ -58,9 +58,9 @@ fn cmd(body: &str) -> String {
     // grants the repo, the temp dir and loopback; T-37/T-38 use `cmd_body`
     // with their own narrower blocks.
     let tmp = std::env::temp_dir();
-    let mut reads = vec![root(), tmp.clone()];
+    let mut reads = vec![root(), support::portable(tmp.clone())];
     if let Ok(c) = tmp.canonicalize() {
-        reads.push(c);
+        reads.push(support::portable(c));
     }
     let mut req = String::from("requires\n    host \"127.0.0.1\"\n");
     for r in &reads {
@@ -174,15 +174,15 @@ fn policy_check_good_and_bad() {
     let wasm = root().join("demos/wasm-policy-check/policy-check.wasm");
     let good = cmd(&format!(
         "wasm_run \"{}\"\n wasm_arg \"/ro/deploy/api-good.yaml\"\n wasm_mount_read \"{}\"\n end",
-        wasm.display(),
-        deploy.display()
+        support::slash(&wasm),
+        support::slash(&deploy)
     ));
     let (out, err) = run(&good);
     assert!(err.is_none(), "good: {} out={out}", e(&err));
     let bad = cmd(&format!(
         "wasm_run \"{}\"\n wasm_arg \"/ro/deploy/api-bad.yaml\"\n wasm_mount_read \"{}\"\n end",
-        wasm.display(),
-        deploy.display()
+        support::slash(&wasm),
+        support::slash(&deploy)
     ));
     let (out, err) = run(&bad);
     let msg = e(&err);
@@ -195,7 +195,7 @@ fn schema_validator_reads_mounts() {
     let base = root().join("demos/wasm-schema-validator");
     let src = cmd(&format!(
         "wasm_run \"{b}/schema-validator.wasm\"\n wasm_arg \"/ro/schemas/user.json\"\n wasm_arg \"/ro/fixtures/good-alice.json\"\n wasm_mount_read \"{b}/schemas\"\n wasm_mount_read \"{b}/fixtures\"\n end",
-        b = base.display()
+        b = support::slash(&base)
     ));
     let (out, err) = run(&src);
     assert!(err.is_none(), "{} out={out}", e(&err));
@@ -208,7 +208,7 @@ fn plugin_runs_and_evil_is_contained() {
     let mk = |n: &str| {
         cmd(&format!(
             "wasm_run \"{b}/plugins/{n}.wasm\"\n wasm_mount_read \"{b}/data\"\n end",
-            b = base.display()
+            b = support::slash(&base)
         ))
     };
     let (out, err) = run(&mk("tax"));
@@ -262,10 +262,12 @@ fn deadline_interrupts_a_spinning_module() {
 fn error_paths() {
     let d = tmpdir();
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/nope.wasm\"", d.display())));
-    assert_eq!(
-        e(&err),
-        format!("wasm_compile_failed: wasm_run: module \"{d}/nope.wasm\": stat {d}/nope.wasm: no such file or directory", d = d.display())
-    );
+    let want = format!("wasm_compile_failed: wasm_run: module \"{d}/nope.wasm\": stat {d}/nope.wasm: ", d = d.display());
+    // The OS error text is platform-specific; Unix's is asserted exactly.
+    #[cfg(unix)]
+    assert_eq!(e(&err), format!("{want}no such file or directory"));
+    #[cfg(windows)]
+    assert!(e(&err).starts_with(&want), "{}", e(&err));
 
     std::fs::write(d.join("junk.wasm"), b"not wasm at all").unwrap();
     let (_, err) = run(&cmd(&format!("wasm_run \"{}/junk.wasm\"", d.display())));

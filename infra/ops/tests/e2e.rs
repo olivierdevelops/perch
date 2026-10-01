@@ -460,7 +460,7 @@ command go
     end
 end
 "#,
-        log.display()
+        support::slash(&log)
     );
     let (_, err) = run_with(&src, "go", &[], true);
     assert!(err.is_none(), "run: {}", describe(&err));

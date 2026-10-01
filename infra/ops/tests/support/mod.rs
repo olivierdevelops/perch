@@ -17,3 +17,8 @@ pub fn portable(p: PathBuf) -> PathBuf {
         p
     }
 }
+
+/// `p` as a `/`-separated string (see [`portable`]) for embedding in source text.
+pub fn slash(p: &std::path::Path) -> String {
+    portable(p.to_path_buf()).to_string_lossy().into_owned()
+}

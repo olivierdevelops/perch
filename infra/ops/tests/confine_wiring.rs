@@ -131,6 +131,8 @@ fn env_scrub_survives_confinement() {
     assert_eq!(got.trim(), "secret=", "undeclared host env must not reach a confined child");
 }
 
+// `shell` runs through cmd.exe on Windows, so these POSIX-quoted `sh -c '…'` scripts only make sense on Unix.
+#[cfg(unix)]
 #[test]
 fn no_scopes_declared_means_unconfined() {
     let root = tmpdir();
@@ -171,6 +173,8 @@ fn unsupported_platform_refuses_by_default() {
     }
 }
 
+// `shell` runs through cmd.exe on Windows, so these POSIX-quoted `sh -c '…'` scripts only make sense on Unix.
+#[cfg(unix)]
 #[test]
 fn advisory_flag_runs_unconfined_and_prints_banner_once() {
     let root = tmpdir();
