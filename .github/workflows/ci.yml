@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, rust-port]
   pull_request:
     branches: [main]
 
@@ -24,7 +24,16 @@ jobs:
       - name: cargo test
         # TODO: Windows tests are not yet green; don't block on them until fixed.
         continue-on-error: ${{ runner.os == 'Windows' }}
-        run: cargo test --workspace
+        shell: bash
+        run: |
+          set +e
+          cargo test --workspace --no-fail-fast 2>&1 | tee test.log
+          code=${PIPESTATUS[0]}
+          if [ $code -ne 0 ]; then
+            msg=$(grep -E "^test .* FAILED|panicked at|^error(\[|:)|left:|right:" test.log | cut -c1-300 | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=test failures ($RUNNER_OS)::$msg"
+          fi
+          exit $code
 
       - name: cargo build
         run: cargo build --release -p perch -p perch-lsp -p perch-mcp
