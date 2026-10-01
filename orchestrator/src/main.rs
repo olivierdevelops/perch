@@ -1,8 +1,4 @@
-//! perch entry point. The wiring lives in `orchestrator`; this stays a one-liner.
-mod adapters;
-mod flags;
-mod orchestrator;
-
+//! perch entry point. The wiring lives in the `perch` library; this stays a one-liner.
 fn main() {
-    orchestrator::run();
+    perch::run_cli();
 }

@@ -291,6 +291,10 @@ pub struct Interpreter {
     /// (`wasm_mount_write`, `wasm_allow_host`), so the wasm op consults these.
     pub restrict_no_write: bool,
     pub restrict_no_network: bool,
+    /// Starting directory for relative paths and subprocesses. `None` = the
+    /// process cwd. Lets an embedding host give each interpreter its own
+    /// directory without a process-wide `chdir`.
+    pub working_dir: Option<String>,
 }
 
 impl Interpreter {
@@ -318,6 +322,7 @@ impl Interpreter {
             confine_unsupported: None,
             restrict_no_write: false,
             restrict_no_network: false,
+            working_dir: None,
         }
     }
 
@@ -349,7 +354,10 @@ impl Interpreter {
     }
 
     fn run_command(&self, command_name: &str, cli_args: &[String], allow_private: bool) -> Result<()> {
-        let cwd = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        let cwd = match &self.working_dir {
+            Some(d) => d.clone(),
+            None => std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        };
         let mut b = Bindings::new(&cwd);
         b.env_allowlist = self.env_allowlist.clone();
         self.seed_globals_and_env(&mut b);

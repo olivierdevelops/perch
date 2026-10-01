@@ -9,7 +9,8 @@ use perch_interpreter::{HTTPPolicy, Handler, Interpreter, SharedBuf, SharedWrite
 use perch_ops::Restrictions;
 use perch_runtests::TestSandbox;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use crate::policy::Policy;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::Write;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -186,10 +187,6 @@ fn build_interpreter_hook(mode: &str) -> Option<perch_interpreter::BeforeOp> {
     }
 }
 
-fn to_go_map(s: &Option<Set>) -> Option<HashMap<String, bool>> {
-    s.clone()
-}
-
 /// A destination for --trace / --report output: stderr for ""/"-", otherwise a
 /// freshly created file (falling back to stderr, with a notice, on failure).
 fn open_sink(path: &str, flag: &str) -> Box<dyn Write + Send> {
@@ -214,18 +211,27 @@ fn io_reason(path: &str, e: &std::io::Error) -> String {
     format!("open {path}: {why}")
 }
 
+/// The library [`Policy`] equivalent of the flags: the CLI and the embeddable
+/// `Runtime` share one construction path (`Policy::handlers` / `configure`).
+fn policy_of(s: &Settings) -> Policy {
+    let set = |m: &Option<Set>| m.as_ref().map(|m| m.keys().cloned().collect::<BTreeSet<String>>());
+    Policy {
+        no_shell: s.restrictions.no_shell,
+        no_subprocess: s.restrictions.no_subprocess,
+        no_network: s.restrictions.no_network,
+        no_write: s.restrictions.no_write,
+        env_allow: set(&s.env_allow),
+        allowed_bins: set(&s.allow_bins),
+        no_shell_metachars: s.no_meta,
+        http: s.http_policy.clone().map(Into::into),
+        allow_advisory_scopes: s.allow_advisory_scopes,
+        ..Policy::default()
+    }
+}
+
 /// Everything shared by a fresh interpreter: hooks, allowlists, policy.
 fn configure(i: &mut Interpreter, s: &Settings, hook: &Option<perch_interpreter::BeforeOp>) {
-    i.preflight_hook = Some(Arc::new(perch_ops::preflight));
-    i.hook_category = Some(Arc::new(|k: &str| perch_ops::hook_category_of(k)));
-    i.set_before_op(hook.clone());
-    i.env_allowlist = to_go_map(&s.env_allow);
-    i.allowed_shell_bins = to_go_map(&s.allow_bins);
-    i.no_shell_metachars = s.no_meta;
-    i.http_policy = s.http_policy.clone();
-    i.allow_advisory_scopes = s.allow_advisory_scopes;
-    i.restrict_no_write = s.restrictions.no_write;
-    i.restrict_no_network = s.restrictions.no_network;
+    policy_of(s).configure(i, hook);
 }
 
 /// Builds the closure that runs one command with audit/report/trace wiring.
@@ -326,9 +332,7 @@ fn chdir_reason(e: &std::io::Error) -> String {
 /// Wires the CLI. With `bundle`, Run/List/Server/Shell/Validate/CommandHelp
 /// serve the embedded program instead of reading a file.
 fn build_cli(s: &Settings, bundle: Option<perch_embed::Bundle>) -> Cli {
-    let mut handlers = perch_ops::all_handlers();
-    perch_ops::apply_restrictions(&mut handlers, &s.restrictions);
-    perch_ops::apply_mask_gating(&mut handlers);
+    let handlers = policy_of(s).handlers();
     announce_security_posture(s);
     let hook = build_interpreter_hook(&s.preview_mode);
 
