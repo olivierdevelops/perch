@@ -9,12 +9,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+mod support;
+
 fn tmpdir() -> PathBuf {
     static N: AtomicU32 = AtomicU32::new(0);
     let d = std::env::temp_dir().join(format!("perch-confwire-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
-    d.canonicalize().unwrap()
+    support::portable(d.canonicalize().unwrap())
 }
 
 struct Knobs {

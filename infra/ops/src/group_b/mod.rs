@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(call(&i, &mut b, "regex_find_all", json!({"_0": "\\d+", "_1": "a1b22"})).unwrap(), json!(["1", "22"]));
         assert_eq!(call(&i, &mut b, "regex_replace", json!({"_0": "(a)(b)", "_1": "abab", "_2": "$2$1"})).unwrap(), json!("baba"));
         assert_eq!(call(&i, &mut b, "path_with_ext", json!({"_0": "a/b.txt", "_1": "md"})).unwrap(), json!("a/b.md"));
-        assert_eq!(call(&i, &mut b, "path_join", json!({"_0": "a", "_1": "../b", "_2": "c"})).unwrap(), json!("b/c"));
+        assert_eq!(call(&i, &mut b, "path_join", json!({"_0": "a", "_1": "../b", "_2": "c"})).unwrap(), json!(if cfg!(windows) { "b\\c" } else { "b/c" }));
         assert_eq!(call(&i, &mut b, "base64_encode", json!({"_0": "hi"})).unwrap(), json!("aGk="));
         assert_eq!(call(&i, &mut b, "format", json!({"_0": "n=%d", "_1": 7})).unwrap(), json!("n=7"));
         assert!(call(&i, &mut b, "bundle_hash", json!({})).unwrap_err().starts_with("no embedded bundle"));

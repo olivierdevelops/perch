@@ -6,15 +6,17 @@ use perch_ops::all_handlers;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
+mod support;
+
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap()
+    support::portable(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap())
 }
 
 fn tmpdir() -> PathBuf {
     static N: AtomicU32 = AtomicU32::new(0);
     let d = std::env::temp_dir().join(format!("perch-ops-wasm-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
     std::fs::create_dir_all(&d).unwrap();
-    d.canonicalize().unwrap()
+    support::portable(d.canonicalize().unwrap())
 }
 
 fn run_with_stdin(src: &str, stdin: Option<&str>) -> (String, Option<Error>) {

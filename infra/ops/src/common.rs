@@ -86,6 +86,20 @@ pub fn slashed(path: &str) -> std::borrow::Cow<'_, str> {
     }
 }
 
+/// Go `filepath.FromSlash`: `/` becomes the native separator (`\` on Windows,
+/// identity on Unix). Used for user-visible path results; internal path logic
+/// stays `/`-separated.
+pub fn to_native(path: String) -> String {
+    #[cfg(windows)]
+    {
+        path.replace('/', "\\")
+    }
+    #[cfg(not(windows))]
+    {
+        path
+    }
+}
+
 /// Splits a leading Windows drive (`C:`) off `path`; always `("", path)` on Unix.
 fn split_drive(path: &str) -> (&str, &str) {
     #[cfg(windows)]

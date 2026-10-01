@@ -11,11 +11,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+mod support;
+
 fn tmpdir() -> PathBuf {
     static N: AtomicU32 = AtomicU32::new(0);
     let d = std::env::temp_dir().join(format!("perch-ops-e2e-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
     std::fs::create_dir_all(&d).unwrap();
-    d.canonicalize().unwrap()
+    support::portable(d.canonicalize().unwrap())
 }
 
 /// Loads a .perch source through the real loader, builds an interpreter with the

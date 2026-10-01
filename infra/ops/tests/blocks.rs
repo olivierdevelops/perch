@@ -9,13 +9,15 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
+mod support;
+
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn tmpdir() -> PathBuf {
     static N: AtomicU32 = AtomicU32::new(0);
     let d = std::env::temp_dir().join(format!("perch-ops-blk-{}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
     std::fs::create_dir_all(&d).unwrap();
-    d.canonicalize().unwrap()
+    support::portable(d.canonicalize().unwrap())
 }
 
 fn op(kind: &str, args: Value) -> Op {
@@ -211,7 +213,9 @@ fn if_call_runs_body_when_truthy() {
     ];
     i.run_ops(&ops, &mut b).unwrap();
     let out = buf.contents();
-    assert_eq!(out.contains("has sh"), cfg!(unix), "{out}");
+    // Windows runners may or may not have an `sh` on PATH (Git for Windows), so only assert on Unix.
+    #[cfg(unix)]
+    assert!(out.contains("has sh"), "{out}");
     assert!(!out.contains("never"));
 }
 
@@ -386,7 +390,11 @@ fn with_cwd_switches_and_restores() {
     i.run_ops(&[block("with_cwd", json!({"path": "sub"}), vec![op("cwd", json!({}))]), print("done")], &mut b).unwrap();
     assert_eq!(b.cwd, dir.to_string_lossy());
     let e = i.run_ops(&[block("with_cwd", json!({"path": "nope"}), vec![])], &mut b).unwrap_err();
+    // The OS error text differs per platform ("the system cannot find the file specified." on Windows).
+    #[cfg(unix)]
     assert_eq!(e.to_string(), format!("with_cwd \"{0}/nope\": stat {0}/nope: no such file or directory", dir.display()));
+    #[cfg(windows)]
+    assert!(e.to_string().starts_with(&format!("with_cwd \"{0}/nope\": stat {0}/nope: ", dir.display())), "{e}");
     let e = i.run_ops(&[block("with_cwd", json!({"path": "f"}), vec![])], &mut b).unwrap_err();
     assert_eq!(e.to_string(), format!("with_cwd \"{}/f\": not a directory", dir.display()));
     let e = i.run_ops(&[block("with_cwd", json!({}), vec![])], &mut b).unwrap_err();

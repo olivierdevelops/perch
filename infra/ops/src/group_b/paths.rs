@@ -1,4 +1,5 @@
 //! Cross-platform path ops (paths.go). Unix `filepath` semantics.
+use crate::common;
 use crate::group_b::util::*;
 use perch_interpreter::{err, handler, to_string_value, Args, Handler, Result};
 use serde_json::Value;
@@ -11,16 +12,16 @@ pub fn register(m: &mut HashMap<String, Handler>) {
     add("path_join", |a| {
         let parts = collect_positional(a);
         let refs: Vec<&str> = parts.iter().map(String::as_str).collect();
-        Ok(Value::String(go_join(&refs)))
+        Ok(Value::String(common::to_native(go_join(&refs))))
     });
-    add("path_dir", |a| Ok(Value::String(go_dir(&arg_string(a, &["path", "_0"])))));
+    add("path_dir", |a| Ok(Value::String(common::to_native(go_dir(&arg_string(a, &["path", "_0"]))))));
     add("path_base", |a| Ok(Value::String(go_base(&arg_string(a, &["path", "_0"])))));
     add("path_ext", |a| Ok(Value::String(go_ext(&arg_string(a, &["path", "_0"])))));
     add("path_abs", |a| {
         let p = arg_string(a, &["path", "_0"]);
-        go_abs(&p).map(Value::String).map_err(|e| err(go_io_msg(&e)))
+        go_abs(&p).map(|s| Value::String(common::to_native(s))).map_err(|e| err(go_io_msg(&e)))
     });
-    add("path_clean", |a| Ok(Value::String(go_clean(&arg_string(a, &["path", "_0"])))));
+    add("path_clean", |a| Ok(Value::String(common::to_native(go_clean(&arg_string(a, &["path", "_0"]))))));
     add("path_rel", |a| {
         go_rel(&arg_string(a, &["base", "_0"]), &arg_string(a, &["target", "_1"])).map(Value::String).map_err(err)
     });
@@ -35,9 +36,9 @@ pub fn register(m: &mut HashMap<String, Handler>) {
         Ok(Value::String(format!("{stem}{ext}")))
     });
     add("is_abs", |a| Ok(Value::Bool(is_abs(&arg_string(a, &["path", "_0"])))));
-    // Unix: ToSlash / FromSlash are identity.
-    add("to_slash", |a| Ok(Value::String(arg_string(a, &["path", "_0"]))));
-    add("from_slash", |a| Ok(Value::String(arg_string(a, &["path", "_0"]))));
+    // ToSlash / FromSlash: identity on Unix; `\` <-> `/` on Windows.
+    add("to_slash", |a| Ok(Value::String(common::slashed(&arg_string(a, &["path", "_0"])).into_owned())));
+    add("from_slash", |a| Ok(Value::String(common::to_native(arg_string(a, &["path", "_0"])))));
 
     // expand_path "~/.config/x" -> "/Users/me/.config/x"; also $VAR expansion.
     m.insert(
