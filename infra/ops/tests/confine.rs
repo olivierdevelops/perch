@@ -1,4 +1,6 @@
 //! T-12..T-19: confinement of spawned binaries (PLAN-2026-0001 R03).
+// Helpers are used only by platform-gated tests, so they look dead elsewhere.
+#![allow(dead_code)]
 use perch_ops::{confine, confine_probe, Scopes, Support};
 use std::path::{Path, PathBuf};
 use std::process::Command;

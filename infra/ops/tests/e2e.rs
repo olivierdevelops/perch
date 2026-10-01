@@ -1004,7 +1004,7 @@ end
 
 // ── R05: inline env prefix ────────────────────────────────────────────────────
 
-const PREFIX_SRC_HEAD: &str = "name \"x\"\nCFG = \"from-binding\"\nrequires\n    bin \"sh\"\n    env \"PERCH_T28_DECLARED\"\nend\n";
+const PREFIX_SRC_HEAD: &str = "name \"x\"\nCFG = \"from-binding\"\nrequires\n    bin \"sh\"\n    env \"PERCH_T28_DECLARED\" optional\nend\n";
 
 // T-26 + T-27 + T-30: the prefix reaches that child only, does not leak to the
 // next op, and works on exec and on the capture form.
@@ -1016,8 +1016,9 @@ fn t26_t27_t30_prefix_reaches_child_only() {
     let (out, err) = run_source(&src, "t", &[]);
     // `${PERCH_T26}` is not a binding and not a host var: the last print fails the run.
     assert!(err.is_some(), "a prefix must not create a binding; out={out:?}");
+    let errtxt = describe(&err);
     for want in ["first=hello", "second=[]", "third=viaexec", "got=cap", "after=[]"] {
-        assert!(out.contains(want), "missing {want:?} in out={out:?}");
+        assert!(out.contains(want), "missing {want:?} in out={out:?} err={errtxt}");
     }
     assert!(!out.contains("binding=["), "prefix leaked into bindings; out={out:?}");
 }

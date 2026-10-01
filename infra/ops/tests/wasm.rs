@@ -445,16 +445,19 @@ fn t35_t36_disk_cache_written_switchable_and_read_only_safe() {
     std::env::remove_var("PERCH_WASM_CACHE");
     assert!(e(&err).contains("exit_code(7)"), "{}", e(&err));
     assert_eq!(cwasm_files(&cache), 1);
-    // Read-only cache dir: execution unaffected.
-    let ro = d.join("ro");
-    std::fs::create_dir_all(&ro).unwrap();
-    let mut perm = std::fs::metadata(&ro).unwrap().permissions();
-    std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o555);
-    std::fs::set_permissions(&ro, perm).unwrap();
-    std::env::set_var("PERCH_WASM_CACHE_DIR", ro.join("sub"));
-    let err = run_exit(9, "c.wasm");
-    std::env::remove_var("PERCH_WASM_CACHE_DIR");
-    assert!(e(&err).contains("exit_code(9)"), "{}", e(&err));
+    // Read-only cache dir: execution unaffected (POSIX permission bits only).
+    #[cfg(unix)]
+    {
+        let ro = d.join("ro");
+        std::fs::create_dir_all(&ro).unwrap();
+        let mut perm = std::fs::metadata(&ro).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o555);
+        std::fs::set_permissions(&ro, perm).unwrap();
+        std::env::set_var("PERCH_WASM_CACHE_DIR", ro.join("sub"));
+        let err = run_exit(9, "c.wasm");
+        std::env::remove_var("PERCH_WASM_CACHE_DIR");
+        assert!(e(&err).contains("exit_code(9)"), "{}", e(&err));
+    }
 }
 
 // ---- F03 / F04: gating and typed kinds ----
