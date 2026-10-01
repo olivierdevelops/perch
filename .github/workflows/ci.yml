@@ -30,8 +30,10 @@ jobs:
           cargo test --workspace --no-fail-fast 2>&1 | tee test.log
           code=${PIPESTATUS[0]}
           if [ $code -ne 0 ]; then
-            msg=$(grep -E "^test .* FAILED|panicked at|^error(\[|:)|left:|right:" test.log | cut -c1-300 | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            msg=$(grep -E -A3 "^test .* FAILED|panicked at|^error(\[|:)" test.log | cut -c1-400 | head -80 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=test failures ($RUNNER_OS)::$msg"
+            tail=$(tail -n 25 test.log | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=log tail ($RUNNER_OS)::$tail"
           fi
           exit $code
 
