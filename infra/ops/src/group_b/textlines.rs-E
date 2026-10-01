@@ -49,7 +49,7 @@ pub fn op_reject(a: &Args<'_>) -> Result<Value> {
 
 /// Nth whitespace-delimited field (1-indexed) of each line. `cut N TEXT`.
 pub fn op_cut(a: &Args<'_>) -> Result<Value> {
-    let mut n = f2i(a.map.get("_0").map_or(0.0, to_float));
+    let mut n = f2i(to_float(a.map.get("_0")));
     let text = arg_string(a, &["_1", "text"]);
     if n < 1 {
         n = 1;
@@ -62,7 +62,7 @@ pub fn op_cut(a: &Args<'_>) -> Result<Value> {
 }
 
 fn clamp_n(a: &Args<'_>, len: usize) -> usize {
-    let n = f2i(a.map.get("_0").map_or(0.0, to_float)).max(0);
+    let n = f2i(to_float(a.map.get("_0"))).max(0);
     (n as usize).min(len)
 }
 

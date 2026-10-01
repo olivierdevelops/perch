@@ -294,8 +294,15 @@ fn run_wasm_module(
 /// F03: a mount path must sit inside a declared `read`/`write` root of the
 /// program's `requires` block (same check the file ops use; no block = no
 /// gate, like every other op), and `wasm_mount_write` also needs write
-/// capability in the `sandbox` mask.
+/// capability in the `sandbox` mask and under the CLI `--no-write`.
 fn check_mount(i: &Interpreter, b: &Bindings, op: &str, marker: &str, path: &str, write: bool) -> Result<()> {
+    if write && i.restrict_no_write {
+        return Err(denied(
+            op,
+            format!("{marker} {} forbidden by --no-write", go_quote(path)),
+            path,
+        ));
+    }
     if write && CapMask::any_no_write(b.cap_mask.as_deref()) {
         return Err(denied(
             op,
@@ -310,6 +317,9 @@ fn check_mount(i: &Interpreter, b: &Bindings, op: &str, marker: &str, path: &str
 /// F03: `wasm_allow_host` must name a host declared in `requires` and needs
 /// network capability in the `sandbox` mask.
 fn check_allow_host(i: &Interpreter, b: &Bindings, op: &str, host: &str) -> Result<()> {
+    if i.restrict_no_network {
+        return Err(denied(op, format!("wasm_allow_host {} forbidden by --no-network", go_quote(host)), host));
+    }
     if CapMask::any_no_network(b.cap_mask.as_deref()) {
         return Err(denied(op, format!("wasm_allow_host {} forbidden by sandbox (no_network scope)", go_quote(host)), host));
     }

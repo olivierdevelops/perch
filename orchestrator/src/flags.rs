@@ -122,6 +122,19 @@ pub fn extract_allow(args: &mut Vec<String>) -> AllowFlags {
     a
 }
 
+/// `--allow-advisory-scopes`: run spawned binaries unconfined (with a banner)
+/// where the platform cannot enforce declared `read`/`write`/`host` scopes.
+pub fn extract_advisory_scopes(args: &mut Vec<String>) -> bool {
+    let before = args.len();
+    let mut first = true;
+    args.retain(|a| {
+        let keep = first || a != "--allow-advisory-scopes";
+        first = false;
+        keep
+    });
+    args.len() != before
+}
+
 /// True when the remaining args contain `-f -`.
 pub fn is_stdin_invocation(args: &[String]) -> bool {
     (1..args.len().saturating_sub(1)).any(|i| args[i] == "-f" && args[i + 1] == "-")
@@ -325,4 +338,18 @@ pub fn extract_preview(args: &mut Vec<String>) -> String {
     }
     *args = out;
     mode
+}
+
+#[cfg(test)]
+mod advisory_tests {
+    use super::*;
+
+    #[test]
+    fn extracts_advisory_flag_anywhere_but_not_argv0() {
+        let mut a: Vec<String> = ["perch", "--allow-advisory-scopes", "go"].map(String::from).to_vec();
+        assert!(extract_advisory_scopes(&mut a));
+        assert_eq!(a, vec!["perch", "go"]);
+        let mut b: Vec<String> = ["perch", "go"].map(String::from).to_vec();
+        assert!(!extract_advisory_scopes(&mut b));
+    }
 }

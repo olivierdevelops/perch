@@ -143,7 +143,7 @@ These fire when the runtime restriction layer refuses an op outright (before the
 | `command_not_found` | a bare `X` invocation where `X` isn't a declared command. |
 | `bin_not_found` | `has_bin` returned false in a context that required the binary (e.g. inside `require_bin`). |
 
-### Requires-manifest (4)
+### Requires-manifest (7)
 
 These fire only in files that declared a `requires ... end` block. See [docs/requires.md](requires.md).
 
@@ -155,6 +155,7 @@ These fire only in files that declared a `requires ... end` block. See [docs/req
 | `read_not_declared` | A filesystem read op touches a path outside every declared `read` (and `write`) root. |
 | `write_not_declared` | A filesystem write op touches a path outside every declared `write` root. |
 | `requirement_unmet` | Preflight failure — required bin missing, version doesn't satisfy comparator, required env not set, or host OS/arch not in declared list. |
+| `confinement_unavailable` | The file declared `read` / `write` / `host` scopes but this platform cannot enforce them on spawned binaries (Windows, old kernel, or an already-sandboxed macOS process). Perch refuses to spawn rather than run unconfined; pass `--allow-advisory-scopes` to run anyway with the scopes advisory (a banner is printed once to stderr). |
 
 ### Capability gate (8)
 

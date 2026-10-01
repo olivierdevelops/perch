@@ -39,6 +39,7 @@ struct Settings {
     http_policy: Option<HTTPPolicy>,
     preview_mode: String,
     stdin_untrusted: bool,
+    allow_advisory_scopes: bool,
 }
 
 fn exit(code: i32) -> ! {
@@ -67,6 +68,7 @@ pub fn run() {
     s.allow_bins = allow_bins;
     s.no_meta = no_meta;
     let allow = flags::extract_allow(&mut args);
+    s.allow_advisory_scopes = flags::extract_advisory_scopes(&mut args);
     s.audit_path = flags::extract_audit(&mut args);
     let (rp, ro) = flags::extract_report(&mut args);
     s.report_path = rp;
@@ -151,6 +153,9 @@ fn announce_security_posture(s: &Settings) {
     if s.no_meta {
         parts.push("--no-shell-metachars".into());
     }
+    if s.allow_advisory_scopes {
+        parts.push("--allow-advisory-scopes".into());
+    }
     if !s.audit_path.is_empty() {
         parts.push(format!("--audit {}", s.audit_path));
     }
@@ -218,6 +223,9 @@ fn configure(i: &mut Interpreter, s: &Settings, hook: &Option<perch_interpreter:
     i.allowed_shell_bins = to_go_map(&s.allow_bins);
     i.no_shell_metachars = s.no_meta;
     i.http_policy = s.http_policy.clone();
+    i.allow_advisory_scopes = s.allow_advisory_scopes;
+    i.restrict_no_write = s.restrictions.no_write;
+    i.restrict_no_network = s.restrictions.no_network;
 }
 
 /// Builds the closure that runs one command with audit/report/trace wiring.
@@ -285,6 +293,8 @@ fn run_test_fn(s: Settings) -> perch_runtests::RunTestFn {
         ti.stdout = buf.writer();
         ti.stderr = buf.writer();
         configure(&mut ti, &s, &None);
+        ti.restrict_no_write = tr.no_write;
+        ti.restrict_no_network = tr.no_network;
         if !sb.timeout.is_zero() {
             ti.set_deadline(Some(Instant::now() + sb.timeout));
         }

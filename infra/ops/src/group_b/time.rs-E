@@ -32,7 +32,7 @@ fn op_now(a: &Args<'_>) -> Result<Value> {
 }
 
 fn op_unix_to_iso(a: &Args<'_>) -> Result<Value> {
-    let secs = f2i(a.map.get("_0").map_or(0.0, to_float));
+    let secs = f2i(to_float(a.map.get("_0")));
     let utc = FixedOffset::east_opt(0).unwrap();
     let t = utc.timestamp_opt(secs, 0).single();
     Ok(Value::String(match t {

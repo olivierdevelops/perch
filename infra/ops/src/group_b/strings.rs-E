@@ -52,7 +52,7 @@ pub fn register(m: &mut HashMap<String, Handler>) {
     });
     add("repeat", |a| {
         let s = arg_string(a, &["value", "_0"]);
-        let n = f2i(a.map.get("count").map_or(0.0, to_float));
+        let n = f2i(to_float(a.map.get("count")));
         if n < 0 {
             return Err(err("repeat: negative count"));
         }

@@ -1,32 +1,15 @@
 //! Private helpers for the group-B op files: Go-flavoured arg access, the
 //! `filepath` functions the ops lean on, Go-style OS error text, a `Walk`
 //! equivalent, temp-file naming, RE2-flavoured regex compilation and Go's
-//! `json.Marshal` text. (Some of these duplicate group A's `common.rs` so the
-//! two op groups stay independent; keep them behaviorally identical.)
-use perch_interpreter::{err, to_string_value, Args, Bindings, Error, Handler, Result};
+//! `json.Marshal` text. The helpers group A also uses (arg access, `filepath`
+//! Clean/Join/Dir/Base, `resolve`, OS error text) are re-exported from
+//! `common.rs`, not duplicated.
+pub use crate::common::{arg_string, go_base, go_clean, go_dir, go_io_msg, go_join, resolve, to_float};
+use crate::common;
+use perch_interpreter::{err, Args, Error, Handler, Result};
 use serde_json::Value;
 use std::fs;
 use std::io;
-
-/// Go `argString`: the string form of the first of `names` present in `args`.
-pub fn arg_string(args: &Args<'_>, names: &[&str]) -> String {
-    for n in names {
-        if let Some(v) = args.map.get(*n) {
-            return to_string_value(v);
-        }
-    }
-    String::new()
-}
-
-/// Go `toFloat` (flow.go).
-pub fn to_float(v: Option<&Value>) -> f64 {
-    match v {
-        Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0),
-        Some(Value::Bool(b)) => f64::from(u8::from(*b)),
-        Some(Value::String(s)) => s.parse::<f64>().unwrap_or(0.0),
-        _ => 0.0,
-    }
-}
 
 /// Go `int(f)` for a float64 (saturating; NaN -> 0).
 pub fn f2i(f: f64) -> i64 {
@@ -42,64 +25,6 @@ pub fn pure(f: fn(&Args<'_>) -> Result<Value>) -> Handler {
 
 pub fn is_abs(p: &str) -> bool {
     p.starts_with('/')
-}
-
-/// Go `filepath.Clean`.
-pub fn go_clean(path: &str) -> String {
-    if path.is_empty() {
-        return ".".to_string();
-    }
-    let rooted = path.starts_with('/');
-    let mut stack: Vec<&str> = Vec::new();
-    for elem in path.split('/') {
-        match elem {
-            "" | "." => {}
-            ".." => {
-                if stack.last().is_some_and(|l| *l != "..") {
-                    stack.pop();
-                } else if !rooted {
-                    stack.push("..");
-                }
-            }
-            e => stack.push(e),
-        }
-    }
-    let joined = stack.join("/");
-    match (rooted, joined.is_empty()) {
-        (true, _) => format!("/{joined}"),
-        (false, true) => ".".to_string(),
-        (false, false) => joined,
-    }
-}
-
-/// Go `filepath.Join`.
-pub fn go_join(elems: &[&str]) -> String {
-    let parts: Vec<&str> = elems.iter().copied().filter(|e| !e.is_empty()).collect();
-    if parts.is_empty() {
-        return String::new();
-    }
-    go_clean(&parts.join("/"))
-}
-
-/// Go `filepath.Dir`.
-pub fn go_dir(path: &str) -> String {
-    let i = path.rfind('/').map(|i| i + 1).unwrap_or(0);
-    go_clean(&path[..i])
-}
-
-/// Go `filepath.Base`.
-pub fn go_base(path: &str) -> String {
-    if path.is_empty() {
-        return ".".to_string();
-    }
-    let t = path.trim_end_matches('/');
-    if t.is_empty() {
-        return "/".to_string();
-    }
-    match t.rfind('/') {
-        Some(i) => t[i + 1..].to_string(),
-        None => t.to_string(),
-    }
 }
 
 /// Go `filepath.Ext`.
@@ -179,34 +104,11 @@ pub fn go_rel(basepath: &str, targpath: &str) -> std::result::Result<String, Str
     Ok(targ[t0..].to_string())
 }
 
-/// Go `resolve` (files.go).
-pub fn resolve(p: &str, b: &Bindings) -> String {
-    if is_abs(p) {
-        p.to_string()
-    } else {
-        go_join(&[&b.cwd, p])
-    }
-}
-
 // ── Go-style OS errors ────────────────────────────────────────────────────
-
-/// Text of an OS error the way Go prints it (`no such file or directory`).
-pub fn go_io_msg(e: &io::Error) -> String {
-    let s = e.to_string();
-    let s = match s.find(" (os error") {
-        Some(i) => s[..i].to_string(),
-        None => s,
-    };
-    let mut cs = s.chars();
-    match cs.next() {
-        Some(c) => c.to_lowercase().collect::<String>() + cs.as_str(),
-        None => s,
-    }
-}
 
 /// `*PathError`: `<op> <path>: <cause>`.
 pub fn path_err(op: &str, path: &str, e: &io::Error) -> Error {
-    err(format!("{op} {path}: {}", go_io_msg(e)))
+    err(common::path_err(op, path, e))
 }
 
 /// `*LinkError`: `<op> <old> <new>: <cause>`.

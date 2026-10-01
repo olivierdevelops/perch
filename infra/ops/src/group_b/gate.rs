@@ -1,6 +1,6 @@
 //! The `requires` gates group B needs (host / net / path). Private minimal
-//! ports of requires.go's CheckHostDeclared / CheckNetDeclared /
-//! checkPathDeclared; group A owns the full set.
+//! ports of requires.go's CheckHostDeclared / checkPathDeclared (kept: group A's
+//! copies quote with `{:?}`, these with Go `%q`); net / host_of_url are shared.
 use crate::group_b::util::{go_clean, go_join, is_abs};
 use perch_domain::{ErrorKind, OpError};
 use perch_interpreter::{go_quote, interpolate, Bindings, Error, Interpreter, Result};
@@ -31,31 +31,12 @@ pub fn check_host_declared(i: &Interpreter, host: &str) -> Result<()> {
     Err(oe("http", ErrorKind::HostNotDeclared, &format!("host {} is not declared in `requires`", go_quote(&host)), &host))
 }
 
+/// Delegates to group A's gate (identical text); only the error boxing differs.
 pub fn check_net_declared(i: &Interpreter) -> Result<()> {
-    let r = &i.program.requirements;
-    if !r.declared || !r.hosts.is_empty() {
-        return Ok(());
-    }
-    Err(oe("net", ErrorKind::HostNotDeclared, "network access is not declared in `requires` (declare a `host`)", ""))
+    crate::requires::check_net_declared(i).map_err(|e| Box::new(e) as Error)
 }
 
-/// Go `hostOfURL`.
-pub fn host_of_url(u: &str) -> String {
-    let mut s = u;
-    if let Some(idx) = s.find("://") {
-        s = &s[idx + 3..];
-    }
-    if let Some(idx) = s.find(['/', '?', '#']) {
-        s = &s[..idx];
-    }
-    if let Some(idx) = s.rfind('@') {
-        s = &s[idx + 1..];
-    }
-    if let Some(idx) = s.rfind(':') {
-        s = &s[..idx];
-    }
-    s.to_string()
-}
+pub use crate::requires::host_of_url;
 
 fn abs_under(p: &str, cwd: &str) -> String {
     if is_abs(p) {
@@ -103,4 +84,21 @@ pub fn check_path_declared(i: &Interpreter, b: &Bindings, raw: &str, is_write: b
         &format!("read of {} is outside every declared `read` root in `requires`", go_quote(raw)),
         raw,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_gate_helpers() {
+        assert_eq!(host_of_url("https://u:p@Example.com:8080/x?y#z"), "Example.com");
+        assert_eq!(host_of_url("h.io"), "h.io");
+        let mut prog = perch_domain::Program::default();
+        assert!(check_net_declared(&Interpreter::new(Default::default(), prog.clone())).is_ok());
+        prog.requirements.declared = true;
+        let i = Interpreter::new(Default::default(), prog);
+        let e = check_net_declared(&i).unwrap_err().to_string();
+        assert!(e.contains("network access is not declared"), "{e}");
+    }
 }

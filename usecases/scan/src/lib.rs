@@ -71,6 +71,10 @@ pub struct Report {
     pub declared_network: bool,
     pub declared_read: bool,
     pub env_vars: BTreeMap<String, usize>,
+    /// Declared-bin / `exec` call bin → count (subprocess class).
+    pub exec_bins: BTreeMap<String, usize>,
+    /// One entry per `exec` op with an `env_prefix`: (bin, names in source order).
+    pub env_prefix: Vec<(String, Vec<String>)>,
     pub has_proxy_args: bool,
     pub has_catch: bool,
     /// Catch contains a shell op (open passthrough).
@@ -136,6 +140,28 @@ fn walk_ops(ops: &[Op], where_: &str, r: &mut Report, in_catch: bool) {
                     r.catch_forwards = true;
                 }
                 classify_shell(op, r);
+            }
+            "exec" => {
+                // Declared-bin call (`docker ps`, `K=v tool a`): a subprocess, not a
+                // shell. Same sudo rule as shell bins; env_prefix is reported.
+                r.needs_subprocess = true;
+                *r.subprocess_ops.entry("exec".to_string()).or_default() += 1;
+                let bin = op.args.get("bin").and_then(|v| v.as_str()).unwrap_or("");
+                let base = bin.rsplit('/').next().unwrap_or(bin);
+                if !base.is_empty() {
+                    *r.exec_bins.entry(base.to_string()).or_default() += 1;
+                }
+                if base == "sudo" {
+                    r.has_shell_sudo = true;
+                }
+                if let Some(Value::Object(m)) = op.args.get("env_prefix") {
+                    r.env_prefix.push((base.to_string(), m.keys().cloned().collect()));
+                    for v in m.values() {
+                        if let Value::String(s) = v {
+                            record_env(s, r);
+                        }
+                    }
+                }
             }
             "pkg_install" | "pkg_uninstall" | "kill_by_name" | "process_running" | "bin_version" | "os_version" => {
                 r.needs_subprocess = true;
@@ -399,6 +425,14 @@ pub fn print_report(w: &mut dyn Write, p: &Program, path: &str, r: &Report) -> s
     if !r.env_vars.is_empty() {
         writeln!(w, "  ENV VARS REFERENCED")?;
         write!(w, "    {}\n\n", keys(&r.env_vars).join(", "))?;
+    }
+
+    if !r.env_prefix.is_empty() {
+        writeln!(w, "  ENV PREFIX (per-call env on declared-bin calls)")?;
+        for (bin, names) in &r.env_prefix {
+            writeln!(w, "    {bin}: {}", names.join(", "))?;
+        }
+        writeln!(w)?;
     }
 
     // FINDINGS
@@ -757,6 +791,8 @@ pub struct JsonNamed {
 pub struct JsonInferred {
     pub catch_forwards: bool,
     pub env: Vec<String>,
+    pub env_prefix: Vec<JsonEnvPrefix>,
+    pub exec_bins: Vec<String>,
     pub hosts: Vec<String>,
     pub network: bool,
     pub read: bool,
@@ -766,6 +802,13 @@ pub struct JsonInferred {
     pub subprocess_ops: Vec<String>,
     pub write: bool,
     pub write_roots: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsonEnvPrefix {
+    pub bin: String,
+    pub names: Vec<String>,
+    pub op: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -826,6 +869,12 @@ pub fn build_json_report(p: &Program, path: &str, r: &Report) -> JsonReport {
         inferred: JsonInferred {
             catch_forwards: r.catch_forwards,
             env: owned_keys(&r.env_vars),
+            env_prefix: r
+                .env_prefix
+                .iter()
+                .map(|(b, n)| JsonEnvPrefix { bin: b.clone(), names: n.clone(), op: "exec".into() })
+                .collect(),
+            exec_bins: owned_keys(&r.exec_bins),
             hosts: owned_keys(&r.hosts),
             network: r.needs_network,
             read: r.needs_read,
@@ -921,6 +970,55 @@ mod tests {
         assert!(!inv.contains(&"  --no-shell-metachars \\".to_string()));
     }
 
+    fn exec_op(bin: &str, prefix: Option<Value>, capture: &str) -> Op {
+        let mut o = op("exec", json!({"bin": bin, "_0": "ps"}));
+        if let Some(p) = prefix {
+            o.args.insert("env_prefix".into(), p);
+        }
+        o.capture_into = capture.into();
+        o
+    }
+
+    #[test]
+    fn exec_plain_prefixed_and_capture() {
+        let p = prog(vec![
+            exec_op("docker", None, ""),
+            exec_op("kubectl", Some(json!({"KUBECONFIG": "${CFG}", "Z": "lit"})), ""),
+            exec_op("/usr/bin/sudo", None, "out"),
+        ]);
+        let r = analyze(&p);
+        assert!(r.needs_subprocess && !r.needs_shell);
+        assert_eq!(r.subprocess_ops.get("exec"), Some(&3));
+        assert_eq!(r.exec_bins.keys().cloned().collect::<Vec<_>>(), vec!["docker", "kubectl", "sudo"]);
+        assert_eq!(r.env_prefix, vec![("kubectl".to_string(), vec!["KUBECONFIG".to_string(), "Z".to_string()])]);
+        assert_eq!(r.env_vars.keys().cloned().collect::<Vec<_>>(), vec!["CFG"]);
+        assert!(r.has_shell_sudo);
+        assert_eq!(score_report(&r).0, RiskScore::High);
+        let v: Value = serde_json::from_str(&json_report(&p, "t.perch", &r)).unwrap();
+        assert_eq!(v["schema"], 1);
+        assert_eq!(v["inferred"]["exec_bins"], json!(["docker", "kubectl", "sudo"]));
+        assert_eq!(
+            v["inferred"]["env_prefix"],
+            json!([{"op": "exec", "bin": "kubectl", "names": ["KUBECONFIG", "Z"]}])
+        );
+        assert_eq!(v["inferred"]["env"], json!(["CFG"]));
+        let mut out = Vec::new();
+        print_report(&mut out, &p, "t.perch", &r).unwrap();
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains("ENV PREFIX") && s.contains("    kubectl: KUBECONFIG, Z\n"), "{s}");
+        assert!(s.contains("subprocess") && s.contains("exec"));
+    }
+
+    #[test]
+    fn exec_chain_body_is_walked() {
+        let mut chain = op("exec_chain", json!({}));
+        chain.body = vec![exec_op("git", Some(json!({"A": "1"})), ""), exec_op("git", None, "")];
+        let r = analyze(&prog(vec![chain]));
+        assert_eq!(r.exec_bins.get("git"), Some(&2));
+        assert_eq!(score_report(&r).0, RiskScore::Low);
+        assert_eq!(r.env_prefix.len(), 1);
+    }
+
     #[test]
     fn helpers() {
         assert_eq!(path_root("/a/b/c/d"), "/a/b/…");
@@ -982,6 +1080,8 @@ mod tests {
   "inferred": {
     "catch_forwards": false,
     "env": [],
+    "env_prefix": [],
+    "exec_bins": [],
     "hosts": [],
     "network": false,
     "read": false,

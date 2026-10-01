@@ -1,7 +1,10 @@
 //! Process ops: print/println/eprintln, shell family, exec / exec_chain / pipe,
 //! fail / exit / sleep, run, list_commands, and process management.
 use crate::common::{arg_string, look_path, truthy_value, go_io_msg};
-use crate::requires::{check_exec_bin, check_shell_bin_declared, check_subprocess_bin, resolve_exec_path};
+use crate::confine::{self, Support};
+use crate::requires::{
+    check_exec_bin, check_shell_bin_declared, check_subprocess_bin, resolve_exec_path, resolve_root,
+};
 use perch_domain::{ErrorKind, Op, OpError};
 use perch_interpreter::{
     err, find_op_error, go_os, go_quote, handler, interpolate_args, to_string_value, wrap, Args, Bindings, Error,
@@ -10,7 +13,10 @@ use perch_interpreter::{
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::atomic::Ordering;
+use std::sync::OnceLock;
 use std::thread::JoinHandle;
 
 pub fn register_process(m: &mut HashMap<String, Handler>) {
@@ -337,6 +343,81 @@ pub(crate) fn build_shell(s: &str) -> Command {
     }
 }
 
+// ── confinement (PLAN-2026-0001 R03, decision D3) ─────────────────────────
+
+/// Pure decision for one spawn: what to do given the declared scopes, the
+/// platform probe result and the operator's opt-out. Kept separate from the
+/// side effects so every branch is unit-testable with an injected `Support`.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Confinement {
+    /// Nothing declared: spawn exactly as before.
+    Unconfined,
+    /// Enforce the scopes on the child.
+    Enforce,
+    /// Platform cannot enforce; operator allowed it. Run unconfined, banner once.
+    Advisory(String),
+    /// Platform cannot enforce and no opt-out: refuse the spawn.
+    Refuse(String),
+}
+
+pub(crate) fn decide_confinement(scopes_empty: bool, support: &Support, allow_advisory: bool) -> Confinement {
+    if scopes_empty {
+        return Confinement::Unconfined;
+    }
+    match support {
+        Support::Enforced => Confinement::Enforce,
+        Support::Unsupported(r) if allow_advisory => Confinement::Advisory(r.clone()),
+        Support::Unsupported(r) => Confinement::Refuse(r.clone()),
+    }
+}
+
+/// The platform probe, asked once per process (it is a pure property of the OS
+/// and spawning `sandbox-exec` per spawn would be wasteful).
+fn cached_probe() -> Support {
+    static PROBE: OnceLock<Support> = OnceLock::new();
+    PROBE.get_or_init(confine::probe).clone()
+}
+
+/// Confines `cmd` to the program's declared `requires` scopes. Call right after
+/// the command's program/args/cwd are set and BEFORE `apply_env` / env overlay /
+/// stdio (the macOS backend rewrites the Command, and its env-clear state is not
+/// observable, so the env must be applied to the rewritten one).
+/// No declared scopes: no-op. Unsupported platform: refuse, or (with
+/// `--allow-advisory-scopes`) print the advisory banner once and run unconfined.
+pub(crate) fn confine_spawn(i: &Interpreter, b: &Bindings, cmd: &mut Command) -> std::result::Result<(), Error> {
+    let req = &i.program.requirements;
+    if req.read_roots.is_empty() && req.write_roots.is_empty() && req.hosts.is_empty() {
+        return Ok(());
+    }
+    let scopes = confine::scopes_from_requirements(req, &|raw| PathBuf::from(resolve_root(raw, b)));
+    let support = match &i.confine_unsupported {
+        Some(r) => Support::Unsupported(r.clone()),
+        None => cached_probe(),
+    };
+    match decide_confinement(scopes.is_empty(), &support, i.allow_advisory_scopes) {
+        Confinement::Unconfined => Ok(()),
+        Confinement::Enforce => confine::confine(cmd, &scopes).map_err(|e| {
+            Box::new(OpError::new("spawn", ErrorKind::ConfinementUnavailable, &e.to_string())) as Error
+        }),
+        Confinement::Advisory(reason) => {
+            if !i.advisory_announced.swap(true, Ordering::SeqCst) {
+                let _ = i.stderr.write_str(&format!("{}\n", confine::advisory_banner(&reason)));
+            }
+            Ok(())
+        }
+        Confinement::Refuse(reason) => Err(Box::new(
+            OpError::new(
+                "spawn",
+                ErrorKind::ConfinementUnavailable,
+                &format!(
+                    "this file declares read/write/host scopes but they cannot be enforced on spawned binaries here ({reason}); refusing to spawn — pass --allow-advisory-scopes to run unconfined with the scopes advisory"
+                ),
+            )
+            .with_detail(reason),
+        )),
+    }
+}
+
 // ── env ───────────────────────────────────────────────────────────────────
 
 /// The baseline operational env passed to every declared subprocess without
@@ -514,6 +595,7 @@ fn op_try_shell(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Va
     }
     let mut c = build_shell(&cmd);
     set_dir(&mut c, &b.cwd);
+    confine_spawn(i, b, &mut c)?;
     apply_env(i, &mut c, b);
     let (e, _) = run_cmd(&mut c, Src::Null, Dest::Null, Dest::Null);
     Ok(Value::Bool(e.is_none()))
@@ -525,6 +607,7 @@ fn op_shell_in(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Val
     check_shell(i, &cmd)?;
     let mut c = build_shell(&cmd);
     set_dir(&mut c, if dir.is_empty() { &b.cwd } else { &dir });
+    confine_spawn(i, b, &mut c)?;
     apply_env(i, &mut c, b);
     let (e, _) = run_cmd(&mut c, Src::Reader(&i.stdin), Dest::Writer(&i.stdout), Dest::Writer(&i.stderr));
     match e {
@@ -651,8 +734,9 @@ fn op_shell(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value>
     let raw = arg_string(args, &["cmd", "_0"]);
     check_shell(i, &raw)?;
     let mut cmd = build_shell(&raw);
-    apply_env(i, &mut cmd, b);
     set_dir(&mut cmd, &b.cwd);
+    confine_spawn(i, b, &mut cmd)?;
+    apply_env(i, &mut cmd, b);
     let (e, _) = run_cmd(&mut cmd, Src::Reader(&i.stdin), Dest::Writer(&i.stdout), Dest::Writer(&i.stderr));
     match e {
         Some(e) => Err(tag_shell_err(e, &raw)),
@@ -668,8 +752,9 @@ fn op_shell_output(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result
     let raw = arg_string(args, &["cmd", "_0"]);
     check_shell(i, &raw)?;
     let mut cmd = build_shell(&raw);
-    apply_env(i, &mut cmd, b);
     set_dir(&mut cmd, &b.cwd);
+    confine_spawn(i, b, &mut cmd)?;
+    apply_env(i, &mut cmd, b);
     let (e, out) = run_cmd(&mut cmd, Src::Null, Dest::Capture, Dest::Writer(&i.stderr));
     match e {
         Some(e) => Err(tag_shell_err(e, &raw)),
@@ -728,9 +813,10 @@ fn exec_with(i: &Interpreter, b: &Bindings, args: &Map<String, Value>) -> Result
     let out;
     match build_command(&resolve_exec_path(i, &bin), &argv) {
         Ok(mut cmd) => {
+            set_dir(&mut cmd, &b.cwd);
+            confine_spawn(i, b, &mut cmd)?;
             apply_env(i, &mut cmd, b);
             apply_env_overlay(&mut cmd, &overlay);
-            set_dir(&mut cmd, &b.cwd);
             // Capture stdout into a buffer (so `let x = exec …` works), then tee
             // the captured bytes to the program's stdout so a bare `exec …` streams.
             let (e, o) = run_cmd(&mut cmd, Src::Reader(&i.stdin), Dest::Capture, Dest::Writer(&i.stderr));
@@ -835,12 +921,18 @@ fn op_pipe(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> 
         let overlay = env_prefix_overlay(i, b, &a)?;
         let argv = collect_argv(&a);
         let display = display_of(&bin, &argv);
-        let cmd = build_command(&resolve_exec_path(i, &bin), &argv).map_err(run_err_to_error).map(|mut c| {
-            apply_env(i, &mut c, b);
-            apply_env_overlay(&mut c, &overlay);
-            set_dir(&mut c, &b.cwd);
-            c
-        });
+        // A confinement refusal aborts the whole pipe with its own kind; only a
+        // failed program lookup is deferred to spawn time (tagged like a shell error).
+        let cmd = match build_command(&resolve_exec_path(i, &bin), &argv) {
+            Ok(mut c) => {
+                set_dir(&mut c, &b.cwd);
+                confine_spawn(i, b, &mut c)?;
+                apply_env(i, &mut c, b);
+                apply_env_overlay(&mut c, &overlay);
+                Ok(c)
+            }
+            Err(e) => Err(run_err_to_error(e)),
+        };
         stages.push(Stage { cmd, display });
     }
     if stages.is_empty() {
@@ -900,8 +992,9 @@ fn op_shell_detached(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Resu
     let raw = arg_string(args, &["cmd", "_0"]);
     check_shell(i, &raw)?;
     let mut cmd = build_shell(&raw);
-    apply_env(i, &mut cmd, b);
     set_dir(&mut cmd, &b.cwd);
+    confine_spawn(i, b, &mut cmd)?;
+    apply_env(i, &mut cmd, b);
     cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     match cmd.spawn() {
         Ok(_) => Ok(Value::Null),
@@ -1054,6 +1147,15 @@ mod tests {
     }
 
     // With no requires manifest AND no --env, legacy inherit-all is preserved.
+    #[test]
+    fn decide_confinement_matrix() {
+        let un = Support::Unsupported("why".into());
+        assert_eq!(decide_confinement(true, &un, false), Confinement::Unconfined);
+        assert_eq!(decide_confinement(false, &Support::Enforced, false), Confinement::Enforce);
+        assert_eq!(decide_confinement(false, &un, false), Confinement::Refuse("why".into()));
+        assert_eq!(decide_confinement(false, &un, true), Confinement::Advisory("why".into()));
+    }
+
     #[test]
     fn apply_env_legacy_inherit_when_undeclared() {
         let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());

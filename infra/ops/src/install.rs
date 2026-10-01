@@ -63,7 +63,7 @@ fn op_has_bin(_i: &Interpreter, _b: &mut Bindings, args: &Args<'_>) -> Result<Va
 
 /// Runs `BIN --version` and returns the trimmed combined output. Empty string on
 /// failure (no error — callers usually want a fallback).
-fn op_bin_version(i: &Interpreter, _b: &mut Bindings, args: &Args<'_>) -> Result<Value> {
+fn op_bin_version(i: &Interpreter, b: &mut Bindings, args: &Args<'_>) -> Result<Value> {
     let name = arg_string(args, &["name", "_0"]);
     check_subprocess_bin(i, &name)?;
     let mut flag = arg_string(args, &["flag", "_1"]);
@@ -73,7 +73,11 @@ fn op_bin_version(i: &Interpreter, _b: &mut Bindings, args: &Args<'_>) -> Result
     let Some(path) = (if name.contains('/') { Some(name.clone().into()) } else { look_path(&name) }) else {
         return sv("");
     };
-    match Command::new(path).arg(flag).output() {
+    let mut c = Command::new(path);
+    c.arg(flag);
+    // Runs the declared binary itself, so it is confined like any other spawn.
+    crate::process::confine_spawn(i, b, &mut c)?;
+    match c.output() {
         Ok(o) if o.status.success() => {
             let mut v = o.stdout;
             v.extend(o.stderr);

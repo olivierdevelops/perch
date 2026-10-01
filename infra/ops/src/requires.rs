@@ -573,6 +573,16 @@ fn expand_roots(roots: &[String], b: &Bindings) -> Vec<String> {
     roots.iter().filter_map(|root| interpolate(root, b).ok()).collect()
 }
 
+/// Resolves ONE declared root exactly as the file-op gate does
+/// ([`expand_roots`] then [`abs_under`]): `${…}` interpolated against `b`,
+/// relative paths made absolute under `b.cwd`. A root that fails to
+/// interpolate falls back to its raw text under cwd (it then matches nothing
+/// real, which is the safe direction for a confinement allow-list).
+pub(crate) fn resolve_root(raw: &str, b: &Bindings) -> String {
+    let expanded = interpolate(raw, b).unwrap_or_else(|_| raw.to_string());
+    abs_under(&expanded, &b.cwd)
+}
+
 /// Cleans `p` and makes it absolute, resolving relatives under `cwd`.
 pub fn abs_under(p: &str, cwd: &str) -> String {
     if !is_abs(p) {

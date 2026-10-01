@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::Deref;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -276,6 +277,20 @@ pub struct Interpreter {
     pub tracer: Option<Arc<dyn Tracer>>,
     pub preflight_hook: Option<PreflightHook>,
     pub hook_category: Option<HookCategory>,
+    /// `--allow-advisory-scopes`: where spawned binaries cannot be confined to
+    /// the declared `read`/`write`/`host` scopes, run them unconfined (after a
+    /// one-time stderr banner) instead of refusing (PLAN-2026-0001 R03 / D3).
+    pub allow_advisory_scopes: bool,
+    /// Set once the advisory banner has been printed for this interpreter.
+    pub advisory_announced: AtomicBool,
+    /// Test seam: when `Some(reason)`, the confinement probe is treated as
+    /// unsupported with that reason instead of asking the OS.
+    pub confine_unsupported: Option<String>,
+    /// CLI `--no-write` / `--no-network` (or their test-sandbox equivalents).
+    /// The per-op blocks cannot see marker ops inside a `wasm` body
+    /// (`wasm_mount_write`, `wasm_allow_host`), so the wasm op consults these.
+    pub restrict_no_write: bool,
+    pub restrict_no_network: bool,
 }
 
 impl Interpreter {
@@ -298,6 +313,11 @@ impl Interpreter {
             tracer: None,
             preflight_hook: None,
             hook_category: None,
+            allow_advisory_scopes: false,
+            advisory_announced: AtomicBool::new(false),
+            confine_unsupported: None,
+            restrict_no_write: false,
+            restrict_no_network: false,
         }
     }
 

@@ -8,6 +8,12 @@
 //! Caller contract: call `confine` only when the program declared at least one
 //! scope (`!scopes.is_empty()`). With nothing declared there is nothing to
 //! enforce and confining would only break ordinary binaries.
+//!
+//! Ordering: call `confine` after program/args/cwd are set and BEFORE the
+//! environment is applied (the macOS backend rewrites the `Command` and cannot
+//! observe `env_clear`, so env set afterwards lands on the rewritten command)
+//! and before stdio is configured. On macOS `argv[0]` of the child becomes the
+//! program path.
 use std::path::PathBuf;
 use std::process::Command;
 

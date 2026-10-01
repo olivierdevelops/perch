@@ -304,6 +304,10 @@ Flags:
   --completions SHELL  Print shell completions (bash|zsh|fish)
   --install-lsp        Install the perch-lsp language server (release download, sha256-verified)
   --install-vscode     Install perch-lsp + the perch VS Code extension
+  --allow-advisory-scopes
+                Where spawned binaries cannot be confined to the declared read/write/host
+                scopes (Windows, old kernels), run them unconfined with a stderr banner
+                instead of refusing (default: refuse)
 
 Per-command help:
   perch <command> --help   Show args, defaults, examples for one command

@@ -531,3 +531,50 @@ fn t39_typed_kinds() {
     let m = e(&err);
     assert!(m.starts_with("wasm_http_refused: wasm_run \""), "{m}");
 }
+
+// ---- F03 leftover: CLI --no-write / --no-network reach the wasm marker ops ----
+
+fn run_restricted(src: &str, no_write: bool, no_network: bool) -> (String, Option<Error>) {
+    let _g = env_lock();
+    let prog = perch_capyloader::load_from_string(src).expect("load");
+    let mut i = Interpreter::new(all_handlers(), prog);
+    let buf = SharedBuf::new();
+    i.stdout = buf.writer();
+    i.stderr = buf.writer();
+    i.restrict_no_write = no_write;
+    i.restrict_no_network = no_network;
+    let res = i.run("t", &[]);
+    (buf.contents(), res.err())
+}
+
+#[test]
+fn f03_no_write_blocks_wasm_mount_write() {
+    let d = tmpdir();
+    std::fs::create_dir_all(d.join("ok")).unwrap();
+    let hello = format!("{}/{HELLO}", root().display());
+    let req = format!("    read \"{d}/ok\"\n    write \"{d}/ok\"", d = d.display());
+    let rw = with_requires(&req, &format!("wasm_run \"{hello}\"\n wasm_mount_write \"{d}/ok\"\n end", d = d.display()));
+    let (_, err) = run_restricted(&rw, false, false);
+    assert!(err.is_none(), "{}", e(&err));
+    let (out, err) = run_restricted(&rw, true, false);
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_mount_write "), "{}", e(&err));
+    assert!(e(&err).contains("--no-write"), "{}", e(&err));
+    assert!(out.is_empty(), "module must not have run: {out}");
+    // A read mount is unaffected by --no-write.
+    let ro = with_requires(&req, &format!("wasm_run \"{hello}\"\n wasm_mount_read \"{d}/ok\"\n end", d = d.display()));
+    let (_, err) = run_restricted(&ro, true, false);
+    assert!(err.is_none(), "{}", e(&err));
+}
+
+#[test]
+fn f03_no_network_blocks_wasm_allow_host() {
+    let d = tmpdir();
+    std::fs::write(d.join("h.wasm"), http_module("http://127.0.0.1:1/x")).unwrap();
+    let body = format!("wasm_run \"{}/h.wasm\"\n wasm_allow_host \"api.example.com\"\n end", d.display());
+    let src = with_requires("    host \"api.example.com\"", &body);
+    let (_, err) = run_restricted(&src, false, true);
+    assert!(e(&err).starts_with("wasm_capability_denied: wasm_allow_host "), "{}", e(&err));
+    assert!(e(&err).contains("--no-network"), "{}", e(&err));
+    let (_, err) = run_restricted(&src, false, false);
+    assert!(!e(&err).starts_with("wasm_capability_denied"), "{}", e(&err));
+}
