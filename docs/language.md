@@ -267,6 +267,16 @@ shell "docker compose up -d"          # via the host shell (bash/cmd.exe)
   which gh || brew install gh            # fallback
   ```
 
+- **Env prefix** — leading `NAME=VALUE` tokens set environment variables for **that one process**, exactly like the shell. The binary is the first token that isn't an assignment; tokens after it are never read as assignments.
+
+  ```perch
+  KUBECONFIG=$CFG_PATH kubectl get pods            # $NAME / ${NAME}, bare, or quoted values
+  out = GREETING=hello sh -c 'echo "$GREETING world"'   # capture form (spaces around the first =)
+  A=1 cmd1 && B=2 cmd2                               # each chained clause has its own prefix
+  ```
+
+  Values resolve bindings first, then the host environment **under the same gates as `get_env`** (`requires env "NAME"`, or `--env`), so a prefix can't read a secret the file didn't declare (`env_not_declared`). The overlay is scoped to the one process and does not leak into bindings or later ops. It is accepted on declared-bin calls, `exec`, captures, chained clauses and `pipe` stages only — **not** on built-in ops, commands or templates (use `with_env` or the command's `env` modifier there). **Compatibility:** an *unspaced* `x=tool args` at the start of a statement is now an env prefix, not a capture; write `x = tool args`. Full chapter: [manuals/man-2026-0006-env-prefix.md](manuals/man-2026-0006-env-prefix.md).
+
 This is the shell-free model from [sandboxed-by-design.md](sandboxed-by-design.md) §3.2/§3.5, shipping today. The line-toolbox (`grep` / `cut` / `head` / `sort_lines` / …) composes with captured output to replace a pipeline's middle stages. **`shell` is deprecated** in favor of `exec` — keep it only for genuine shell needs (a value that must word-split, e.g. `${proxy_args}`, or a gnarly one-off `awk`/`sed` chain).
 
 ### Error handling — `try / rescue / finally`
@@ -282,6 +292,21 @@ end
 ```
 
 `rescue` runs only if the body raised (with `${err.kind}`, `${err.message}`, … bound); `finally` always runs. Both are optional — a `finally`-only `try` re-raises after cleanup; only a non-empty `rescue` swallows. Discriminate kinds with `match err.kind` (bare dotted ident) or `match "${err.kind}"`. Full model: [errors.md](errors.md).
+
+**Command-level `finally` (0.2.0).** A command's `do` body takes the same section, as sugar for wrapping the whole body in `try … finally … end`:
+
+```perch
+command run_with_db
+    do
+        docker run -d --name db postgres:16
+        run_the_work
+    finally
+        docker stop db            # runs on success, on failure, and when --max-runtime / timeout fires
+    end
+end
+```
+
+If the body fails, the cleanup runs and the **original** error is re-raised; if the cleanup also fails, the body error is reported first with `; additionally, finally failed: …` appended (same kind). It works in `command`, `catch` and `template` bodies. There is no command-level `rescue`; use `try … rescue` inside the body. Details and the timeout behaviour: [manuals/man-2026-0003-cleanup-with-finally.md](manuals/man-2026-0003-cleanup-with-finally.md).
 
 ## `catch NAME … end`
 

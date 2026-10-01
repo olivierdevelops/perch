@@ -2,7 +2,7 @@
 document_id: PLAN-2026-0001
 title: Implementation, test, documentation and release plan for PROP-2026-0002 (perch 0.2.0)
 document_type: plan
-status: approved
+status: active
 created_date: 2026-10-01
 last_updated: 2026-10-01
 document_revision: 1

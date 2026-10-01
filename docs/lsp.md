@@ -7,20 +7,31 @@
 - **Hover** — point at a keyword or op and read its signature + docstring.
 - **Outline** — every command (and its args) appear in the editor's symbol picker.
 
+### Keyword documentation (0.2.0)
+
+Hover and completion know the 0.2.0 syntax:
+
+- **`finally`** — hover: "Cleanup section that always runs. Command level: `do … finally … end` (sugar for wrapping the whole body in `try … finally … end`). Inside `try … rescue … finally … end` the same rules apply. A failing `finally` never hides the body error." Completion offers `finally` ("cleanup that always runs (`do … finally … end` or inside `try`)").
+- **`do`** — hover now mentions the optional `finally` section, the `; additionally, finally failed: …` rule and the 5 s grace on `timeout`/`--max-runtime`.
+- **`NAME=value`** — completion entry "inline env prefix: NAME=value binary verb --args (bins / exec only)", with hover text covering `$NAME` / `${NAME}` values, the `requires env` / `--env` gating, one-process scope, and that `name=value` after the binary is an ordinary argument.
+
+(Verified by driving `perch-lsp` over stdio: `textDocument/hover` on `finally` and `do`, and `textDocument/completion` inside a command body returning both `finally` and `NAME=value`.) Diagnostics come from the same loader and validator as `perch --check`, so a misplaced `finally` or an env prefix on a built-in op is reported as the load error described in [manuals/man-2026-0003-cleanup-with-finally.md](manuals/man-2026-0003-cleanup-with-finally.md) and [manuals/man-2026-0006-env-prefix.md](manuals/man-2026-0006-env-prefix.md). The server currently identifies itself as version 0.1.0 in `initialize`.
+
 ## Install
 
 The fastest path — let perch do it:
 
 ```sh
-perch --install-lsp        # invokes `go install` for cmd/perch-lsp
+perch --install-lsp
 ```
 
-After installing, ensure `$(go env GOBIN)` (or `$(go env GOPATH)/bin`) is on your `$PATH`. The installer prints the exact path it landed at.
+`perch --install-lsp` downloads the `perch-lsp` release asset for your OS and architecture (`perch-lsp-<os>-<arch>[.exe]`) together with the release's `checksums.txt`, **verifies the asset's sha256** (it refuses to install on a mismatch or a missing entry), and installs it next to the running `perch` executable when that directory is writable, otherwise into `~/.local/bin` (macOS/Linux) or `%LOCALAPPDATA%\perch` (Windows). No Go toolchain is needed. It needs network access to GitHub; if it can't download, nothing is installed. (The download-and-verify logic is covered by the use case's unit tests against a fake server; it was not run against the live release for this page.) The installer prints the path it installed to — make sure that directory is on your `$PATH`.
 
-Or do it yourself:
+Or build it from source (needs a Rust toolchain):
 
 ```sh
-go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest
+cargo install --path cmd/perch-lsp               # from a checkout
+cargo install --git https://github.com/olivierdevelops/perch perch-lsp   # from the repository
 ```
 
 ## VS Code (one command)

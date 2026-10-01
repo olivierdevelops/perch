@@ -131,8 +131,8 @@ end
 ## 7. How to verify it yourself
 
 ```sh
-# every gating behavior, as Go tests:
-go test ./infra/ops/ -run TestGate -v
+# every gating behavior, as Rust tests:
+cargo test -p perch-ops gate
 
 # static catch:
 perch -f yourfile.perch --check
@@ -146,11 +146,11 @@ perch -f /tmp/deny.perch t      # → bin_not_declared: bin "curl" is not declar
 
 ## 8. Honest limits
 
-- **In-process gate, not a kernel sandbox.** perch refuses to *dispatch* a denied op. It is airtight only if every external op is correctly classified (§2). The coverage test guards against new ops slipping through, but for genuinely adversarial code, still layer `firejail` / `sandbox-exec` / a container — or run untrusted *logic* as WASM under `wasm_run` (see [trust-by-manifest.md](trust-by-manifest.md)).
+- **In-process gate for perch's own ops** (spawned binaries are OS-confined only on macOS/Linux, 0.2.0). perch refuses to *dispatch* a denied op. It is airtight only if every external op is correctly classified (§2). The coverage test guards against new ops slipping through, but for genuinely adversarial code, still layer `firejail` / `sandbox-exec` / a container — or run untrusted *logic* as WASM under `wasm_run` (see [trust-by-manifest.md](trust-by-manifest.md)).
 - **`shell` / subprocess is a megacapability.** Gating *which* bin runs doesn't constrain what that bin then does. Prefer native ops over `shell` so `shell`/`bin` can stay undeclared. Pin bins with `hash` ([requires.md](requires.md)) to defend against PATH-shadow.
 - **Filesystem matching is prefix/glob, not a chroot.** `..` traversal and symlinks out of an allowed root are a known sharp edge; the matcher cleans + absolutizes paths but is not a jail.
 - **Ambient host facts are readable** (§3) — by design. The gate governs access to external *resources*, not reads of benign host metadata.
-- **No `requires` block ⇒ ambient access.** Today the manifest is opt-in. The full default-deny inversion is roadmap ([sandboxed-by-design.md](sandboxed-by-design.md)).
+- **No `requires` block ⇒ empty manifest.** A file without the block has nothing declared: undeclared bins and write/read paths are refused (verified: `shell "curl x"` → `bin_not_declared`, `write_file "./x"` → `write_not_declared`). Spawned binaries are additionally confined to declared `read`/`write` scopes on macOS and Linux since 0.2.0 ([manuals/man-2026-0004-confining-spawned-binaries.md](manuals/man-2026-0004-confining-spawned-binaries.md)). The full default-deny inversion of the remaining surfaces is roadmap ([sandboxed-by-design.md](sandboxed-by-design.md)).
 
 ---
 

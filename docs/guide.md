@@ -63,7 +63,7 @@
 
 ```sh
 # 1. Install
-go install github.com/olivierdevelops/perch@latest
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 
 # 2. Make a file
 cat > commands.perch <<'EOF'
@@ -97,17 +97,17 @@ That's perch. Everything else in this doc is depth on top of these three command
 
 | Platform | Command |
 |---|---|
-| **Go users (any OS)** | `go install github.com/olivierdevelops/perch@latest` |
+| **Rust users (any OS)** | `cargo install --git https://github.com/olivierdevelops/perch perch` |
 | **macOS / Linux (binary)** | `curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh \| sh` |
 | **Windows (PowerShell)** | `irm https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.ps1 \| iex` |
 | **Homebrew (macOS)** | See repo for tap status |
 | **Manual** | Download from the [releases page](https://github.com/olivierdevelops/perch/releases) |
 
-**Optional companions (also installed via Go):**
+**Optional companions (release assets, or `cargo install`):**
 
 ```sh
-go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest  # MCP server for AI agents
-go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest  # LSP for editors
+cargo install --git https://github.com/olivierdevelops/perch perch-mcp  # MCP server for AI agents
+cargo install --git https://github.com/olivierdevelops/perch perch-lsp  # LSP for editors
 ```
 
 Or use the built-in installers:
@@ -607,7 +607,7 @@ By default, **any op that errors halts the command** and the process exits non-z
 ```perch
 try
     body = http_get "${url}"
-rescue err
+rescue
     match "${err.kind}"
         case http_5xx
             throw "${err.message}"     # let an outer retry handle it
@@ -623,7 +623,7 @@ finally
 end
 ```
 
-Inside `rescue err`, five bindings are populated: `${err.kind}` (enum), `${err.message}`, `${err.code}`, `${err.op}`, `${err.detail}`. The full enum (30 kinds — `shell_exit_nonzero`, `http_5xx`, `http_ssrf_blocked`, `wasm_module_exited`, `file_not_found`, …) lives in **[docs/errors.md](errors.md)**, which is also the reference for every composition rule and pattern.
+Inside a `rescue` arm, five bindings are populated: `${err.kind}` (enum), `${err.message}`, `${err.code}`, `${err.op}`, `${err.detail}`. The full enum (30 kinds — `shell_exit_nonzero`, `http_5xx`, `http_ssrf_blocked`, `wasm_module_exited`, `file_not_found`, …) lives in **[docs/errors.md](errors.md)**, which is also the reference for every composition rule and pattern.
 
 `finally` runs **unconditionally** — both on success and failure. Errors in `finally` override the original (so cleanup failures aren't silently swallowed).
 
@@ -972,7 +972,7 @@ Supported operators: `>=`, `>`, `<=`, `<`, `==`, `!=`, `~` (same-major). Halts w
 ```perch
 try
     assert_version "${v}" >= "1.28.0"
-rescue err
+rescue
     match "${err.kind}"
         case assert_failed
             print "kubectl too old — using legacy path"
@@ -3355,8 +3355,7 @@ Yes, via `shell "perch -f other.perch other_command"`. For an in-process equival
 ### How do I version-pin perch in CI?
 
 ```yaml
-- uses: actions/setup-go@v5
-- run: go install github.com/olivierdevelops/perch@v0.5.0
+- run: curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh -s -- --version v0.2.0
 ```
 
 Pin to a tagged release. Major-version bumps may break the DSL surface; minor + patch are non-breaking by policy.

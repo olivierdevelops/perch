@@ -47,7 +47,7 @@ Compared to perch's existing capability flags:
 | `--no-shell` blocks the **op kind** | The module **cannot syscall** — nothing to block |
 | `--allow-bin docker` matches argv[0] string at runtime | The module's WASI imports are enumerated at instantiation; unknown imports fail at load |
 | `--allow-host api.x.com` is a runtime DNS check | The module gets no sockets unless they're imported (sockets aren't in v1 — see Roadmap) |
-| `firejail` / `sandbox-exec` / `AppContainer` for genuinely adversarial input | WASM has memory isolation in the spec; cross-platform by one wazero binary |
+| `firejail` / `sandbox-exec` / `AppContainer` for genuinely adversarial input | WASM has memory isolation in the spec; cross-platform by one wasmtime-based binary |
 | Best-effort enforcement on top of a permissive model | Enforcement by construction — nothing not declared exists in the module's environment |
 
 This isn't an incremental security improvement; it's a different category
@@ -142,7 +142,7 @@ perch --build -f myapp.perch --include ./build-stamp.txt -o myapp
 #       + ./build-stamp.txt (CLI)
 ```
 
-The compiled wazero module is cached internally keyed by archive hash + entry, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same `CompiledModule` — same caching benefits as the on-disk path, with no disk involvement.
+The compiled module is cached in memory keyed by archive hash + entry, so repeated `wasm_run` calls (e.g. inside a `parallel` block) compile once and reuse the same compiled module — same caching benefits as the on-disk path, with no disk involvement.
 
 **Why this matters.** Recipients of your binary get one executable with every plugin already inside. No `tar -xzf`, no `chmod +x`, no "where did the .wasm files go." Combined with `wasm_run`'s capability gates this is the practical shape of distributing a sandboxed plugin host as one artifact.
 
@@ -162,6 +162,9 @@ Inside a `wasm_run` block, five declarations control what the module sees:
 
 Anything not declared **does not exist** in the module's environment.
 There is no escape hatch from inside.
+
+!!! success "0.2.0 — mounts and hosts are checked against `requires`"
+    `wasm_mount_read` / `wasm_mount_write` / `wasm_allow_host` are no longer self-granted by the `wasm_run` block alone. A read mount must sit inside a declared `read` (or `write`) root, a write mount inside a declared `write` root, and an allowed host must be a declared `host`; `--no-write` blocks write mounts and `--no-network` blocks `wasm_allow_host`. A refusal is a typed error, `wasm_capability_denied` — for example `wasm_capability_denied: wasm_mount_read: read of "…/other" is outside every declared read root in requires`. A file with no `requires` block is an empty manifest, so it can mount nothing. Details and verified output: [manuals/man-2026-0007-wasm-cache-and-gating.md](manuals/man-2026-0007-wasm-cache-and-gating.md).
 
 ### HTTP from inside a module (`wasm_allow_host`)
 
@@ -199,7 +202,7 @@ body, status, err := perchhttp.Get("https://api.github.com/zen")
 - No sockets, no DNS, no UDP, no raw TCP.
 - No mTLS / cert pinning yet.
 
-Roadmap: `perchhttp.Post(url, body)` is next; custom headers after that; sockets only if WASI Preview 2 reaches stable in wazero.
+Roadmap: `perchhttp.Post(url, body)` is next; custom headers after that; sockets only if WASI Preview 2 support is adopted.
 
 The module is invoked via WASI's `_start` (no return value, exit code
 indicates outcome). The standard streams (stdin / stdout / stderr) are
@@ -280,18 +283,30 @@ in `args` — auditors can verify exactly which `.wasm` blob ran.
 
 ## Implementation details
 
-- **Runtime: [wazero](https://github.com/tetratelabs/wazero) v1.11.0.**
-  Pure Go, no CGO. Adds ~3 MB to the perch binary.
+- **Runtime: [wasmtime](https://wasmtime.dev/) 40** (Cranelift JIT, embedded
+  in the perch binary; no separate install). Earlier Go builds used wazero.
 - **WASI level: Preview 1.** Broadest tooling support — Go's stdlib,
   TinyGo, Rust+wasm32-wasi, Zig, wasi-sdk all produce Preview 1
   modules.
-- **Module cache:** compiled bytecode is keyed by SHA-256 of the
-  module file. Re-running the same module skips parse/compile/validate.
-  Cache lives in-process; survives across `wasm_run` calls within a
-  single perch invocation.
+- **Module cache (0.2.0: persistent).** Compiled machine code is cached in
+  memory for the life of the process **and on disk across runs** under
+  `<user cache dir>/perch/wasm/` (macOS `~/Library/Caches`, Linux
+  `$XDG_CACHE_HOME` or `~/.cache`, Windows `%LocalAppData%`), keyed by the
+  SHA-256 of the module bytes plus the wasmtime version and engine
+  configuration. A 2.5 MB module went from about 2 s cold to about 0.07 s warm
+  on the verification machine. `PERCH_WASM_CACHE_DIR=/path` relocates it;
+  `PERCH_WASM_CACHE=off` disables reads and writes. A corrupted entry is
+  detected by checksum, recompiled and repaired; an unwritable directory never
+  fails a run; there is no eviction. See
+  [manuals/man-2026-0007-wasm-cache-and-gating.md](manuals/man-2026-0007-wasm-cache-and-gating.md).
+- **Typed errors (0.2.0).** Failures carry the documented kinds
+  (`wasm_compile_failed`, `wasm_module_exited`, `wasm_capability_denied`,
+  `wasm_http_refused`); `wasm_http_refused` appends the host-side reason in
+  parentheses, e.g. `… module closed with exit_code(1) (host not allowed: no
+  wasm_allow_host declared or none permitted by the outer policy)`.
 - **Deadline integration:** if a `timeout` block or `--max-runtime`
-  flag is active, wazero's context honors it. Module execution
-  cancels at the same point any other op would.
+  flag is active, the runtime interrupts the module (epoch
+  interruption); a module stopped this way fails with `wasm_module_exited`.
 - **Path mounts:** read-only mounts land at `/ro/<basename>`,
   read-write at `/rw/<basename>` inside the module. Convention; not
   user-configurable in v1 (see Roadmap).
@@ -305,7 +320,9 @@ in `args` — auditors can verify exactly which `.wasm` blob ran.
 - env allowlist via `wasm_env`
 - fs mounts via `wasm_mount_read` / `wasm_mount_write`
 - deadline integration with `timeout` block + `--max-runtime`
-- module bytecode cache (in-process, sha256-keyed)
+- compiled-module cache: in-process, and (0.2.0) persistent on disk, sha256-keyed
+- (0.2.0) mounts and hosts gated by `requires`, `--no-write`, `--no-network`
+- (0.2.0) typed `wasm_*` error kinds
 - composes with all execution contexts (`parallel`, `retry`, `cache`, `sandbox`, …)
 - integrates with `--audit` / `--trace` / `--report`
 
@@ -332,10 +349,6 @@ in `args` — auditors can verify exactly which `.wasm` blob ran.
 - **Module signature verification.** Cosign / sigstore-style verification
   before loading. Currently you can verify a module's sha256 externally
   but perch doesn't enforce a signature policy.
-- **Persistent on-disk cache** (`~/.cache/perch/wasm/<sha>.cwasm`).
-  Today the cache is in-process only — every fresh perch invocation
-  re-compiles. Wazero supports the persistent format; just not wired yet.
-
 If you reach for any of these and find them missing, that's a known gap
 — please open an issue or PR; the design space is documented and the
 implementation path is clear.

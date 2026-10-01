@@ -77,20 +77,31 @@ nav:
   - "📜 `requires` — file-declared manifest": requires.md
   - "🛡️ Capability gating — every external op checked": capability-gating.md
   - "🪝 Hooks (`before`/`after`/`on_error`)": hooks.md
-  - "🔒 Sandboxed by design — zero ambient authority (roadmap)": sandboxed-by-design.md
-  - "🔭 Trust by manifest (roadmap)": trust-by-manifest.md
+  - "🔒 Sandboxed by design — zero ambient authority (partly shipped)": sandboxed-by-design.md
+  - "🔭 Trust by manifest (scan shipped; wasm manifests roadmap)": trust-by-manifest.md
   - "🧩 capy grammar limitations": capy-limitations.md
   - Testing (`perch test`): testing.md
   - "🪟 Web UI (`--server`) — for non-devs": web-ui.md
   - "🔒 WASM (`wasm_run`)": wasm.md
   - "🔒 WASM walkthroughs": wasm-walkthroughs.md
   - Op catalog: op-reference.md
-  - Embedding (`--build`): embedding.md
+  - Embedding (`--build` and the library): embedding.md
   - MCP server (AI agents): mcp.md
   - LLM control plane: llm-control-plane.md
   - Sandboxing (design): sandbox.md
   - "🧪 Simulate (what-if analyzer)": simulate.md
   - Editor integration (LSP): lsp.md
+  - Manual:
+      - Manual index and feature catalogue: manuals/man-2026-0001-perch-manual-index.md
+      - Structured scan (--scan --json): manuals/man-2026-0002-structured-scan.md
+      - Cleanup with finally: manuals/man-2026-0003-cleanup-with-finally.md
+      - Confining spawned binaries: manuals/man-2026-0004-confining-spawned-binaries.md
+      - Using perch as a library: manuals/man-2026-0005-using-perch-as-a-library.md
+      - Inline env prefix: manuals/man-2026-0006-env-prefix.md
+      - wasm cache and gating: manuals/man-2026-0007-wasm-cache-and-gating.md
+  - System and architecture:
+      - Rust workspace (system): system/sys-2026-0001-rust-workspace.md
+      - Layer boundaries (architecture): architecture/arch-2026-0001-layer-boundaries.md
   - What perch is for: applications.md
   - FAQ: faq.md
   # ─── deeper claims / design notes (after the reference docs) ───

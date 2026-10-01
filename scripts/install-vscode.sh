@@ -2,20 +2,24 @@
 # One-shot installer for the perch VS Code extension.
 #
 # What it does:
-#   1. installs `perch-lsp` via `go install` (so the extension can spawn it)
+#   1. installs `perch-lsp` via `perch --install-lsp` (release download, sha256-verified)
 #   2. installs node deps inside editors/vscode-perch
 #   3. packages the extension into a .vsix
 #   4. installs the .vsix into VS Code via `code --install-extension`
 #
-# Prereqs: go, node + npm, the `code` CLI on PATH.
+# Prereqs: perch on PATH, node + npm, the `code` CLI on PATH.
 
 set -eu
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EXT_DIR="$REPO_ROOT/editors/vscode-perch"
 
-echo "→ Installing perch-lsp via go"
-go install github.com/olivierdevelops/perch/cmd/perch-lsp@latest
+echo "→ Installing perch-lsp"
+if ! command -v perch >/dev/null 2>&1; then
+    echo "  perch not found on PATH; install it first (see README: Install)" >&2
+    exit 1
+fi
+perch --install-lsp
 
 cd "$EXT_DIR"
 

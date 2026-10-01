@@ -4,10 +4,10 @@ A five-minute tour. By the end you'll have a working `commands.perch`, run it th
 
 ## Install
 
-=== "Go"
+=== "From source (Rust)"
 
     ```sh
-    go install github.com/olivierdevelops/perch@latest
+    cargo install --git https://github.com/olivierdevelops/perch perch
     ```
 
 === "macOS / Linux (binary)"

@@ -115,7 +115,7 @@ The agent connects via MCP, calls `perch_list` to discover the verbs, calls `per
 | Auditability of the "API surface" | "read the codebase" | "read the 50-line .perch file" |
 | Testing | full backend test infra | `perch --dry-run cmd`, `perch --ask cmd`, `perch --check` |
 | Local hand-execution | rare | `perch <cmd>` runs the same path |
-| Deploy | container + secrets + ingress | one binary (`go install`); `perch --build` for embedded |
+| Deploy | container + secrets + ingress | one binary (release download); `perch --build` for embedded |
 
 The right column is one file plus a process. The left column is a quarter of a sprint.
 
@@ -256,8 +256,8 @@ This is the property that makes perch genuinely cheap to ship: you can give some
 ## Setting it up — five minutes
 
 ```sh
-# 1. Install the MCP server
-go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
+# 1. Install the MCP server (release asset perch-mcp-<os>-<arch>, or from source)
+cargo install --git https://github.com/olivierdevelops/perch perch-mcp
 
 # 2. Write your ops.perch (use the perch skill or the language reference)
 #    https://olivierdevelops.github.io/perch/language/

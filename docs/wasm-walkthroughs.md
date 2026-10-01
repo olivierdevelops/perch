@@ -715,7 +715,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: go install github.com/olivierdevelops/perch@latest
+      - run: curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 
       # Restore the perch cache between CI runs.
       - uses: actions/cache@v4

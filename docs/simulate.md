@@ -137,6 +137,26 @@ With `--sim-env-only` plus `--sim-env=HOME=/x`:
    ↳ references ${API_TOKEN} but sim --env restricts host envs to HOME
 ```
 
+### `try … finally` and env prefixes (0.2.0)
+
+`simulate` models both forms of cleanup (`try … rescue … finally` and the command-level `do … finally … end`) and the inline env prefix. A body that can fail is marked `✗`, the cleanup ops are listed and counted as will-run, and a prefixed call carries a note (verified output):
+
+```text
+$ perch -f f5.perch simulate bind
+── command bind
+✗ try
+   ↳ finally runs even though the body can fail; the body error is re-raised first (a failing finally is appended, not substituted)
+   ✓ upper "workdir"
+   ✓ print "using ${tmp}"
+   ✗ fail "boom"
+      ↳ explicit fail: boom
+   ✓ print "removing ${tmp}"
+
+$ perch -f p.perch simulate basic
+✓ APP_CONFIG="${cfg}" LOG_LEVEL="debug" exec "-c"
+   ↳ env prefix applies to this process only: APP_CONFIG, LOG_LEVEL
+```
+
 ### Conditional branches resolved against the sim env
 
 ```

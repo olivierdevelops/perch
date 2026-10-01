@@ -12,15 +12,17 @@ Same code path as `perch <cmd>` from the CLI. The agent sees the same world your
 ## Install
 
 ```sh
-go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
+# release asset: perch-mcp-<os>-<arch> from https://github.com/olivierdevelops/perch/releases
+# or from source (Rust toolchain):
+cargo install --git https://github.com/olivierdevelops/perch perch-mcp
 ```
 
-Or build from source:
+Or from a checkout:
 
 ```sh
 git clone https://github.com/olivierdevelops/perch.git
 cd perch
-go build -o perch-mcp ./cmd/perch-mcp
+cargo install --path cmd/perch-mcp
 ```
 
 ## Configure Claude Desktop

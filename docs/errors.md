@@ -12,7 +12,7 @@
 ```perch
 try
     body = http_get "${url}"
-rescue err
+rescue
     match "${err.kind}"
         case http_5xx
             throw "${err.message}"               # let an outer retry handle it
@@ -36,13 +36,15 @@ end
 try
     OP_THAT_MIGHT_FAIL
     OP_AGAIN
-rescue ERR_NAME
+rescue
     # runs only if the try body errored
-    # ${ERR_NAME.kind}, ${ERR_NAME.message}, ${ERR_NAME.code}, ${ERR_NAME.op}, ${ERR_NAME.detail}
+    # ${err.kind}, ${err.message}, ${err.code}, ${err.op}, ${err.detail}
 finally
     # runs always (success or fail), AFTER rescue, BEFORE propagation
 end
 ```
+
+The error is always bound as `err`: write a bare `rescue` (a name after it, `rescue err`, does not parse — the loader reports `bin_not_declared ... \`rescue\`` — verified on the `rust-port` 0.1.1 build).
 
 Both `rescue` and `finally` are **optional**. A bare `try ... end` parses but is pointless — with no `rescue` it just runs the body and propagates any error (same as not wrapping it). Add `rescue` to handle, `finally` to clean up, or both.
 
@@ -61,9 +63,10 @@ perch already has a top-level `catch unknown ... end` for declaring catch-all CL
 
 ### What `finally` does
 
-- Runs **unconditionally** — after a successful `try` body, after a successful `rescue`, after a failing `rescue`.
-- Errors in `finally` **override** the original error (otherwise nobody could see a cleanup failure).
+- Runs **unconditionally** — after a successful `try` body, after a successful `rescue`, after a failing `rescue`, and (0.2.0) when `--max-runtime` or a `timeout` block fires (see below).
+- **A failing `finally` never hides a pending error (0.2.0).** If the body (or `rescue`) failed and the cleanup also fails, the **original error is reported first, with the same kind**, and the cleanup failure is appended to its message: `user_fail: body boom; additionally, finally failed: user_fail: cleanup boom`. A `rescue` further out sees the original `${err.kind}`. If nothing was pending, the cleanup's own error surfaces. (Before 0.2.0 the cleanup error replaced the original.)
 - Common use: cleanup of resources allocated in the try (temp dirs, kube context switches, sentinel files).
+- **Command level (0.2.0):** `do … finally … end` wraps a whole command body the same way — see [language.md](language.md) and [manuals/man-2026-0003-cleanup-with-finally.md](manuals/man-2026-0003-cleanup-with-finally.md).
 
 ---
 
@@ -182,7 +185,7 @@ The default-deny vocabulary from [sandboxed-by-design.md §4](sandboxed-by-desig
 
 ## The `${err.*}` bindings
 
-Inside a `rescue ERR_NAME` arm, five bindings are populated:
+Inside a `rescue` arm, these bindings are populated:
 
 | Binding | Type | Example |
 |---|---|---|
@@ -193,7 +196,7 @@ Inside a `rescue ERR_NAME` arm, five bindings are populated:
 | `${err.detail}` | string | structured extra info (e.g. blocked URL, denied binary name) |
 | `${err}` | string | shorthand for `${err.message}` — useful for `throw "${err}"` |
 
-(`ERR_NAME` is conventionally `err`; you can use any identifier.)
+(The binding name is always `err`.)
 
 ---
 
@@ -265,7 +268,7 @@ The classic "retry on transient errors, fail loudly on permanent ones":
 retry max=5 delay=2s
     try
         body = http_get "${url}"
-    rescue err
+    rescue
         match "${err.kind}"
             case http_5xx
                 throw "transient"            # retry will catch + re-run
@@ -291,12 +294,12 @@ Each branch's error propagates to the surrounding `parallel`. To prevent one bra
 parallel max=3
     try
         deploy_region "-region=a"
-    rescue err
+    rescue
         alert "-msg=a failed: ${err.message}"
     end
     try
         deploy_region "-region=b"
-    rescue err
+    rescue
         alert "-msg=b failed: ${err.message}"
     end
 end
@@ -309,7 +312,7 @@ try
     timeout secs=10
         body = http_get "${slow_url}"
     end
-rescue err
+rescue
     match "${err.kind}"
         case timeout_exceeded
             print "skipped — too slow"
@@ -318,6 +321,16 @@ rescue err
     end
 end
 ```
+
+### `finally` when the deadline fires (0.2.0)
+
+Perch checks the wall-clock deadline (`--max-runtime`, or a `timeout` block) **before each op**; it cannot interrupt an op that is already running. When the deadline trips inside a body that has a `finally`:
+
+- the `rescue` arm is **skipped** — the deadline has expired, so a handler could not run anything, and a timeout is not a catchable failure;
+- the `finally` ops run under a **fresh 5 second grace deadline**, then the original timeout error is reported;
+- if the cleanup fails or overruns the grace period, the timeout error is kept and a `↪` note goes to stderr (`↪ finally failed: …` or `↪ finally did not finish within its 5s grace period`).
+
+Known gap: if the deadline expires *during the body's last op*, the body counts as finished, no grace deadline is applied, and the first cleanup op is refused with the same timeout error. End the body with a cheap op to avoid it. See [manuals/man-2026-0003-cleanup-with-finally.md](manuals/man-2026-0003-cleanup-with-finally.md#limitations-and-known-issues).
 
 ---
 
@@ -342,7 +355,7 @@ end
 try
     cached = http_get "http://redis:6379/value"
     print "from cache: ${cached}"
-rescue err
+rescue
     # Cache down — proceed without
     print "cache miss / unreachable: ${err.kind}"
     cached = "${default_value}"
@@ -355,7 +368,7 @@ end
 ```perch
 try
     shell "deploy.sh ${target}"
-rescue err
+rescue
     match "${err.kind}"
         case shell_exit_nonzero
             # Distinguish by exit code
@@ -383,7 +396,7 @@ end
 ```perch
 try
     OP_THAT_MIGHT_FAIL
-rescue err
+rescue
     # Log + alert, then re-raise
     print "[ERROR] ${err.kind}: ${err.message}"
     alert "-msg=${err.message}"
@@ -402,7 +415,8 @@ end
 - **`try` is only useful with `rescue` and/or `finally`.** A bare `try ... end` parses but does nothing beyond running its body (errors propagate as if unwrapped).
 - **Capability denials currently produce `unclassified`.** Tagging in progress; existing CLI flag combinations still work, just without the precise kind name.
 - **`http_4xx` and `http_5xx`** are reserved kinds — they exist in the enum but the current `http_get` op returns the body without raising on non-2xx status. A future `http_get_strict` op will surface them.
-- **Errors in `finally` override the original error.** If you want the original to take precedence, don't let finally throw — wrap it in its own `try`.
+- **A failing `finally` is appended, not substituted (0.2.0).** The body error stays first (and keeps its kind); the cleanup error rides along in the message. Match on `${err.kind}`, not on the full message text.
+- **Timeouts are checked between ops.** An op that is running when the deadline passes finishes first; `finally` after a deadline gets a 5 s grace and `rescue` is skipped.
 
 ---
 

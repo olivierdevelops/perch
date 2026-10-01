@@ -207,11 +207,12 @@ For each `shell` op in your translated file:
 | `for x in *.txt; do …; done` | `files = glob "*.txt"` + `for_each "${files}" x ... end` |
 | `sleep N` | `sleep N` |
 | `kill -9 $(pgrep X)` | `kill_by_name "X"` |
+| `KUBECONFIG=$CFG kubectl get pods` (env prefix) | **the same line** — `KUBECONFIG=$CFG kubectl get pods` (0.2.0). Declare `bin "kubectl"` and `env "CFG"`; the value resolves bindings first, then the declared host env, and applies to that one process only. For several calls use `with_env "K=v" … end`. Not allowed on built-in ops. An *unspaced* `x=tool args` is now a prefix, so write captures as `x = tool args`. See [manuals/man-2026-0006-env-prefix.md](manuals/man-2026-0006-env-prefix.md). |
 | `tool --flag arg` (a tool with no native op) | **`exec tool --flag arg`** — runs the binary directly, no shell. Bare flags work; quote only spaced args. Still cross-platform and injection-free. |
 | `a \| b \| c` (a pipeline) | **`pipe ... end`** of `exec` stages — perch wires the pipes in-process, no shell (see below) |
 | anything truly bash-specific | leave as `shell "..."` — and accept that this file will need `--allow-bin` to ship safely |
 
-**Prefer `exec` over `shell` for the "no native op, but I just call a binary" case.** `exec git status` / `exec docker run -d --name web nginx` run the binary directly with structured argv — cross-platform, no metachar/injection surface, statically analyzable (the bin is structural, not buried in a string). `shell` is only needed for genuine shell features (`&&`, redirects, env-expansion-in-string). See [language.md](language.md) "shell vs exec".
+**Prefer `exec` over `shell` for the "no native op, but I just call a binary" case.** `exec git status` / `exec docker run -d --name web nginx` run the binary directly with structured argv — cross-platform, no metachar/injection surface, statically analyzable (the bin is structural, not buried in a string). `shell` is only needed for genuine shell features (redirects, globbing, env-expansion-in-string); `&&` / `||` / `;` chains and `NAME=value` prefixes work on declared-bin calls without it. See [language.md](language.md) "shell vs exec".
 
 Pipelines compose without a shell, too:
 

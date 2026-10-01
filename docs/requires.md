@@ -149,8 +149,14 @@ If both inline `hash` and `hash_file` are set, perch compares them and errors if
 
 `env "NAME"` does two things. (1) It lets perch's own `get_env "NAME"` read the var (undeclared reads error with `env_not_declared`). (2) It puts `NAME` on the **allowlist passed to spawned subprocesses**: when a `requires` block is present, a declared bin does **not** inherit your full environment — it sees only the declared `env` vars plus a default operational set (`PATH`, `HOME`, `TMPDIR`, `LANG`, … — provided automatically so you don't redeclare the basics) plus the program's own bindings. An undeclared secret (`AWS_SECRET_KEY`, `GITHUB_TOKEN`) is **dropped** — a spawned `git`/`docker` literally cannot read it.
 
-!!! note "What `read` / `write` / `host` do and don't bound for subprocesses"
-    `read` / `write` / `host` constrain perch's **own** ops (`read_file`, `write_file`, `http_get`). They do **not** constrain a spawned binary's filesystem or network — perch can't parse `git`/`docker`'s arguments, so once it runs it can reach anything the OS user can. Closing that needs OS-level confinement (`sandbox-exec`, Landlock, `firejail`). See [the subprocess trust boundary](sandboxed-by-design.md#the-subprocess-trust-boundary-honest-scope). A proposed mechanism to recover *some* arg-level enforcement is [typed bin interfaces](typed-bins.md).
+!!! success "0.2.0 — declared `read` / `write` now bind spawned binaries (macOS, Linux)"
+    Before 0.2.0, `read` / `write` / `host` constrained only perch's **own** ops (`read_file`, `write_file`, `http_get`); a spawned `git`/`docker` could reach anything the OS user could. From 0.2.0, when a file declares at least one `read`, `write` or `host`, every binary perch spawns is **confined by the operating system** to those scopes:
+
+    - **macOS** — a generated `sandbox-exec` profile (reads and writes outside the declared roots are refused; `host` is best-effort: network is on for the process if any host is declared, off otherwise).
+    - **Linux** — a Landlock ruleset applied just before `exec` (kernel 5.13+; `host` not enforced). *Not yet run on a real Linux kernel in the 0.2.0 verification.*
+    - **Windows and other platforms** — no mechanism: perch **refuses to spawn** under declared scopes (`confinement_unavailable`) unless the operator passes `--allow-advisory-scopes`, which runs the binary unconfined and prints a one-time stderr banner that the scopes are advisory.
+
+    A file with no `read` / `write` / `host` is not confined. Helper ops that spawn their own processes (`pkg_install`, `process_running`, `kill_by_name`, …) are not covered. Full chapter, per-OS table, default read allowances and limits: [manuals/man-2026-0004-confining-spawned-binaries.md](manuals/man-2026-0004-confining-spawned-binaries.md). A proposed mechanism to recover *argument-level* enforcement is [typed bin interfaces](typed-bins.md).
 
 ### Filesystem scopes — `read` / `write`
 
@@ -225,9 +231,9 @@ This is the **static half** of the same enforcement the runtime does dynamically
 
 ## Files without a `requires` block
 
-Existing files (no manifest) keep their current behavior — undeclared shell bins are not blocked at runtime. The `requires` block is the opt-in switch.
+A file with no `requires` block is treated as an **empty manifest** (verified on the `rust-port` 0.1.1 build): nothing is declared, so a spawned bin that isn't declared fails at load with `bin_not_declared`, `write_file` outside a declared root fails with `write_not_declared`, and so on. (`shell "echo hi"` still works: `echo` and the other shell built-ins are always permitted.) An empty block (`requires` / `end`) means exactly the same and is what `perch --init` writes. The scopes that confine spawned binaries (above) only switch on once the file declares a `read`, `write` or `host`.
 
-A future release may flip the default to "strict-always" via a global flag; until then the manifest is your explicit signal that you want strict enforcement.
+`perch --scan --json` reports `"declared": true` for such a file; see [manuals/man-2026-0002-structured-scan.md](manuals/man-2026-0002-structured-scan.md).
 
 ---
 
@@ -235,3 +241,5 @@ A future release may flip the default to "strict-always" via a global flag; unti
 
 - [docs/errors.md](errors.md) — the `bin_not_declared` / `host_not_declared` / `env_not_declared` / `requirement_unmet` kinds in the full enum
 - [docs/sandbox.md](sandbox.md) — capability flags (the complement of `requires`)
+- [manuals/man-2026-0004-confining-spawned-binaries.md](manuals/man-2026-0004-confining-spawned-binaries.md) — kernel confinement of spawned binaries
+- [manuals/man-2026-0002-structured-scan.md](manuals/man-2026-0002-structured-scan.md) — `perch --scan --json`: declared versus inferred

@@ -92,10 +92,7 @@ Read it once and you have the full picture. Bookmark it as your reference.
 ## Install
 
 ```sh
-# Go users — CLI
-go install github.com/olivierdevelops/perch@latest
-
-# macOS / Linux (binary, no Go required)
+# macOS / Linux (release binary)
 curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 
 # Windows (PowerShell)
@@ -103,7 +100,12 @@ irm https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install
 
 # Or download a binary from the releases page:
 # https://github.com/olivierdevelops/perch/releases
+
+# From source (Rust toolchain; builds `perch`, a library, plus perch-lsp / perch-mcp separately)
+cargo install --git https://github.com/olivierdevelops/perch perch
 ```
+
+**New in 0.2.0:** `perch --scan --json` (declared vs inferred capabilities as JSON), command-level `do … finally … end`, OS confinement of spawned binaries to declared `read`/`write` scopes (macOS, Linux), `KEY=value tool args` env prefixes, and a Rust library (`perch::Runtime` + `Policy`) for running commands in-process. Start at the [manual index](docs/manuals/man-2026-0001-perch-manual-index.md).
 
 ### 🪟 Web UI — no terminal required
 
@@ -209,7 +211,7 @@ Every external op is checked, every time (stateless — no allow-cache). Error k
 
 Full per-op coverage table: **[docs/capability-gating.md](https://olivierdevelops.github.io/perch/capability-gating/)**.
 
-> **Honest scope (what's enforced today).** A `requires` block gates perch's **own** ops (`http_get`, `read_file`, `write_file`, the `exec` bin check) *and* **scrubs the subprocess environment** — a declared bin sees only the declared `env` vars + a default operational set (`PATH`/`HOME`/…), never your undeclared secrets. What it does **not** do: confine a spawned tool's *filesystem or network* — perch can't parse `git`/`docker`'s args, so `requires read/write/host` bound perch's ops, not the tool's. For that, layer an OS sandbox (`sandbox-exec`, Landlock, `firejail`) — kernel-level confinement is on the roadmap. This is **controlled scripting, not a sandbox.**
+> **Honest scope (what's enforced today).** A `requires` block gates perch's **own** ops (`http_get`, `read_file`, `write_file`, the `exec` bin check) *and* **scrubs the subprocess environment** — a declared bin sees only the declared `env` vars + a default operational set (`PATH`/`HOME`/…), never your undeclared secrets. **Since 0.2.0, declared `read`/`write` scopes also confine the binaries perch spawns** with the OS: `sandbox-exec` on macOS, Landlock on Linux (kernel 5.13+; Linux not yet run on a real kernel in verification). Where no mechanism exists (Windows, older kernels) perch **refuses to spawn** under declared scopes unless you pass `--allow-advisory-scopes`. `host` is best-effort (not name-filtered), and helper ops like `pkg_install` are not confined. See [docs/manuals/man-2026-0004-confining-spawned-binaries.md](docs/manuals/man-2026-0004-confining-spawned-binaries.md). Still **controlled scripting, not a hardened sandbox**.
 >
 > **Where this is heading — [sandboxed by design](https://olivierdevelops.github.io/perch/sandboxed-by-design/).** The planned end state is **zero ambient authority**: a perch program starts with NO access to anything external and every external resource MUST be declared or the op fails — default-deny, with OS-level confinement extending the manifest to subprocesses too.
 
@@ -220,7 +222,8 @@ All matchable via `try / rescue / match err.kind`. Declarations are **promises a
 `perch-mcp` is a Model Context Protocol server that lets Claude Desktop / Claude Code / Cursor / Zed call your commands as tools:
 
 ```sh
-go install github.com/olivierdevelops/perch/cmd/perch-mcp@latest
+# download perch-mcp-<os>-<arch> from the releases page, or:
+cargo install --git https://github.com/olivierdevelops/perch perch-mcp
 ```
 
 See [docs/mcp.md](docs/mcp.md) for client setup. **The "why" lives in [docs/llm-control-plane.md](docs/llm-control-plane.md) — why a `.perch` file + `perch-mcp` + a few `--no-*` flags replaces the FastAPI service you'd otherwise stand up to give an agent typed, restricted actions.** There's also a [Claude Code skill](skills/perch/SKILL.md) that teaches Claude to *write* perch files correctly.
@@ -230,7 +233,7 @@ See [docs/mcp.md](docs/mcp.md) for client setup. **The "why" lives in [docs/llm-
 `perch-lsp` provides diagnostics (parse + static `--check`), context-aware completion, hover, and document outline. **`perch` itself installs both**:
 
 ```sh
-perch --install-lsp        # installs perch-lsp via `go install`
+perch --install-lsp        # downloads perch-lsp from the latest release, verifies its sha256
 perch --install-vscode     # installs perch-lsp + the VS Code extension (auto-spawns the LSP)
 ```
 
@@ -301,7 +304,7 @@ If you need one of the above, perch is the wrong layer — but it composes with 
 
 ## A 30-second tour
 
-After `go install github.com/olivierdevelops/perch@latest`:
+After installing perch:
 
 ```sh
 mkdir hello-perch && cd hello-perch

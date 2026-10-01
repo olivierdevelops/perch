@@ -616,7 +616,7 @@ ops/security (mkcert-local, backup, scan-secrets).
 
 ```sh
 # 1) install
-go install github.com/olivierdevelops/perch@latest
+curl -fsSL https://raw.githubusercontent.com/olivierdevelops/perch/main/scripts/install.sh | sh
 
 # 2) scaffold
 perch --init
@@ -949,7 +949,7 @@ The questions enterprise teams ask up-front, answered in one place:
 
 <div class="card">
   <h4>📜 License + dependencies</h4>
-  <p>Apache-2.0. <strong>One Go binary, no SaaS, no telemetry, no phone-home.</strong> Self-host or `go install`. Bundle into your own distribution. No license fees, no per-seat costs, no cloud account required. Source: <a href="https://github.com/olivierdevelops/perch">github.com/olivierdevelops/perch</a>.</p>
+  <p>Apache-2.0. <strong>One Rust binary, no SaaS, no telemetry, no phone-home.</strong> Self-host: download the release binary. Bundle into your own distribution. No license fees, no per-seat costs, no cloud account required. Source: <a href="https://github.com/olivierdevelops/perch">github.com/olivierdevelops/perch</a>.</p>
 </div>
 
 <div class="card">
@@ -1472,4 +1472,4 @@ Grouped by what you're trying to do. Each row is one page.
 | [user-experience.md](user-experience.md) | UX roadmap |
 | [ai-assisted-authoring.md](ai-assisted-authoring.md) | Notes on agent-authored `.perch` files |
 
-Source on GitHub: [**olivierdevelops/perch**](https://github.com/olivierdevelops/perch). Apache-2.0. One Go binary, no SaaS, no telemetry.
+Source on GitHub: [**olivierdevelops/perch**](https://github.com/olivierdevelops/perch). Apache-2.0. One Rust binary, no SaaS, no telemetry.

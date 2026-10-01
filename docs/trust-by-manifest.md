@@ -2,7 +2,12 @@
 
 > **The thesis.** In an era where most code is written by AI agents, the bottleneck is not "is this code correct" but "can anyone afford to review 10,000 generated functions a day?" The fix is to shift the unit of trust from **who wrote the code** to **what the code declares it needs**. Reviewers stop asking "is this safe?" and start asking the much smaller, machine-checkable question "are these declared capabilities acceptable?"
 >
-> This document is the roadmap for making perch the runtime where that shift happens — author writes code in any language, compiles to WASM, perch embeds the bytecode AND its capability manifest, and enforces the manifest at runtime. Code that doesn't declare can't run. Code that lies gets killed.
+> This document is the roadmap (see the 0.2.0 status update below for the parts that shipped) for making perch the runtime where that shift happens — author writes code in any language, compiles to WASM, perch embeds the bytecode AND its capability manifest, and enforces the manifest at runtime. Code that doesn't declare can't run. Code that lies gets killed.
+
+!!! success "Status update (0.2.0) — what shipped and what is still roadmap"
+    **Shipped:** the *outer* half of trust-by-manifest, for the `.perch` file itself. A tool can now read what a file **declares** versus what it **uses** without parsing prose: `perch -f FILE --scan --json` emits the `requires` manifest (`declared`: bins with hash pins, env, hosts, read/write roots, os, arch) and the observed capabilities (`inferred`) as separate fields, plus a `risk` label — see [manuals/man-2026-0002-structured-scan.md](manuals/man-2026-0002-structured-scan.md). The declared `read`/`write` roots are also **enforced by the OS on spawned binaries** on macOS and Linux ([manuals/man-2026-0004-confining-spawned-binaries.md](manuals/man-2026-0004-confining-spawned-binaries.md)). For `wasm_run`, mounts and hosts are now checked against that manifest ([manuals/man-2026-0007-wasm-cache-and-gating.md](manuals/man-2026-0007-wasm-cache-and-gating.md)).
+
+    **Still roadmap (everything below this box):** the in-module manifest section, `accept_manifest` and the override sub-statements, `perch wasm inspect` / `diff` / `sign` / `verify`, signature and trust-key handling, and the host-level policy file. None of these exist in the 0.2.0 binary.
 
 ---
 
