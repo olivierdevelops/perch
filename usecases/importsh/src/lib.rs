@@ -32,7 +32,7 @@ pub struct Impl;
 /// Go's `filepath.Ext`: from the final dot in the last path element.
 fn ext(path: &str) -> &str {
     for (i, c) in path.char_indices().rev() {
-        if c == '/' {
+        if is_sep(c) {
             break;
         }
         if c == '.' {
@@ -42,16 +42,21 @@ fn ext(path: &str) -> &str {
     ""
 }
 
+/// Path separator: `/` everywhere, plus `\` on Windows.
+fn is_sep(c: char) -> bool {
+    c == '/' || (cfg!(windows) && c == '\\')
+}
+
 /// Go's `filepath.Base`.
 fn base(p: &str) -> &str {
     if p.is_empty() {
         return ".";
     }
-    let t = p.trim_end_matches('/');
+    let t = p.trim_end_matches(is_sep);
     if t.is_empty() {
         return "/";
     }
-    t.rsplit('/').next().unwrap()
+    t.rsplit(is_sep).next().unwrap()
 }
 
 /// Formats an io error the way Go's `*PathError` prints (`open P: no such file

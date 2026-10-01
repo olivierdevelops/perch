@@ -595,8 +595,7 @@ pub fn abs_under(p: &str, cwd: &str) -> String {
 /// cleaned + made absolute relative to `cwd`).
 pub fn path_within_any(abs: &str, roots: &[String], cwd: &str) -> bool {
     roots.iter().any(|root| {
-        let r = abs_under(root, cwd);
-        abs == r || abs.starts_with(&format!("{r}/"))
+        crate::common::path_is_within(abs, &abs_under(root, cwd))
     })
 }
 

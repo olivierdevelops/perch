@@ -63,11 +63,59 @@ pub fn is_abs(p: &str) -> bool {
     }
 }
 
-/// Go `filepath.Clean` (lexical, `/`-separated).
+/// Windows path text normalised for lexical work: the `\\?\` verbatim prefix
+/// (what `canonicalize` yields) is dropped and `\` becomes `/`, so verbatim,
+/// drive-letter and mixed-separator spellings of one path compare equal.
+/// A no-op on Unix, where `\` is an ordinary file-name character.
+pub fn slashed(path: &str) -> std::borrow::Cow<'_, str> {
+    #[cfg(windows)]
+    {
+        let p = path
+            .strip_prefix(r"\\?\")
+            .or_else(|| path.strip_prefix("//?/"))
+            .unwrap_or(path);
+        let p = match p.strip_prefix(r"UNC\") {
+            Some(rest) => format!(r"\\{rest}"),
+            None => p.to_string(),
+        };
+        std::borrow::Cow::Owned(p.replace('\\', "/"))
+    }
+    #[cfg(not(windows))]
+    {
+        std::borrow::Cow::Borrowed(path)
+    }
+}
+
+/// Splits a leading Windows drive (`C:`) off `path`; always `("", path)` on Unix.
+fn split_drive(path: &str) -> (&str, &str) {
+    #[cfg(windows)]
+    {
+        let b = path.as_bytes();
+        if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
+            return path.split_at(2);
+        }
+    }
+    ("", path)
+}
+
+/// Whether `abs` equals, or is nested under, `root` (both already cleaned).
+/// Case-insensitive on Windows, whose file systems are.
+pub fn path_is_within(abs: &str, root: &str) -> bool {
+    #[cfg(windows)]
+    let (abs, root) = (abs.to_lowercase(), root.to_lowercase());
+    #[cfg(windows)]
+    let (abs, root) = (abs.as_str(), root.trim_end_matches('/'));
+    abs == root || abs.starts_with(&format!("{root}/"))
+}
+
+/// Go `filepath.Clean` (lexical, `/`-separated; on Windows `\` is a separator,
+/// the verbatim prefix is stripped and a drive letter acts as the root).
 pub fn go_clean(path: &str) -> String {
     if path.is_empty() {
         return ".".to_string();
     }
+    let path = slashed(path);
+    let (drive, path) = split_drive(&path);
     let rooted = path.starts_with('/');
     let mut stack: Vec<&str> = Vec::new();
     for elem in path.split('/') {
@@ -85,9 +133,10 @@ pub fn go_clean(path: &str) -> String {
     }
     let joined = stack.join("/");
     match (rooted, joined.is_empty()) {
-        (true, _) => format!("/{joined}"),
-        (false, true) => ".".to_string(),
-        (false, false) => joined,
+        (true, _) => format!("{drive}/{joined}"),
+        (false, true) if drive.is_empty() => ".".to_string(),
+        (false, true) => drive.to_string(),
+        (false, false) => format!("{drive}{joined}"),
     }
 }
 
@@ -102,6 +151,7 @@ pub fn go_join(elems: &[&str]) -> String {
 
 /// Go `filepath.Dir`.
 pub fn go_dir(path: &str) -> String {
+    let path = &*slashed(path);
     let i = path.rfind('/').map(|i| i + 1).unwrap_or(0);
     let dir = go_clean(&path[..i]);
     if dir.is_empty() {
@@ -113,6 +163,7 @@ pub fn go_dir(path: &str) -> String {
 
 /// Go `filepath.Base`.
 pub fn go_base(path: &str) -> String {
+    let path = &*slashed(path);
     if path.is_empty() {
         return ".".to_string();
     }

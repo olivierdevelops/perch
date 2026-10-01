@@ -30,9 +30,19 @@ jobs:
           cargo test --workspace --no-fail-fast 2>&1 | tee test.log
           code=${PIPESTATUS[0]}
           if [ $code -ne 0 ]; then
-            msg=$(grep -E -A3 "^test .* FAILED|panicked at|^error(\[|:)" test.log | cut -c1-400 | head -80 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
-            echo "::error title=test failures ($RUNNER_OS)::$msg"
-            tail=$(tail -n 25 test.log | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            # Publish EVERY failing test + panic message: strip ANSI, then split into
+            # several ::error annotations (each < 3500 chars; GitHub caps one at 4 kB).
+            sed 's/\x1b\[[0-9;]*m//g' test.log | tr -d '\r' > clean.log
+            grep -E -A4 "^---- .* stdout ----|^test .* FAILED|^error(\[|:)" clean.log \
+              | grep -E -v "^(--|\s*$)" | cut -c1-500 > fail.txt || true
+            awk -v max=3500 'BEGIN{n=1; len=0}
+              { l=$0; gsub(/%/,"%25",l); gsub(/\r/,"",l)
+                if (len+length(l)+3 > max) { n++; len=0 }
+                chunk[n]=chunk[n] l "%0A"; len+=length(l)+3 }
+              END{ for(i=1;i<=n;i++) print "::error title=test failures (" ENVIRON["RUNNER_OS"] ") " i "/" n "::" chunk[i] }' fail.txt | head -n 8
+            msg=$(grep -E "^test .* FAILED" clean.log | sort -u | cut -c1-200 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=failed tests ($RUNNER_OS)::${msg:0:3500}"
+            tail=$(tail -n 25 clean.log | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::notice title=log tail ($RUNNER_OS)::$tail"
           fi
           exit $code

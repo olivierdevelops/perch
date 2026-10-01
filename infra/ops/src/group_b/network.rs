@@ -66,6 +66,11 @@ fn op_port_check(i: &Interpreter, _b: &mut Bindings, a: &Args<'_>) -> Result<Val
 
 /// `net.Listen("tcp", ":"+port)` — dual-stack wildcard, falling back to IPv4.
 fn listen(port: u16) -> std::io::Result<TcpListener> {
+    // Windows sockets are IPV6_V6ONLY by default, so a `[::]` listener would not
+    // answer IPv4 dials; bind the IPv4 wildcard there instead.
+    #[cfg(windows)]
+    return TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port));
+    #[cfg(not(windows))]
     match TcpListener::bind(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED), port)) {
         Ok(l) => Ok(l),
         Err(e) if e.kind() == std::io::ErrorKind::AddrNotAvailable || super::fsx::is_af_unsupported(&e) => {
@@ -326,6 +331,8 @@ mod tests {
         drop(l);
     }
 
+    // Windows has no getifaddrs and `list_ifaces` reports no interfaces there.
+    #[cfg(unix)]
     #[test]
     fn interfaces_include_loopback() {
         let ifs = list_ifaces().unwrap();

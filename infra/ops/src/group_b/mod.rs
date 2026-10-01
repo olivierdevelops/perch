@@ -93,10 +93,12 @@ mod tests {
         assert_eq!(call(&i, &mut b, "is_dir", json!({"_0": "sub"})).unwrap(), json!(true));
         assert_eq!(call(&i, &mut b, "exists", json!({"_0": "nope"})).unwrap(), json!(false));
         assert_eq!(call(&i, &mut b, "sha256_file", json!({"_0": "a.txt"})).unwrap().as_str().unwrap().len(), 64);
-        assert_eq!(
-            call(&i, &mut b, "read_file", json!({"_0": "nope"})).unwrap_err(),
-            format!("open {d}/nope: no such file or directory")
-        );
+        let missing = call(&i, &mut b, "read_file", json!({"_0": "nope"})).unwrap_err();
+        // The OS error text is platform-specific (Windows: "the system cannot find the file specified.").
+        #[cfg(unix)]
+        assert_eq!(missing, format!("open {d}/nope: no such file or directory"));
+        #[cfg(windows)]
+        assert!(missing.starts_with(&format!("open {d}/nope: ")), "{missing}");
         assert_eq!(call(&i, &mut b, "chmod", json!({"path": "a.txt", "mode": "9"})).unwrap_err(), "chmod: invalid mode \"9\"");
         call(&i, &mut b, "rm", json!({"_0": "sub"})).unwrap();
         assert_eq!(call(&i, &mut b, "exists", json!({"_0": "sub"})).unwrap(), json!(false));

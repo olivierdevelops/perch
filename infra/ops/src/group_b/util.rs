@@ -23,9 +23,7 @@ pub fn pure(f: fn(&Args<'_>) -> Result<Value>) -> Handler {
 
 // ── filepath (Unix flavour) ───────────────────────────────────────────────
 
-pub fn is_abs(p: &str) -> bool {
-    p.starts_with('/')
-}
+pub use crate::common::is_abs;
 
 /// Go `filepath.Ext`.
 pub fn go_ext(path: &str) -> String {
@@ -242,7 +240,7 @@ pub fn mktemp(pattern: &str, dir: bool) -> Result<String> {
         Some(i) => (&pattern[..i], &pattern[i + 1..]),
         None => (pattern, ""),
     };
-    let tmp = std::env::temp_dir().to_string_lossy().into_owned();
+    let tmp = common::slashed(&std::env::temp_dir().to_string_lossy()).into_owned();
     let base = if tmp.ends_with('/') { tmp } else { format!("{tmp}/") };
     for _ in 0..10000 {
         let path = format!("{base}{prefix}{}{suffix}", next_rand());

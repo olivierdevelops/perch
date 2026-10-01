@@ -55,7 +55,9 @@ end
 /// The test program, declaring `dir` as its write root (programs get zero
 /// ambient authority: writes need a declared root).
 fn src(dir: &std::path::Path) -> String {
-    format!("requires\n    write \"{}\"\nend\n{SRC_BODY}", dir.display())
+    // `\` starts an escape inside a perch string literal, so spell Windows paths with `/`.
+    let root = dir.display().to_string().replace('\\', "/");
+    format!("requires\n    write \"{root}\"\nend\n{SRC_BODY}")
 }
 
 fn scratch(tag: &str) -> std::path::PathBuf {
